@@ -1,0 +1,42 @@
+'use client'
+
+import { useEffect, useState, type ReactNode } from 'react'
+import { usePathname } from 'next/navigation'
+import { api } from '@/api'
+import { useAsync } from '@/hooks/useAsync'
+import { Sidebar } from './Sidebar'
+import { Topbar } from './Topbar'
+import { PAGE_META } from './navConfig'
+
+export function AppShell({ children }: { children: ReactNode }) {
+  const [navOpen, setNavOpen] = useState(false)
+  const pathname = usePathname() ?? ''
+  const { data: alerts } = useAsync(() => api.listAlerts())
+  const { data: org } = useAsync(() => api.getOrg())
+  const unread = alerts?.filter((a) => !a.acknowledged).length ?? 0
+  const meta = PAGE_META[pathname.split('/')[1]] ?? { title: '' }
+
+  useEffect(() => setNavOpen(false), [pathname])
+  useEffect(() => {
+    document.body.classList.toggle('nav-open', navOpen)
+    return () => document.body.classList.remove('nav-open')
+  }, [navOpen])
+  useEffect(() => {
+    document.title = meta.title ? `${meta.title} — EV Monitor` : 'EV Monitor'
+  }, [meta.title])
+
+  return (
+    <div className="shell">
+      <Sidebar unread={unread} city={org?.city ?? ''} onNavigate={() => setNavOpen(false)} />
+      <div className="main">
+        <Topbar title={meta.title} sub={meta.sub} unread={unread} onMenu={() => setNavOpen((o) => !o)} />
+        <main className="content">{children}</main>
+        <footer className="app-foot">
+          <span>อัปเดตล่าสุด: วันนี้ 10:30 น.</span>
+          <span>© 2026 EV Monitor Dashboard</span>
+        </footer>
+      </div>
+      <div className="scrim" onClick={() => setNavOpen(false)} />
+    </div>
+  )
+}

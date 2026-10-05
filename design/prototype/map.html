@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>แผนที่สด — EV Monitor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body data-page="map" data-title="แผนที่สด" data-sub="ตำแหน่งรถและสถานีชาร์จแบบเรียลไทม์">
+<div class="shell">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main">
+    <header class="topbar" id="topbar"></header>
+    <div class="map-page">
+      <aside class="map-side">
+        <div class="map-side-h">
+          <label class="search-input" style="min-width:0"><span data-icon="search" data-size="16"></span><input id="q" type="search" placeholder="ค้นหารถหรือคนขับ"></label>
+          <div class="chips" id="chips"></div>
+        </div>
+        <div class="map-list" id="list"></div>
+      </aside>
+      <section class="map-main">
+        <div id="bigmap"></div>
+        <div class="map-overlay">
+          <strong style="color:var(--ink)">ชั้นข้อมูล</strong>
+          <label><input type="checkbox" id="lyVeh" checked style="accent-color:var(--red)"> รถยนต์ไฟฟ้า</label>
+          <label><input type="checkbox" id="lyDepot" checked style="accent-color:var(--red)"> สถานีชาร์จ Depot</label>
+          <label><input type="checkbox" id="lyPublic" checked style="accent-color:var(--red)"> สถานีชาร์จสาธารณะ</label>
+          <label><input type="checkbox" id="lyRange" style="accent-color:var(--red)"> รัศมีระยะวิ่งคงเหลือ</label>
+        </div>
+        <div class="map-stats" id="mstats"></div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="data.js"></script>
+<script src="app.js"></script>
+<script>
+let map, markers = {}, filter = "all";
+const layers = {};
+function init() {
+  const V = EV.vehicles;
+  map = makeMap(document.getElementById("bigmap"), { level: 11 });
+  if (map) {
+    layers.veh = L.layerGroup().addTo(map);
+    layers.depot = L.layerGroup().addTo(map);
+    layers.public = L.layerGroup().addTo(map);
+    layers.range = L.layerGroup();
+    V.forEach(v => {
+      markers[v.id] = vehicleMarker(v).bindPopup(vehiclePopup(v)).addTo(layers.veh);
+      L.circle([v.lat, v.lng], { radius: v.range * 1000 * 0.15, color: COLORS.blue, weight: 1, fillOpacity: .04 }).addTo(layers.range);
+    });
+    EV.stations.forEach(s => stationMarker(s).bindPopup(`<div class="pop"><strong>${s.name}</strong><br><span class="tag">${s.network}</span>
+      <dl><dt>กำลังไฟ</dt><dd>${s.power}</dd><dt>ช่องว่าง</dt><dd>${s.ports - s.busy}/${s.ports}</dd><dt>ราคา</dt><dd>฿${s.price}/kWh</dd></dl></div>`).addTo(layers[s.type]));
+    map.fitBounds(V.map(v => [v.lat, v.lng]), { padding: [60, 60] });
+    [["lyVeh", "veh"], ["lyDepot", "depot"], ["lyPublic", "public"], ["lyRange", "range"]].forEach(([id, k]) =>
+      document.getElementById(id).onchange = e => e.target.checked ? layers[k].addTo(map) : map.removeLayer(layers[k]));
+  }
+
+  const chips = document.getElementById("chips");
+  chips.innerHTML = [["all", "ทั้งหมด"], ["driving", "ขับ"], ["charging", "ชาร์จ"], ["parked", "จอด"], ["low", "แบตต่ำ"], ["offline", "ออฟไลน์"]]
+    .map(([k, l]) => `<button class="chip ${k === "all" ? "active" : ""}" data-k="${k}">${l}</button>`).join("");
+  chips.onclick = e => { const b = e.target.closest(".chip"); if (!b) return; filter = b.dataset.k; chips.querySelectorAll(".chip").forEach(c => c.classList.toggle("active", c === b)); render(); };
+  document.getElementById("q").oninput = render;
+
+  document.getElementById("mstats").innerHTML = [
+    ["ออนไลน์", V.filter(v => v.status !== "offline").length + "/" + V.length],
+    ["กำลังขับ", V.filter(v => v.status === "driving").length],
+    ["ช่องชาร์จว่าง", EV.stations.reduce((s, x) => s + x.ports - x.busy, 0)],
+  ].map(([l, b]) => `<div class="map-stat">${l}<b>${b}</b></div>`).join("");
+  render();
+}
+function render() {
+  const term = document.getElementById("q").value.trim().toLowerCase();
+  const list = EV.vehicles.filter(v => (filter === "all" || v.status === filter) &&
+    (!term || (v.id + v.model + EV.driverById(v.driver).name).toLowerCase().includes(term)));
+  document.getElementById("list").innerHTML = list.map(v => `
+    <div class="map-item" data-id="${v.id}">
+      <span class="veh-ico">${icon(v.status === "charging" ? "bolt" : "car", 18)}</span>
+      <div class="grow"><div class="flex between"><strong>${v.id}</strong>${statusBadge(v.status)}</div>
+        <p>${v.model} · ${EV.driverById(v.driver).name}</p>
+        <div class="flex between small" style="margin-top:4px">${socBar(v.soc, 70)}<span class="muted">${v.range} กม. · ${v.speed} กม./ชม.</span></div></div>
+    </div>`).join("") || '<div class="empty">ไม่พบรถ</div>';
+  if (map) Object.entries(markers).forEach(([id, mk]) => {
+    const show = list.some(v => v.id === id);
+    show ? mk.addTo(layers.veh) : layers.veh.removeLayer(mk);
+  });
+  document.querySelectorAll(".map-item").forEach(el => el.onclick = () => {
+    document.querySelectorAll(".map-item").forEach(x => x.classList.toggle("active", x === el));
+    const v = EV.vehicleById(el.dataset.id);
+    if (map) { map.flyTo([v.lat, v.lng], 14, { duration: .6 }); markers[v.id].openPopup(); }
+  });
+}
+</script>
+</body>
+</html>

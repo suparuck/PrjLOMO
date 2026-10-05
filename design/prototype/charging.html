@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>การชาร์จ — EV Monitor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body data-page="charging" data-title="การชาร์จ" data-sub="เซสชันการชาร์จ สถานี และค่าใช้จ่ายพลังงาน">
+<div class="shell">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main">
+    <header class="topbar" id="topbar"></header>
+    <main class="content">
+
+      <section class="grid g-4 mb kpi-grid-2m" id="kpis"></section>
+
+      <section class="grid g-2 mb">
+        <div class="card">
+          <div class="card-h"><div><h3>กำลังชาร์จตอนนี้</h3><p>อัปเดตทุก 30 วินาที</p></div><span class="badge s-charging"><i></i>สด</span></div>
+          <div class="grid" id="sessions" style="gap:12px"></div>
+        </div>
+        <div class="card">
+          <div class="card-h"><div><h3>โหลดการชาร์จรายชั่วโมง</h3><p>วันนี้ (kW) — ช่วงสีเทาคือเวลา On-Peak 09:00–22:00</p></div></div>
+          <div class="chart"><canvas id="loadChart"></canvas></div>
+        </div>
+      </section>
+
+      <section class="card mb">
+        <div class="card-h">
+          <div><h3>สถานีชาร์จ</h3><p>Depot ขององค์กรและเครือข่ายสาธารณะที่ใช้บ่อย</p></div>
+          <div class="seg" id="stSeg"><button class="active" data-k="all">ทั้งหมด</button><button data-k="depot">Depot</button><button data-k="public">สาธารณะ</button></div>
+        </div>
+        <div class="grid g-3" id="stations"></div>
+      </section>
+
+      <section class="card flush">
+        <div class="card-h"><div><h3>ประวัติการชาร์จ</h3><p>เซสชันล่าสุด</p></div><button class="btn btn-outline btn-sm" data-icon="download" data-size="15">ส่งออก Excel</button></div>
+        <div class="table-wrap">
+          <table class="tbl">
+            <thead><tr><th>รถ</th><th>สถานี</th><th>วันเวลา</th><th class="r">ระยะเวลา</th><th>แบต</th><th class="r">พลังงาน</th><th class="r">ค่าใช้จ่าย</th></tr></thead>
+            <tbody id="hist"></tbody>
+          </table>
+        </div>
+      </section>
+
+    </main>
+    <footer class="app-foot"><span>อัปเดตล่าสุด: วันนี้ 10:30 น.</span><span>© 2026 EV Monitor Dashboard</span></footer>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="data.js"></script>
+<script src="app.js"></script>
+<script>
+function init() {
+  const H = EV.history, S = EV.sessions;
+  const kwh = H.reduce((s, h) => s + h.kwh, 0) + S.reduce((s, x) => s + x.kwh, 0);
+  const cost = H.reduce((s, h) => s + h.cost, 0) + S.reduce((s, x) => s + x.cost, 0);
+  document.getElementById("kpis").innerHTML = [
+    ["เซสชัน 24 ชม.", H.length + S.length, "ครั้ง", `กำลังชาร์จ ${S.length} คัน`, "bolt", "t-green"],
+    ["พลังงานที่ชาร์จ", fmt(kwh, 1), "kWh", "24 ชั่วโมงล่าสุด", "battery", "t-blue"],
+    ["ค่าใช้จ่าย", "฿" + fmt(cost), "", `เฉลี่ย ฿${(cost / kwh).toFixed(2)}/kWh`, "coin", "t-amber"],
+    ["สัดส่วนชาร์จที่ Depot", "62", "%", "ราคาถูกกว่าสาธารณะ ~44%", "plug", "t-navy"],
+  ].map(([l, v, u, n, i, t]) => `<div class="card kpi"><div class="kpi-ico ${t}">${icon(i, 22)}</div><div><div class="kpi-label">${l}</div><div class="kpi-value">${v}<small>${u}</small></div><div class="kpi-note">${n}</div></div></div>`).join("");
+
+  document.getElementById("sessions").innerHTML = S.map(s => {
+    const v = EV.vehicleById(s.v);
+    return `<div class="session">
+      <div class="session-top"><div><strong>${s.v} · ${v.model}</strong><small>${s.st} · ${s.kw} kW · เริ่ม ${s.start} (จาก ${s.from}%)</small></div><div class="session-pct">${s.now}%</div></div>
+      <div class="charge-bar"><div class="charge-fill" style="width:${s.now}%"></div><div class="charge-target" style="left:${s.target}%"></div></div>
+      <div class="session-meta"><div>พลังงาน<b>${s.kwh} kWh</b></div><div>ค่าใช้จ่าย<b>฿${s.cost}</b></div><div>เป้าหมาย<b>${s.target}%</b></div><div>เหลือ<b>${s.eta}</b></div></div>
+      <div class="flex mt" style="margin-top:12px"><button class="btn btn-outline btn-sm">ปรับเป้าหมาย</button><button class="btn btn-ghost btn-sm" style="color:var(--danger)">หยุดชาร์จ</button></div>
+    </div>`;
+  }).join("");
+
+  const hrs = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0"));
+  const load = [44, 66, 66, 52, 44, 22, 60, 30, 0, 0, 172, 172, 60, 0, 22, 0, 0, 45, 60, 22, 0, 0, 88, 66];
+  const peakBg = { id: "peak", beforeDatasetsDraw(c) {
+    const { ctx: g, chartArea: a, scales: { x } } = c;
+    const x1 = x.getPixelForValue(9) - x.width / 48, x2 = x.getPixelForValue(21) + x.width / 48;
+    g.save(); g.fillStyle = "rgba(138,151,168,.10)"; g.fillRect(x1, a.top, x2 - x1, a.bottom - a.top); g.restore();
+  } };
+  new Chart(document.getElementById("loadChart"), {
+    type: "bar", plugins: [peakBg],
+    data: { labels: hrs, datasets: [{ label: "kW", data: load, backgroundColor: hrs.map((_, i) => i >= 9 && i < 22 ? COLORS.amber : COLORS.green), borderRadius: 3 }] },
+    options: { plugins: { legend: { display: false } }, scales: { x: { grid: { display: false }, ticks: { maxTicksLimit: 12 } }, y: { beginAtZero: true, ticks: { callback: x => x + " kW" } } } },
+  });
+
+  const renderStations = k => document.getElementById("stations").innerHTML = EV.stations.filter(s => k === "all" || s.type === k).map(s => {
+    const free = s.ports - s.busy;
+    return `<div class="session">
+      <div class="session-top"><div><strong>${s.name}</strong><small>${s.network} · ${s.power}</small></div>
+        <span class="badge ${free ? "s-charging" : "s-low"}"><i></i>${free ? `ว่าง ${free}` : "เต็ม"}</span></div>
+      <div class="flex" style="gap:6px;margin-bottom:12px">${Array.from({ length: s.ports }, (_, i) =>
+        `<span title="ช่อง ${i + 1}" style="flex:1;height:8px;border-radius:4px;background:${i < s.busy ? "var(--amber)" : "var(--green)"}"></span>`).join("")}</div>
+      <dl class="kv small"><dt>ช่องชาร์จ</dt><dd>${s.busy}/${s.ports} ใช้งาน</dd><dt>ราคา</dt><dd>฿${s.price} / kWh</dd><dt>ประเภท</dt><dd>${s.type === "depot" ? "Depot องค์กร" : "สาธารณะ"}</dd></dl>
+    </div>`;
+  }).join("");
+  renderStations("all");
+  document.querySelectorAll("#stSeg button").forEach(b => b.onclick = () => {
+    document.querySelectorAll("#stSeg button").forEach(x => x.classList.toggle("active", x === b)); renderStations(b.dataset.k);
+  });
+
+  document.getElementById("hist").innerHTML = H.map(h => {
+    const v = EV.vehicleById(h.v);
+    return `<tr><td><a class="veh" href="vehicle.html?id=${v.id}"><span class="veh-ico">${icon("bolt", 18)}</span><span><strong>${v.id}</strong><small>${v.model}</small></span></a></td>
+      <td>${h.st}</td><td>${h.date}</td><td class="r">${h.dur}</td><td><span class="small"><b>${h.from}%</b> → <b style="color:var(--green)">${h.to}%</b></span></td>
+      <td class="r">${h.kwh} kWh</td><td class="r">฿${fmt(h.cost, 2)}</td></tr>`;
+  }).join("");
+}
+</script>
+</body>
+</html>

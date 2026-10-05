@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>พนักงานขับรถ — EV Monitor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body data-page="drivers" data-title="พนักงานขับรถ" data-sub="คะแนนการขับแบบประหยัดพลังงานและความปลอดภัย">
+<div class="shell">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main">
+    <header class="topbar" id="topbar"></header>
+    <main class="content">
+
+      <section class="grid g-4 mb kpi-grid-2m" id="kpis"></section>
+
+      <section class="grid g-21 mb">
+        <div class="card flush">
+          <div class="card-h"><div><h3>อันดับคนขับ</h3><p>คะแนน Eco-Driving 30 วันล่าสุด</p></div>
+            <div class="card-tools"><label class="search-input" style="min-width:200px"><span data-icon="search" data-size="16"></span><input id="q" type="search" placeholder="ค้นหาคนขับ"></label><button class="btn btn-primary btn-sm" data-icon="plus" data-size="15">เพิ่มคนขับ</button></div></div>
+          <div class="table-wrap">
+            <table class="tbl">
+              <thead><tr><th>#</th><th>คนขับ</th><th>รถประจำ</th><th class="r">คะแนน</th><th class="r">ระยะทาง</th><th class="r">kWh/100 กม.</th><th class="r">เหตุการณ์</th><th></th></tr></thead>
+              <tbody id="rows"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-h"><div><h3>เหตุการณ์การขับขี่</h3><p>30 วันล่าสุด แยกตามประเภท</p></div></div>
+          <div class="chart sm"><canvas id="evChart"></canvas></div>
+          <div class="divider"></div>
+          <div class="stat-rows">
+            <div class="stat-row"><div class="top"><span>คะแนนเฉลี่ยกองยาน</span><b id="avgScore"></b></div><div class="bar"><div class="bar-fill good" id="avgBar"></div></div></div>
+            <div class="stat-row"><div class="top"><span>คนขับที่คะแนน ≥ 85</span><b id="goodCount"></b></div><div class="bar"><div class="bar-fill" id="goodBar"></div></div></div>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div class="toolbar"><h3>โปรไฟล์คนขับ</h3><span class="small muted">กดการ์ดเพื่อดูรถที่ขับ</span></div>
+        <div class="grid g-4" id="cards"></div>
+      </section>
+
+    </main>
+    <footer class="app-foot"><span>อัปเดตล่าสุด: วันนี้ 10:30 น.</span><span>© 2026 EV Monitor Dashboard</span></footer>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="data.js"></script>
+<script src="app.js"></script>
+<script>
+const vehOf = d => EV.vehicles.find(v => v.driver === d.id);
+const scCls = s => s >= 85 ? "good" : s >= 70 ? "mid" : "bad";
+function init() {
+  const D = EV.drivers;
+  const avg = Math.round(D.reduce((s, d) => s + d.score, 0) / D.length);
+  const good = D.filter(d => d.score >= 85).length;
+  const totalKm = D.reduce((s, d) => s + d.km, 0);
+  document.getElementById("kpis").innerHTML = [
+    ["คนขับทั้งหมด", D.length, "คน", "ปฏิบัติงานวันนี้ 11 คน", "users", "t-navy"],
+    ["คะแนน Eco เฉลี่ย", avg, "/100", "เพิ่มขึ้น 3 คะแนนจากเดือนก่อน", "star", "t-green"],
+    ["ระยะทางรวม 30 วัน", fmt(totalKm), "กม.", "เฉลี่ย " + fmt(totalKm / D.length) + " กม./คน", "route", "t-blue"],
+    ["เหตุการณ์ไม่ปลอดภัย", D.reduce((s, d) => s + d.events, 0), "ครั้ง", "เบรกแรง ขับเร็ว เร่งแรง", "alert", "t-red"],
+  ].map(([l, v, u, n, i, t]) => `<div class="card kpi"><div class="kpi-ico ${t}">${icon(i, 22)}</div><div><div class="kpi-label">${l}</div><div class="kpi-value">${v}<small>${u}</small></div><div class="kpi-note">${n}</div></div></div>`).join("");
+
+  document.getElementById("avgScore").textContent = avg;
+  document.getElementById("avgBar").style.width = avg + "%";
+  document.getElementById("goodCount").textContent = `${good}/${D.length} คน`;
+  document.getElementById("goodBar").style.width = good / D.length * 100 + "%";
+
+  new Chart(document.getElementById("evChart"), {
+    type: "doughnut",
+    data: { labels: ["เบรกแรง", "ขับเร็วเกินกำหนด", "เร่งแรง", "จอดติดเครื่องนาน"], datasets: [{ data: [26, 19, 15, 7], backgroundColor: [COLORS.red, COLORS.amber, COLORS.navy, COLORS.slate], borderWidth: 3, borderColor: "#fff" }] },
+    options: { cutout: "62%", plugins: { legend: { position: "right" } } },
+  });
+
+  document.getElementById("q").oninput = renderTable;
+  renderTable();
+
+  document.getElementById("cards").innerHTML = [...D].sort((a, b) => b.score - a.score).map(d => {
+    const v = vehOf(d), c = { good: COLORS.green, mid: COLORS.amber, bad: COLORS.red }[scCls(d.score)];
+    return `<a class="card driver-card" href="vehicle.html?id=${v.id}">
+      <div class="driver-head"><span class="avatar">${d.name.slice(0, 2)}</span><div><strong>${d.name}</strong><small>${v.id} · ${v.model}</small></div>
+        <div class="ring" style="--v:${d.score};--c:${c}" data-v="${d.score}"></div></div>
+      <div class="mini-stats"><div><b>${fmt(d.km)}</b><span>กม.</span></div><div><b>${v.eff}</b><span>kWh/100</span></div><div><b>${d.events}</b><span>เหตุการณ์</span></div></div>
+    </a>`;
+  }).join("");
+}
+function renderTable() {
+  const term = document.getElementById("q").value.trim();
+  const list = [...EV.drivers].sort((a, b) => b.score - a.score);
+  document.getElementById("rows").innerHTML = list.map((d, i) => ({ d, i })).filter(({ d }) => !term || d.name.includes(term)).map(({ d, i }) => {
+    const v = vehOf(d);
+    return `<tr><td><span class="pill-num ${i < 3 ? "gold" : ""}">${i + 1}</span></td>
+      <td><div class="veh"><span class="avatar" style="width:34px;height:34px;font-size:11px">${d.name.slice(0, 2)}</span><span><strong>${d.name}</strong><small>${d.phone}</small></span></div></td>
+      <td><a href="vehicle.html?id=${v.id}" style="color:var(--blue);font-weight:600">${v.id}</a> <span class="muted small">${v.model}</span></td>
+      <td class="r"><span class="score ${scCls(d.score)}">${d.score}</span></td>
+      <td class="r">${fmt(d.km)} กม.</td><td class="r">${v.eff}</td><td class="r">${d.events}</td>
+      <td><button class="btn btn-ghost btn-sm">รายละเอียด</button></td></tr>`;
+  }).join("");
+}
+</script>
+</body>
+</html>

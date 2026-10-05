@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>รายงาน — EV Monitor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body data-page="reports" data-title="รายงาน" data-sub="พลังงาน ต้นทุน คาร์บอน และความพร้อมเปลี่ยนเป็น EV">
+<div class="shell">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main">
+    <header class="topbar" id="topbar"></header>
+    <main class="content">
+
+      <div class="toolbar">
+        <div class="flex wrap">
+          <select class="select" style="width:auto"><option>ปี 2026 (ม.ค. – ต.ค.)</option><option>ไตรมาส 3/2026</option><option>เดือน ก.ย. 2026</option></select>
+          <select class="select" style="width:auto"><option>รถทุกคัน</option><option>เฉพาะ BYD</option><option>เฉพาะ MG</option></select>
+        </div>
+        <div class="flex wrap">
+          <button class="btn btn-outline" data-icon="download" data-size="16" onclick="window.print()">PDF</button>
+          <button class="btn btn-outline" data-icon="download" data-size="16">Excel</button>
+          <button class="btn btn-navy" data-icon="clock" data-size="16">ตั้งเวลาส่งรายงาน</button>
+        </div>
+      </div>
+
+      <div class="tabs" data-tabs="rep">
+        <button class="active" data-tab="energy">พลังงานและต้นทุน</button>
+        <button data-tab="co2">คาร์บอนและความยั่งยืน</button>
+        <button data-tab="electrify">ความพร้อมเปลี่ยนเป็น EV</button>
+        <button data-tab="usage">การใช้งานรถ</button>
+      </div>
+
+      <!-- ENERGY -->
+      <div data-panel-of="rep" data-panel="energy">
+        <section class="grid g-4 mb kpi-grid-2m">
+          <div class="card kpi"><div class="kpi-ico t-blue" data-icon="bolt" data-size="22"></div><div><div class="kpi-label">พลังงานรวม</div><div class="kpi-value">48,440<small>kWh</small></div><div class="kpi-note up" data-icon="arrowUp" data-size="13">12% เทียบปีก่อน</div></div></div>
+          <div class="card kpi"><div class="kpi-ico t-amber" data-icon="coin" data-size="22"></div><div><div class="kpi-label">ค่าไฟรวม</div><div class="kpi-value">฿233,500</div><div class="kpi-note">เฉลี่ย ฿4.82/kWh</div></div></div>
+          <div class="card kpi"><div class="kpi-ico t-green" data-icon="speed" data-size="22"></div><div><div class="kpi-label">ต้นทุนต่อกม.</div><div class="kpi-value">฿0.70</div><div class="kpi-note">น้ำมันเทียบเท่า ฿2.48/กม.</div></div></div>
+          <div class="card kpi"><div class="kpi-ico t-navy" data-icon="route" data-size="22"></div><div><div class="kpi-label">ระยะทางรวม</div><div class="kpi-value">334,060<small>กม.</small></div><div class="kpi-note">12 คัน</div></div></div>
+        </section>
+        <section class="grid g-21 mb">
+          <div class="card"><div class="card-h"><div><h3>พลังงานรายเดือน</h3><p>kWh ที่ชาร์จ แยก Depot / สาธารณะ</p></div></div><div class="chart lg"><canvas id="monthChart"></canvas></div></div>
+          <div class="card"><div class="card-h"><div><h3>สัดส่วนค่าใช้จ่าย</h3><p>ตามประเภทการชาร์จ</p></div></div><div class="chart lg"><canvas id="costMix"></canvas></div></div>
+        </section>
+      </div>
+
+      <!-- CO2 -->
+      <div data-panel-of="rep" data-panel="co2" hidden>
+        <section class="grid g-4 mb kpi-grid-2m">
+          <div class="card kpi"><div class="kpi-ico t-green" data-icon="leaf" data-size="22"></div><div><div class="kpi-label">CO₂ ที่ลดได้</div><div class="kpi-value">32.1<small>ตัน</small></div><div class="kpi-note">เทียบรถน้ำมันระยะเท่ากัน</div></div></div>
+          <div class="card kpi"><div class="kpi-ico t-blue" data-icon="globe" data-size="22"></div><div><div class="kpi-label">การปล่อยจากไฟฟ้า</div><div class="kpi-value">19.4<small>ตัน</small></div><div class="kpi-note">ค่าการปล่อยกริด 0.40 kgCO₂/kWh</div></div></div>
+          <div class="card kpi"><div class="kpi-ico t-amber" data-icon="leaf" data-size="22"></div><div><div class="kpi-label">เทียบเท่าปลูกต้นไม้</div><div class="kpi-value">1,460<small>ต้น</small></div><div class="kpi-note">ดูดซับ 22 kg/ต้น/ปี</div></div></div>
+          <div class="card kpi"><div class="kpi-ico t-navy" data-icon="shield" data-size="22"></div><div><div class="kpi-label">เป้าหมาย Net Zero กองยาน</div><div class="kpi-value">71<small>%</small></div><div class="kpi-note">EV 12 จาก 17 คัน</div></div></div>
+        </section>
+        <section class="grid g-2 mb">
+          <div class="card"><div class="card-h"><div><h3>CO₂ ที่หลีกเลี่ยงได้รายเดือน</h3><p>ตัน CO₂e</p></div></div><div class="chart"><canvas id="co2Chart"></canvas></div></div>
+          <div class="card"><div class="card-h"><div><h3>การปล่อยต่อกิโลเมตร</h3><p>gCO₂/กม. — EV เทียบรถสันดาป</p></div></div><div class="chart"><canvas id="perKm"></canvas></div></div>
+        </section>
+        <div class="banner"><span data-icon="leaf" data-size="22"></span><div class="small"><strong>พร้อมสำหรับรายงาน ESG</strong> — ส่งออกข้อมูล Scope 1 และ Scope 2 ของกองยานเป็น Excel เพื่อใช้ในรายงานความยั่งยืนประจำปี</div><button class="btn btn-primary btn-sm">ส่งออกข้อมูล ESG</button></div>
+      </div>
+
+      <!-- ELECTRIFY -->
+      <div data-panel-of="rep" data-panel="electrify" hidden>
+        <section class="grid g-3 mb">
+          <div class="card kpi"><div class="kpi-ico t-green" data-icon="check" data-size="22"></div><div><div class="kpi-label">พร้อมเปลี่ยนทันที</div><div class="kpi-value">3<small>คัน</small></div><div class="kpi-note">คะแนนความพร้อม ≥ 80</div></div></div>
+          <div class="card kpi"><div class="kpi-ico t-amber" data-icon="clock" data-size="22"></div><div><div class="kpi-label">พิจารณาภายหลัง</div><div class="kpi-value">2<small>คัน</small></div><div class="kpi-note">ระยะวิ่งต่อวันสูง</div></div></div>
+          <div class="card kpi"><div class="kpi-ico t-blue" data-icon="coin" data-size="22"></div><div><div class="kpi-label">ประหยัดได้ต่อปี (คาดการณ์)</div><div class="kpi-value">฿486K</div><div class="kpi-note">หากเปลี่ยน 3 คันที่พร้อม</div></div></div>
+        </section>
+        <section class="card flush mb">
+          <div class="card-h"><div><h3>รายงานความพร้อมเปลี่ยนเป็น EV (Fleet Electrification)</h3><p>วิเคราะห์จากข้อมูลการใช้งานจริง 90 วันของรถสันดาป</p></div></div>
+          <div class="table-wrap">
+            <table class="tbl">
+              <thead><tr><th>รถสันดาป</th><th class="r">ระยะเฉลี่ย/วัน</th><th class="r">ระยะสูงสุด/วัน</th><th class="r">ค่าน้ำมัน/เดือน</th><th class="r">ค่าไฟ EV (คาดการณ์)</th><th>คะแนนความพร้อม</th><th>รุ่น EV ที่แนะนำ</th></tr></thead>
+              <tbody id="iceRows"></tbody>
+            </table>
+          </div>
+        </section>
+        <div class="card"><div class="card-h"><div><h3>ต้นทุนรวมตลอดอายุ (TCO) 5 ปี</h3><p>เปรียบเทียบรถสันดาปกับ EV ต่อคัน (บาท)</p></div></div><div class="chart"><canvas id="tco"></canvas></div></div>
+      </div>
+
+      <!-- USAGE -->
+      <div data-panel-of="rep" data-panel="usage" hidden>
+        <section class="grid g-2 mb">
+          <div class="card"><div class="card-h"><div><h3>อัตราการใช้งานรถ</h3><p>% ของเวลาทำงาน (08:00–18:00) ที่รถเคลื่อนที่</p></div></div><div class="chart lg"><canvas id="util"></canvas></div></div>
+          <div class="card"><div class="card-h"><div><h3>ประสิทธิภาพพลังงานรายคัน</h3><p>kWh/100 กม. — ยิ่งต่ำยิ่งดี</p></div></div><div class="chart lg"><canvas id="effChart"></canvas></div></div>
+        </section>
+      </div>
+
+    </main>
+    <footer class="app-foot"><span>ข้อมูลถึง: 5 ต.ค. 2026</span><span>© 2026 EV Monitor Dashboard</span></footer>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="data.js"></script>
+<script src="app.js"></script>
+<script>
+const built = {};
+function init() {
+  const tabs = document.querySelector("[data-tabs=rep]");
+  tabs.addEventListener("tabchange", e => build(e.detail));
+  const start = location.hash.replace("#", "");
+  const btn = start && tabs.querySelector(`[data-tab="${start}"]`);
+  btn ? btn.click() : build("energy");
+}
+function build(k) {
+  if (built[k]) return; built[k] = true;
+  const Y = EV.energyYear;
+  if (k === "energy") {
+    new Chart(monthChart, { type: "bar", data: { labels: Y.labels, datasets: [
+      { label: "Depot", data: Y.kwh.map(x => Math.round(x * .62)), backgroundColor: COLORS.navy, borderRadius: 4, stack: "a", maxBarThickness: 36 },
+      { label: "สาธารณะ", data: Y.kwh.map(x => Math.round(x * .38)), backgroundColor: COLORS.green, borderRadius: 4, stack: "a", maxBarThickness: 36 },
+    ] }, options: { plugins: { legend: { position: "bottom" } }, scales: { x: { stacked: true, grid: { display: false } }, y: { stacked: true, ticks: { callback: x => fmt(x) } } } } });
+    new Chart(costMix, { type: "doughnut", data: { labels: ["Depot (TOU Off-Peak)", "Depot (On-Peak)", "สาธารณะ DC", "สาธารณะ AC"], datasets: [{ data: [38, 14, 41, 7], backgroundColor: [COLORS.navy, "#5B7BA8", COLORS.green, "#7FD3B2"], borderWidth: 3, borderColor: "#fff" }] },
+      options: { cutout: "60%", plugins: { legend: { position: "bottom" } } } });
+  }
+  if (k === "co2") {
+    new Chart(co2Chart, { type: "line", data: { labels: Y.labels, datasets: [{ label: "ตัน CO₂e", data: Y.co2, borderColor: COLORS.green, backgroundColor: "rgba(10,159,110,.1)", fill: true, tension: .35, pointRadius: 3, pointBackgroundColor: "#fff", borderWidth: 2 }] },
+      options: { plugins: { legend: { display: false } }, scales: { x: { grid: { display: false } }, y: { beginAtZero: true } } } });
+    new Chart(perKm, { type: "bar", data: { labels: ["รถเก๋งน้ำมัน", "กระบะดีเซล", "ไฮบริด", "EV (กริดไทย)", "EV (Solar Depot)"], datasets: [{ data: [165, 210, 105, 58, 12], backgroundColor: [COLORS.slate, COLORS.slate, COLORS.amber, COLORS.green, "#34C88F"], borderRadius: 4, maxBarThickness: 40 }] },
+      options: { plugins: { legend: { display: false } }, scales: { x: { grid: { display: false } }, y: { ticks: { callback: x => x + " g" } } } } });
+  }
+  if (k === "electrify") {
+    document.getElementById("iceRows").innerHTML = EV.ice.sort((a, b) => b.score - a.score).map(c => {
+      const cls = c.score >= 80 ? "good" : c.score >= 60 ? "mid" : "bad";
+      const lbl = { good: "พร้อม", mid: "พิจารณา", bad: "ยังไม่แนะนำ" }[cls];
+      const col = { good: "var(--green)", mid: "var(--amber)", bad: "var(--danger)" }[cls];
+      const ev = Math.round(c.kmDay * 26 * 0.15 * 4.8);
+      return `<tr><td><div class="veh"><span class="veh-ico">${icon("car", 18)}</span><span><strong>${c.id}</strong><small>${c.model}</small></span></div></td>
+        <td class="r">${c.kmDay} กม.</td><td class="r">${c.maxDay} กม.</td><td class="r">฿${fmt(c.fuel)}</td><td class="r" style="color:var(--green);font-weight:600">฿${fmt(ev)}</td>
+        <td><div class="flex">${socBar(c.score, 70).replace(/%<\/b>/, "</b>")}<span class="ready" style="color:${col}"><i style="background:${col}"></i>${lbl}</span></div></td>
+        <td>${c.pick}</td></tr>`;
+    }).join("");
+    new Chart(tco, { type: "bar", data: { labels: ["ราคารถ", "พลังงาน 5 ปี", "บำรุงรักษา 5 ปี", "ภาษี/ประกัน 5 ปี", "รวม TCO"], datasets: [
+      { label: "รถสันดาป (Yaris Ativ)", data: [559000, 372000, 68000, 95000, 1094000], backgroundColor: COLORS.slate, borderRadius: 4, maxBarThickness: 28 },
+      { label: "EV (BYD Dolphin)", data: [569900, 104000, 30000, 72000, 775900], backgroundColor: COLORS.green, borderRadius: 4, maxBarThickness: 28 },
+    ] }, options: { plugins: { legend: { position: "bottom" } }, scales: { x: { grid: { display: false } }, y: { ticks: { callback: x => "฿" + fmt(x / 1000) + "K" } } } } });
+  }
+  if (k === "usage") {
+    const V = EV.vehicles;
+    new Chart(util, { type: "bar", data: { labels: V.map(v => v.id), datasets: [{ label: "% การใช้งาน", data: V.map(v => Math.min(92, Math.round(v.odo / 500 + 20))), backgroundColor: COLORS.navy, borderRadius: 4 }] },
+      options: { indexAxis: "y", plugins: { legend: { display: false } }, scales: { x: { max: 100, ticks: { callback: x => x + "%" } }, y: { grid: { display: false } } } } });
+    const byEff = [...V].sort((a, b) => a.eff - b.eff);
+    new Chart(effChart, { type: "bar", data: { labels: byEff.map(v => v.id), datasets: [{ data: byEff.map(v => v.eff), backgroundColor: byEff.map(v => v.eff < 14 ? COLORS.green : v.eff < 15.5 ? COLORS.amber : COLORS.red), borderRadius: 4 }] },
+      options: { indexAxis: "y", plugins: { legend: { display: false } }, scales: { x: { min: 10 }, y: { grid: { display: false } } } } });
+  }
+}
+</script>
+</body>
+</html>

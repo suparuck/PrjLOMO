@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>เข้าสู่ระบบ — EV Monitor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="auth">
+  <aside class="auth-art">
+    <a class="brand" href="index.html" style="border:0;padding:0">
+      <span class="brand-mark" data-icon="bolt" data-size="20"></span>
+      <span class="brand-text"><strong>EV Monitor</strong><small>Fleet Management</small></span>
+    </a>
+    <div>
+      <h2>ทุกคันในกองยาน EV ของคุณ อยู่ในสายตาตลอดเวลา</h2>
+      <p>ติดตามแบตเตอรี่ การชาร์จ และตำแหน่งแบบเรียลไทม์ พร้อมรายงานต้นทุนและคาร์บอนในที่เดียว</p>
+      <div class="grid g-2" style="margin-top:32px;max-width:460px">
+        <div class="mock-kpi" style="background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.1)"><span style="color:#9DB0C8">รถออนไลน์ตอนนี้</span><b style="color:#fff">11 / 12</b></div>
+        <div class="mock-kpi" style="background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.1)"><span style="color:#9DB0C8">กำลังชาร์จ</span><b style="color:#7FE0B8">2 คัน</b></div>
+      </div>
+    </div>
+    <p class="small" style="color:#5F7697">© 2026 EV Monitor · เชียงใหม่</p>
+  </aside>
+
+  <main class="auth-form">
+    <form class="auth-box" onsubmit="event.preventDefault(); location.href='dashboard.html'">
+      <h1>เข้าสู่ระบบ</h1>
+      <p>ยินดีต้อนรับกลับ กรุณากรอกข้อมูลเพื่อเข้าใช้งาน</p>
+      <div class="field">
+        <label for="email">อีเมล</label>
+        <input class="input" id="email" type="email" placeholder="name@company.co.th" value="admin@evmonitor.co.th" required>
+      </div>
+      <div class="field">
+        <label for="pw">รหัสผ่าน</label>
+        <input class="input" id="pw" type="password" placeholder="••••••••" value="demo1234" required>
+      </div>
+      <div class="auth-row">
+        <label class="flex" style="gap:8px"><input type="checkbox" checked style="accent-color:var(--red)"> จดจำฉันไว้</label>
+        <a href="#">ลืมรหัสผ่าน?</a>
+      </div>
+      <button class="btn btn-primary btn-lg" style="width:100%" type="submit">เข้าสู่ระบบ</button>
+      <div class="or">หรือ</div>
+      <a class="btn btn-outline btn-lg" style="width:100%" href="dashboard.html" data-icon="shield">เข้าสู่ระบบด้วย SSO องค์กร</a>
+      <p class="small muted" style="text-align:center;margin-top:24px">ยังไม่มีบัญชี? <a href="index.html#demo" style="color:var(--blue);font-weight:600">ติดต่อฝ่ายขาย</a></p>
+    </form>
+  </main>
+</div>
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

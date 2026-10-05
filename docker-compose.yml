@@ -1,0 +1,7 @@
+services:
+  web:
+    build: ./app
+    image: ev-monitor:latest
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    restart: unless-stopped

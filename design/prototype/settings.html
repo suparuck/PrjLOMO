@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ตั้งค่า — EV Monitor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body data-page="settings" data-title="ตั้งค่า" data-sub="องค์กร การแจ้งเตือน ผู้ใช้ และการเชื่อมต่อ">
+<div class="shell">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main">
+    <header class="topbar" id="topbar"></header>
+    <main class="content">
+      <div class="settings-layout">
+        <nav class="settings-nav" id="snav">
+          <a href="#org" class="active" data-icon="dashboard" data-size="16">องค์กร</a>
+          <a href="#alerts" data-icon="bell" data-size="16">เกณฑ์การแจ้งเตือน</a>
+          <a href="#charging" data-icon="bolt" data-size="16">การชาร์จและค่าไฟ</a>
+          <a href="#users" data-icon="users" data-size="16">ผู้ใช้และสิทธิ์</a>
+          <a href="#integrations" data-icon="plug" data-size="16">การเชื่อมต่อ</a>
+          <a href="#support" data-icon="help" data-size="16">ช่วยเหลือ</a>
+        </nav>
+
+        <div class="grid" style="gap:20px">
+          <section class="card" id="org">
+            <div class="card-h"><div><h3>ข้อมูลองค์กร</h3><p>ใช้แสดงในรายงานและการแจ้งเตือน</p></div></div>
+            <div class="form-grid">
+              <div class="field"><label>ชื่อองค์กร</label><input class="input" value="บริษัท ตัวอย่าง จำกัด"></div>
+              <div class="field"><label>ชื่อกองยาน</label><input class="input" value="EV Fleet เชียงใหม่"></div>
+              <div class="field"><label>เขตเวลา</label><select class="select"><option>Asia/Bangkok (UTC+07:00)</option></select></div>
+              <div class="field"><label>หน่วยระยะทาง</label><select class="select"><option>กิโลเมตร</option><option>ไมล์</option></select></div>
+              <div class="field"><label>ภาษา</label><select class="select"><option>ไทย</option><option>English</option></select></div>
+              <div class="field"><label>สกุลเงิน</label><select class="select"><option>บาท (฿)</option></select></div>
+            </div>
+          </section>
+
+          <section class="card" id="alerts">
+            <div class="card-h"><div><h3>เกณฑ์การแจ้งเตือน</h3><p>ปรับระดับที่ระบบจะแจ้งเตือน</p></div></div>
+            <div class="form-grid">
+              <div class="field"><label>แบตต่ำ (แจ้งเตือน)</label><div class="range-row"><input type="range" min="10" max="50" value="30" oninput="this.nextElementSibling.value=this.value+'%'"><output>30%</output></div></div>
+              <div class="field"><label>แบตต่ำมาก (วิกฤต)</label><div class="range-row"><input type="range" min="5" max="30" value="20" oninput="this.nextElementSibling.value=this.value+'%'"><output>20%</output></div></div>
+              <div class="field"><label>ความเร็วสูงสุด</label><div class="range-row"><input type="range" min="60" max="140" step="5" value="100" oninput="this.nextElementSibling.value=this.value"><output>100</output></div><span class="hint">กม./ชม.</span></div>
+              <div class="field"><label>รถออฟไลน์นานกว่า</label><div class="range-row"><input type="range" min="5" max="120" step="5" value="30" oninput="this.nextElementSibling.value=this.value+' น.'"><output>30 น.</output></div></div>
+            </div>
+            <div class="divider"></div>
+            <div class="set-row"><div><strong>แจ้งเตือนทางอีเมล</strong><p>ส่งสรุปเหตุการณ์วิกฤตทันที</p></div><label class="switch"><input type="checkbox" checked><span></span></label></div>
+            <div class="set-row"><div><strong>แจ้งเตือนผ่าน LINE Official Account</strong><p>ส่งเข้ากลุ่มผู้จัดการกองยาน</p></div><label class="switch"><input type="checkbox" checked><span></span></label></div>
+            <div class="set-row"><div><strong>SMS ถึงคนขับ</strong><p>เมื่อแบตต่ำมากระหว่างการเดินทาง</p></div><label class="switch"><input type="checkbox"><span></span></label></div>
+            <div class="set-row"><div><strong>สรุปรายวันทางอีเมล</strong><p>ทุกวันเวลา 08:00 น.</p></div><label class="switch"><input type="checkbox" checked><span></span></label></div>
+          </section>
+
+          <section class="card" id="charging">
+            <div class="card-h"><div><h3>การชาร์จและค่าไฟ</h3><p>ใช้คำนวณต้นทุนในรายงาน</p></div></div>
+            <div class="form-grid">
+              <div class="field"><label>อัตราค่าไฟ Depot</label><select class="select"><option>TOU (On-Peak / Off-Peak)</option><option>อัตราปกติ</option></select></div>
+              <div class="field"><label>ค่าไฟ Off-Peak (฿/kWh)</label><input class="input" value="2.60"></div>
+              <div class="field"><label>ค่าไฟ On-Peak (฿/kWh)</label><input class="input" value="5.80"></div>
+              <div class="field"><label>เป้าหมายชาร์จเริ่มต้น</label><select class="select"><option>80%</option><option>90%</option><option>100%</option></select></div>
+            </div>
+            <div class="divider"></div>
+            <div class="set-row"><div><strong>ตั้งเวลาชาร์จอัจฉริยะ</strong><p>เริ่มชาร์จที่ Depot อัตโนมัติหลัง 22:00 น.</p></div><label class="switch"><input type="checkbox" checked><span></span></label></div>
+            <div class="set-row"><div><strong>จำกัดกำลังไฟรวมของ Depot</strong><p>ไม่เกิน 150 kW เพื่อหลีกเลี่ยงค่า Demand Charge</p></div><label class="switch"><input type="checkbox" checked><span></span></label></div>
+          </section>
+
+          <section class="card flush" id="users">
+            <div class="card-h"><div><h3>ผู้ใช้และสิทธิ์</h3><p>กำหนดบทบาทการเข้าถึงข้อมูล</p></div><button class="btn btn-primary btn-sm" data-icon="plus" data-size="15">เชิญผู้ใช้</button></div>
+            <div class="table-wrap">
+              <table class="tbl">
+                <thead><tr><th>ผู้ใช้</th><th>บทบาท</th><th>สิทธิ์</th><th>เข้าใช้ล่าสุด</th><th></th></tr></thead>
+                <tbody>
+                  <tr><td><div class="veh"><span class="avatar" style="width:34px;height:34px;font-size:11px">AE</span><span><strong>Admin EV</strong><small>admin@evmonitor.co.th</small></span></div></td><td><span class="badge s-driving">ผู้ดูแลระบบ</span></td><td>ทั้งหมด</td><td>ออนไลน์</td><td><button class="btn btn-ghost btn-sm">แก้ไข</button></td></tr>
+                  <tr><td><div class="veh"><span class="avatar" style="width:34px;height:34px;font-size:11px;background:var(--green)">ปส</span><span><strong>ประสิทธิ์ สายทอง</strong><small>prasit@company.co.th</small></span></div></td><td><span class="badge s-charging">ผู้จัดการกองยาน</span></td><td>รถ คนขับ รายงาน</td><td>2 ชม.ที่แล้ว</td><td><button class="btn btn-ghost btn-sm">แก้ไข</button></td></tr>
+                  <tr><td><div class="veh"><span class="avatar" style="width:34px;height:34px;font-size:11px;background:var(--amber)">วร</span><span><strong>วรรณา รักดี</strong><small>wanna@company.co.th</small></span></div></td><td><span class="badge s-parked">ผู้ดูรายงาน</span></td><td>รายงานเท่านั้น</td><td>เมื่อวาน</td><td><button class="btn btn-ghost btn-sm">แก้ไข</button></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="card" id="integrations">
+            <div class="card-h"><div><h3>การเชื่อมต่อ</h3><p>อุปกรณ์ติดตาม เครือข่ายชาร์จ และระบบภายนอก</p></div></div>
+            <div class="grid g-2" style="gap:12px">
+              <div class="integration"><span class="logo-box" style="background:var(--navy-900)">OBD</span><div class="li-body"><strong>อุปกรณ์ Telematics</strong><p>12 อุปกรณ์ · ออนไลน์ 11</p></div><span class="badge s-charging"><i></i>เชื่อมต่อ</span></div>
+              <div class="integration"><span class="logo-box" style="background:#7B3FE4">PEA</span><div class="li-body"><strong>PEA VOLTA</strong><p>ดึงข้อมูลเซสชันชาร์จสาธารณะ</p></div><span class="badge s-charging"><i></i>เชื่อมต่อ</span></div>
+              <div class="integration"><span class="logo-box" style="background:#0A9F6E">EA</span><div class="li-body"><strong>EA Anywhere</strong><p>บัตรสมาชิกองค์กร</p></div><button class="btn btn-outline btn-sm">เชื่อมต่อ</button></div>
+              <div class="integration"><span class="logo-box" style="background:#06C755">LINE</span><div class="li-body"><strong>LINE Official Account</strong><p>ส่งการแจ้งเตือน</p></div><span class="badge s-charging"><i></i>เชื่อมต่อ</span></div>
+              <div class="integration"><span class="logo-box" style="background:#1F6FEB">API</span><div class="li-body"><strong>REST API / Webhook</strong><p>ส่งข้อมูลไป ERP หรือ BI</p></div><button class="btn btn-outline btn-sm">สร้างคีย์</button></div>
+              <div class="integration"><span class="logo-box" style="background:#D7263D">SSO</span><div class="li-body"><strong>Single Sign-On</strong><p>Microsoft Entra ID / Google</p></div><button class="btn btn-outline btn-sm">ตั้งค่า</button></div>
+            </div>
+          </section>
+
+          <section class="card" id="support">
+            <div class="card-h"><div><h3>ช่วยเหลือ</h3><p>ทีมซัพพอร์ตพร้อมช่วยตลอด 24 ชั่วโมง</p></div></div>
+            <div class="grid g-3" style="gap:12px">
+              <div class="v-fact"><span>โทร</span><b>053-000-000</b></div>
+              <div class="v-fact"><span>อีเมล</span><b style="font-size:14px">support@evmonitor.co.th</b></div>
+              <div class="v-fact"><span>เวอร์ชันระบบ</span><b>v2.0.0</b></div>
+            </div>
+          </section>
+
+          <div class="flex" style="justify-content:flex-end">
+            <button class="btn btn-outline">ยกเลิก</button>
+            <button class="btn btn-primary" onclick="this.textContent='บันทึกแล้ว ✓'">บันทึกการเปลี่ยนแปลง</button>
+          </div>
+        </div>
+      </div>
+    </main>
+    <footer class="app-foot"><span>EV Monitor v2.0</span><span>© 2026 EV Monitor Dashboard</span></footer>
+  </div>
+</div>
+
+<script src="data.js"></script>
+<script src="app.js"></script>
+<script>
+function init() {
+  const links = [...document.querySelectorAll("#snav a")];
+  const secs = links.map(a => document.querySelector(a.getAttribute("href")));
+  const io = new IntersectionObserver(es => es.forEach(e => {
+    if (e.isIntersecting) links.forEach(a => a.classList.toggle("active", a.getAttribute("href") === "#" + e.target.id));
+  }), { rootMargin: "-40% 0px -55% 0px" });
+  secs.forEach(s => io.observe(s));
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,36 @@
+/* Design tokens — ย้ายจาก design/prototype/style.css */
+:root {
+  --navy-950: #061428;
+  --navy-900: #0B2545;
+  --navy-800: #13315C;
+  --navy-700: #1D4475;
+  --red: #D7263D;          /* CTA หลัก (แนว Webfleet) */
+  --red-600: #B81D32;
+  --blue: #1F6FEB;
+  --blue-50: #EAF2FE;
+  --green: #0A9F6E;        /* พลังงาน / EV */
+  --green-50: #E6F6F0;
+  --amber: #E8A100;
+  --amber-50: #FDF5E1;
+  --danger: #D7263D;
+  --danger-50: #FCE9EC;
+  --slate: #8A97A8;
+  --slate-50: #EFF2F6;
+
+  --ink: #0B1B2E;
+  --text: #24364D;
+  --muted: #5B6B80;
+  --faint: #8A97A8;
+  --line: #E3E8EF;
+  --line-2: #EEF1F5;
+  --bg: #F4F6F9;
+  --card: #FFFFFF;
+
+  --r-sm: 6px;
+  --r: 10px;
+  --r-lg: 16px;
+  --shadow: 0 1px 2px rgba(11, 37, 69, .05), 0 4px 16px rgba(11, 37, 69, .05);
+  --shadow-lg: 0 12px 40px rgba(6, 20, 40, .18);
+  --side-w: 256px;
+  --font: "IBM Plex Sans Thai", "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+}

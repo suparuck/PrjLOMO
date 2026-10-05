@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>การแจ้งเตือน — EV Monitor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body data-page="alerts" data-title="การแจ้งเตือน" data-sub="เหตุการณ์จากรถ แบตเตอรี่ การชาร์จ และการขับขี่">
+<div class="shell">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main">
+    <header class="topbar" id="topbar"></header>
+    <main class="content">
+
+      <section class="grid g-4 mb kpi-grid-2m" id="kpis"></section>
+
+      <section class="grid g-21">
+        <div class="card flush">
+          <div style="padding:18px 22px;border-bottom:1px solid var(--line)" class="toolbar">
+            <div class="chips" id="sevChips"></div>
+            <div class="flex wrap">
+              <select class="select" id="typeSel" style="width:auto">
+                <option value="all">ทุกประเภท</option><option value="battery">แบตเตอรี่</option><option value="charging">การชาร์จ</option>
+                <option value="driving">การขับขี่</option><option value="device">อุปกรณ์</option><option value="maint">บำรุงรักษา</option><option value="geofence">พื้นที่</option>
+              </select>
+              <button class="btn btn-outline" data-icon="check" data-size="16" onclick="ackAll()">รับทราบทั้งหมด</button>
+            </div>
+          </div>
+          <div id="list"></div>
+        </div>
+
+        <div>
+          <div class="card mb">
+            <div class="card-h"><div><h3>กฎการแจ้งเตือน</h3><p>เปิด/ปิดได้ทันที</p></div><a class="btn btn-ghost btn-sm" href="settings.html#alerts">แก้ไข</a></div>
+            <div class="set-row"><div><strong>แบตต่ำกว่า 30%</strong><p>แจ้งผู้จัดการและคนขับ</p></div><label class="switch"><input type="checkbox" checked><span></span></label></div>
+            <div class="set-row"><div><strong>รถออฟไลน์เกิน 30 นาที</strong><p>แจ้งผู้ดูแลระบบ</p></div><label class="switch"><input type="checkbox" checked><span></span></label></div>
+            <div class="set-row"><div><strong>ความเร็วเกิน 100 กม./ชม.</strong><p>บันทึกเป็นเหตุการณ์การขับ</p></div><label class="switch"><input type="checkbox" checked><span></span></label></div>
+            <div class="set-row"><div><strong>ชาร์จเสร็จ / หยุดชาร์จผิดปกติ</strong><p>แจ้งคนขับผ่านแอป</p></div><label class="switch"><input type="checkbox" checked><span></span></label></div>
+            <div class="set-row"><div><strong>ออกนอกพื้นที่ (Geofence)</strong><p>เขตเมืองเชียงใหม่</p></div><label class="switch"><input type="checkbox"><span></span></label></div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div><h3>ช่องทางแจ้งเตือน</h3></div></div>
+            <div class="list">
+              <div class="li"><div class="li-ico t-navy" data-icon="bell"></div><div class="li-body"><strong>ในระบบ</strong><p>เปิดใช้งาน</p></div></div>
+              <div class="li"><div class="li-ico t-blue" data-icon="globe"></div><div class="li-body"><strong>อีเมล</strong><p>fleet@company.co.th</p></div></div>
+              <div class="li"><div class="li-ico t-green" data-icon="phone"></div><div class="li-body"><strong>LINE Official Account</strong><p>กลุ่มผู้จัดการกองยาน</p></div></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+    <footer class="app-foot"><span>อัปเดตล่าสุด: วันนี้ 10:30 น.</span><span>© 2026 EV Monitor Dashboard</span></footer>
+  </div>
+</div>
+
+<script src="data.js"></script>
+<script src="app.js"></script>
+<script>
+let sev = "all";
+const sevInfo = { critical: ["วิกฤต", "t-red"], warning: ["เตือน", "t-amber"], info: ["ข้อมูล", "t-blue"] };
+const typeIco = { battery: "battery", charging: "bolt", device: "wifiOff", maint: "wrench", driving: "speed", geofence: "pin" };
+const typeTh = { battery: "แบตเตอรี่", charging: "การชาร์จ", device: "อุปกรณ์", maint: "บำรุงรักษา", driving: "การขับขี่", geofence: "พื้นที่" };
+function init() {
+  const chips = document.getElementById("sevChips");
+  chips.onclick = e => { const b = e.target.closest(".chip"); if (!b) return; sev = b.dataset.k; render(); };
+  document.getElementById("typeSel").onchange = render;
+  render();
+}
+function render() {
+  const A = EV.alerts, open = A.filter(a => !a.ack);
+  document.getElementById("kpis").innerHTML = [
+    ["ยังไม่รับทราบ", open.length, "รายการ", "bell", "t-navy"],
+    ["วิกฤต", open.filter(a => a.sev === "critical").length, "รายการ", "alert", "t-red"],
+    ["เตือน", open.filter(a => a.sev === "warning").length, "รายการ", "alert", "t-amber"],
+    ["เวลาตอบสนองเฉลี่ย", "6.4", "นาที", "clock", "t-green"],
+  ].map(([l, v, u, i, t]) => `<div class="card kpi"><div class="kpi-ico ${t}">${icon(i, 22)}</div><div><div class="kpi-label">${l}</div><div class="kpi-value">${v}<small>${u}</small></div></div></div>`).join("");
+
+  document.getElementById("sevChips").innerHTML = [["all", "ทั้งหมด"], ["critical", "วิกฤต"], ["warning", "เตือน"], ["info", "ข้อมูล"]]
+    .map(([k, l]) => `<button class="chip ${k === sev ? "active" : ""}" data-k="${k}">${l} <em>${k === "all" ? A.length : A.filter(a => a.sev === k).length}</em></button>`).join("");
+
+  const type = document.getElementById("typeSel").value;
+  const list = A.filter(a => (sev === "all" || a.sev === sev) && (type === "all" || a.type === type));
+  document.getElementById("list").innerHTML = list.map(a => `
+    <div class="alert-row ${a.ack ? "acked" : ""}">
+      <span class="sev ${a.sev}"></span>
+      <div class="li-ico ${sevInfo[a.sev][1]}">${icon(typeIco[a.type], 18)}</div>
+      <div class="li-body">
+        <div class="flex wrap" style="gap:8px"><strong>${a.title}</strong><span class="tag">${typeTh[a.type]}</span>${a.ack ? '<span class="tag">รับทราบแล้ว</span>' : ""}</div>
+        <p>${a.text}</p>
+        <div class="flex small" style="margin-top:6px;gap:14px"><span class="li-time">${a.time}</span><a href="vehicle.html?id=${a.v}" style="color:var(--blue);font-weight:600">ดู ${a.v}</a></div>
+      </div>
+      ${a.ack ? "" : `<button class="btn btn-outline btn-sm" onclick="ack(${a.id})">รับทราบ</button>`}
+    </div>`).join("") || '<div class="empty">ไม่มีการแจ้งเตือน</div>';
+}
+function ack(id) { EV.alerts.find(a => a.id === id).ack = true; render(); refreshBadge(); }
+function ackAll() { EV.alerts.forEach(a => a.ack = true); render(); refreshBadge(); }
+function refreshBadge() {
+  const n = EV.alerts.filter(a => !a.ack).length;
+  document.querySelectorAll(".side-badge, .dot-count").forEach(el => n ? el.textContent = n : el.remove());
+}
+</script>
+</body>
+</html>

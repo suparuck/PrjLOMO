@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>แดชบอร์ด — EV Monitor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body data-page="dashboard" data-title="ภาพรวมกองยาน EV" data-sub="ติดตามรถยนต์ไฟฟ้าของคุณแบบเรียลไทม์">
+<div class="shell">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main">
+    <header class="topbar" id="topbar"></header>
+    <main class="content">
+
+      <!-- KPI -->
+      <section class="grid g-5 mb kpi-grid-2m" id="kpis"></section>
+
+      <!-- Map + Battery -->
+      <section class="grid g-21 mb">
+        <div class="card">
+          <div class="card-h">
+            <div><h3>แผนที่รถแบบสด</h3><p>ตำแหน่งปัจจุบันของรถทุกคันและสถานีชาร์จ</p></div>
+            <a class="btn btn-outline btn-sm" href="map.html" data-icon="map" data-size="15">เปิดแผนที่เต็ม</a>
+          </div>
+          <div class="map-box" id="minimap" style="height:330px"></div>
+          <div class="legend">
+            <span><i style="background:var(--blue)"></i>กำลังขับ</span>
+            <span><i style="background:var(--green)"></i>กำลังชาร์จ</span>
+            <span><i style="background:#6B7A8D"></i>จอดอยู่</span>
+            <span><i style="background:var(--danger)"></i>แบตต่ำ</span>
+            <span><i style="background:#A3A3A3"></i>ออฟไลน์</span>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-h">
+            <div><h3>สถานะแบตเตอรี่</h3><p>ระดับแบตเฉลี่ยของทั้งกองยาน</p></div>
+            <a class="btn btn-ghost btn-sm" href="battery.html">ทั้งหมด</a>
+          </div>
+          <div class="donut-wrap" style="flex-direction:column;align-items:stretch">
+            <div class="donut" style="margin:0 auto"><canvas id="socDonut"></canvas><div class="donut-center"><strong id="avgSoc">–</strong><span>เฉลี่ย</span></div></div>
+            <div class="stat-rows" id="socRows"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Vehicle table -->
+      <section class="card flush mb">
+        <div class="card-h">
+          <div><h3>สถานะรถ</h3><p>ข้อมูลล่าสุดของรถยนต์ไฟฟ้าทุกคัน</p></div>
+          <a class="btn btn-outline btn-sm" href="vehicles.html">ดูรถทั้งหมด →</a>
+        </div>
+        <div class="table-wrap">
+          <table class="tbl">
+            <thead><tr><th>รถ</th><th>คนขับ</th><th>แบตเตอรี่</th><th class="r">ระยะวิ่งคงเหลือ</th><th>ตำแหน่ง</th><th class="r">ความเร็ว</th><th>สถานะ</th></tr></thead>
+            <tbody id="vehTable"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Energy + Alerts + Charging -->
+      <section class="grid g-3 mb">
+        <div class="card span-2">
+          <div class="card-h">
+            <div><h3>การใช้พลังงาน</h3><p>พลังงานรวมและค่าไฟของกองยาน สัปดาห์นี้</p></div>
+            <div class="card-tools"><div class="seg" id="energySeg"><button class="active" data-k="kwh">kWh</button><button data-k="cost">ค่าใช้จ่าย (฿)</button></div></div>
+          </div>
+          <div class="flex wrap" style="gap:32px;margin-bottom:12px">
+            <div><div class="kpi-label">พลังงานรวม</div><div class="kpi-value">1,248<small>kWh</small></div><div class="kpi-note up" data-icon="arrowUp" data-size="13">8.4% จากสัปดาห์ก่อน</div></div>
+            <div><div class="kpi-label">ค่าไฟรวม</div><div class="kpi-value">฿6,010</div><div class="kpi-note">เฉลี่ย ฿4.82 / kWh</div></div>
+            <div><div class="kpi-label">ประสิทธิภาพ</div><div class="kpi-value">14.5<small>kWh/100 กม.</small></div><div class="kpi-note up" data-icon="arrowDown" data-size="13">ดีขึ้น 2.1%</div></div>
+          </div>
+          <div class="chart"><canvas id="energyChart"></canvas></div>
+        </div>
+
+        <div class="card">
+          <div class="card-h">
+            <div><h3>การแจ้งเตือนล่าสุด</h3><p>เหตุการณ์ที่ต้องติดตาม</p></div>
+            <a class="btn btn-ghost btn-sm" href="alerts.html">ทั้งหมด</a>
+          </div>
+          <div class="list" id="alertList"></div>
+        </div>
+      </section>
+
+      <section class="grid g-2">
+        <div class="card">
+          <div class="card-h">
+            <div><h3>กำลังชาร์จตอนนี้</h3><p>เซสชันที่กำลังดำเนินการ</p></div>
+            <a class="btn btn-ghost btn-sm" href="charging.html">การชาร์จ</a>
+          </div>
+          <div class="grid" id="sessions" style="gap:12px"></div>
+        </div>
+        <div class="card">
+          <div class="card-h">
+            <div><h3>ความยั่งยืน</h3><p>ผลลัพธ์จากการใช้รถไฟฟ้า ปี 2026</p></div>
+            <a class="btn btn-ghost btn-sm" href="reports.html#co2">รายงาน CO₂</a>
+          </div>
+          <div class="grid g-2" style="gap:12px">
+            <div class="v-fact"><span>CO₂ ที่ลดได้</span><b>32.1 ตัน</b></div>
+            <div class="v-fact"><span>เทียบเท่าปลูกต้นไม้</span><b>1,460 ต้น</b></div>
+            <div class="v-fact"><span>ประหยัดเทียบน้ำมัน</span><b>฿412,800</b></div>
+            <div class="v-fact"><span>ระยะทางสะสม</span><b>232,650 กม.</b></div>
+          </div>
+          <div class="banner mt">
+            <span data-icon="route" data-size="22"></span>
+            <div class="small"><strong>รถสันดาป 3 คัน</strong> พร้อมเปลี่ยนเป็น EV ได้ทันที</div>
+            <a class="btn btn-primary btn-sm" href="reports.html#electrify">ดูรายงาน</a>
+          </div>
+        </div>
+      </section>
+
+    </main>
+    <footer class="app-foot"><span>อัปเดตล่าสุด: วันนี้ 10:30 น.</span><span>© 2026 EV Monitor Dashboard</span></footer>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="data.js"></script>
+<script src="app.js"></script>
+<script>
+function init() {
+  const V = EV.vehicles;
+  const count = s => V.filter(v => v.status === s).length;
+  const online = V.filter(v => v.status !== "offline").length;
+  const unread = EV.alerts.filter(a => !a.ack).length;
+
+  const kpis = [
+    { label: "รถทั้งหมด", value: V.length, unit: "คัน", note: `ออนไลน์ ${online} คัน (${Math.round(online / V.length * 100)}%)`, ico: "car", t: "t-navy" },
+    { label: "กำลังขับ", value: count("driving"), unit: "คัน", note: "กำลังปฏิบัติงาน", ico: "route", t: "t-blue" },
+    { label: "กำลังชาร์จ", value: count("charging"), unit: "คัน", note: "Depot 1 · สาธารณะ 1", ico: "bolt", t: "t-green" },
+    { label: "แบตต่ำ", value: count("low"), unit: "คัน", note: "ต่ำกว่า 30%", ico: "battery", t: "t-red" },
+    { label: "การแจ้งเตือน", value: unread, unit: "รายการ", note: "ยังไม่ได้รับทราบ", ico: "bell", t: "t-amber" },
+  ];
+  document.getElementById("kpis").innerHTML = kpis.map(k => `
+    <div class="card kpi"><div class="kpi-ico ${k.t}">${icon(k.ico, 22)}</div>
+      <div><div class="kpi-label">${k.label}</div><div class="kpi-value">${k.value}<small>${k.unit}</small></div><div class="kpi-note">${k.note}</div></div></div>`).join("");
+
+  // Map
+  const m = makeMap(document.getElementById("minimap"), { level: 10, scroll: false });
+  if (m) {
+    EV.stations.forEach(s => stationMarker(s).addTo(m).bindPopup(`<div class="pop"><strong>${s.name}</strong><br>${s.network} · ${s.power}<br>ว่าง ${s.ports - s.busy}/${s.ports} ช่อง</div>`));
+    const b = [];
+    V.forEach(v => { vehicleMarker(v).addTo(m).bindPopup(vehiclePopup(v)); b.push([v.lat, v.lng]); });
+    m.fitBounds(b, { padding: [30, 30] });
+  }
+
+  // Battery donut
+  const hi = V.filter(v => v.soc >= 70).length, mid = V.filter(v => v.soc >= 30 && v.soc < 70).length, lo = V.filter(v => v.soc < 30).length;
+  const avg = Math.round(V.reduce((s, v) => s + v.soc, 0) / V.length);
+  document.getElementById("avgSoc").textContent = avg + "%";
+  new Chart(document.getElementById("socDonut"), {
+    type: "doughnut",
+    data: { labels: ["สูง (≥70%)", "กลาง (30–69%)", "ต่ำ (<30%)"], datasets: [{ data: [hi, mid, lo], backgroundColor: [COLORS.green, COLORS.amber, COLORS.red], borderWidth: 3, borderColor: "#fff" }] },
+    options: { cutout: "74%", plugins: { legend: { display: false } } },
+  });
+  document.getElementById("socRows").innerHTML = [
+    ["แบตสูง", hi, "≥ 70%", "good"], ["แบตปานกลาง", mid, "30% – 69%", "mid"], ["แบตต่ำ", lo, "< 30%", "bad"],
+  ].map(([l, n, r, c]) => `<div class="stat-row"><div class="top"><span>${l}</span><b>${n} คัน</b></div>
+    <div class="bar"><div class="bar-fill ${c}" style="width:${n / V.length * 100}%"></div></div><small>${r}</small></div>`).join("");
+
+  // Table
+  document.getElementById("vehTable").innerHTML = V.slice(0, 7).map(v => `
+    <tr>
+      <td><a class="veh" href="vehicle.html?id=${v.id}"><span class="veh-ico">${icon(v.status === "charging" ? "bolt" : "car", 18)}</span><span><strong>${v.id}</strong><small>${v.model}</small></span></a></td>
+      <td>${EV.driverById(v.driver).name}</td>
+      <td>${socBar(v.soc)}</td>
+      <td class="r">${v.range} กม.</td>
+      <td>${v.loc}</td>
+      <td class="r">${v.speed} กม./ชม.</td>
+      <td>${statusBadge(v.status)}</td>
+    </tr>`).join("");
+
+  // Energy chart
+  const ctx = document.getElementById("energyChart");
+  const ds = k => ({
+    label: k === "kwh" ? "พลังงาน (kWh)" : "ค่าใช้จ่าย (฿)",
+    data: EV.energyWeek[k], backgroundColor: k === "kwh" ? COLORS.navy : COLORS.green,
+    borderRadius: 6, maxBarThickness: 34,
+  });
+  const chart = new Chart(ctx, { type: "bar", data: { labels: EV.energyWeek.labels, datasets: [ds("kwh")] },
+    options: { plugins: { legend: { display: false } }, scales: { x: { grid: { display: false } }, y: { beginAtZero: true } } } });
+  document.querySelectorAll("#energySeg button").forEach(b => b.onclick = () => {
+    document.querySelectorAll("#energySeg button").forEach(x => x.classList.toggle("active", x === b));
+    chart.data.datasets = [ds(b.dataset.k)]; chart.update();
+  });
+
+  // Alerts
+  const sevMap = { critical: ["t-red", "alert"], warning: ["t-amber", "alert"], info: ["t-blue", "info"] };
+  const typeIco = { charging: "bolt", device: "wifiOff", maint: "wrench", driving: "speed", geofence: "pin" };
+  document.getElementById("alertList").innerHTML = EV.alerts.slice(0, 5).map(a => `
+    <div class="li"><div class="li-ico ${sevMap[a.sev][0]}">${icon(typeIco[a.type] || sevMap[a.sev][1], 18)}</div>
+      <div class="li-body"><strong>${a.title}</strong><p>${a.text}</p></div><span class="li-time">${a.time.replace("ที่แล้ว", "")}</span></div>`).join("");
+
+  // Sessions
+  document.getElementById("sessions").innerHTML = EV.sessions.map(s => {
+    const v = EV.vehicleById(s.v);
+    return `<div class="session">
+      <div class="session-top"><div><strong>${s.v} · ${v.model}</strong><small>${s.st} · ${s.kw} kW · เริ่ม ${s.start}</small></div><div class="session-pct">${s.now}%</div></div>
+      <div class="charge-bar"><div class="charge-fill" style="width:${s.now}%"></div><div class="charge-target" style="left:${s.target}%"></div></div>
+      <div class="session-meta"><div>พลังงาน<b>${s.kwh} kWh</b></div><div>ค่าใช้จ่าย<b>฿${s.cost}</b></div><div>เป้าหมาย<b>${s.target}%</b></div><div>เหลือ<b>${s.eta}</b></div></div>
+    </div>`;
+  }).join("");
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>รายละเอียดรถ — EV Monitor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body data-page="vehicles" data-title="รายละเอียดรถ" data-crumb='<a href="vehicles.html">รถทั้งหมด</a> / รายละเอียด'>
+<div class="shell">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main">
+    <header class="topbar" id="topbar"></header>
+    <main class="content">
+
+      <section class="card mb">
+        <div class="v-hero">
+          <div class="v-gauge">
+            <svg width="140" height="140" viewBox="0 0 140 140"><circle cx="70" cy="70" r="60" fill="none" stroke="#EEF1F5" stroke-width="12"/><circle id="gArc" cx="70" cy="70" r="60" fill="none" stroke-width="12" stroke-linecap="round" stroke-dasharray="377" stroke-dashoffset="377"/></svg>
+            <div class="center"><strong id="gVal">–</strong><span>แบตเตอรี่</span></div>
+          </div>
+          <div class="v-title">
+            <h2 id="vTitle"></h2>
+            <p id="vSub"></p>
+            <div class="v-facts" id="vFacts"></div>
+          </div>
+          <div class="flex wrap" style="align-self:start">
+            <a class="btn btn-outline" href="map.html" data-icon="map" data-size="16">ดูบนแผนที่</a>
+            <button class="btn btn-navy" data-icon="phone" data-size="16">ติดต่อคนขับ</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="grid g-21 mb">
+        <div class="card">
+          <div class="card-h"><div><h3>ระดับแบตเตอรี่ 24 ชั่วโมง</h3><p>SoC (%) และช่วงเวลาชาร์จ</p></div></div>
+          <div class="chart"><canvas id="socChart"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-h"><div><h3>ตำแหน่งปัจจุบัน</h3><p id="locText"></p></div></div>
+          <div class="map-box" id="vmap" style="height:260px"></div>
+        </div>
+      </section>
+
+      <section class="grid g-3 mb">
+        <div class="card">
+          <div class="card-h"><div><h3>ข้อมูลรถ</h3><p>สเปกและสุขภาพแบตเตอรี่</p></div></div>
+          <dl class="kv" id="spec"></dl>
+        </div>
+        <div class="card">
+          <div class="card-h"><div><h3>คนขับประจำรถ</h3><p>ผลการขับสัปดาห์นี้</p></div></div>
+          <div class="driver-card" id="drv"></div>
+        </div>
+        <div class="card">
+          <div class="card-h"><div><h3>การบำรุงรักษา</h3><p>รายการที่จะถึงกำหนด</p></div></div>
+          <div class="list">
+            <div class="li"><div class="li-ico t-amber" data-icon="wrench"></div><div class="li-body"><strong>ตรวจเช็กระบบเบรกและยาง</strong><p>อีก 1,580 กม. หรือ 18 วัน</p></div></div>
+            <div class="li"><div class="li-ico t-blue" data-icon="shield"></div><div class="li-body"><strong>อัปเดตซอฟต์แวร์รถ (OTA)</strong><p>เวอร์ชันใหม่พร้อมติดตั้ง</p></div></div>
+            <div class="li"><div class="li-ico t-green" data-icon="battery"></div><div class="li-body"><strong>ตรวจสุขภาพแบตประจำปี</strong><p>ครบกำหนด ม.ค. 2027</p></div></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card flush">
+        <div class="card-h"><div><h3>ประวัติการเดินทาง</h3><p>5 ทริปล่าสุด</p></div><button class="btn btn-outline btn-sm" data-icon="download" data-size="15">ส่งออก</button></div>
+        <div class="table-wrap">
+          <table class="tbl">
+            <thead><tr><th>วันเวลา</th><th>ต้นทาง → ปลายทาง</th><th class="r">ระยะทาง</th><th class="r">เวลา</th><th class="r">พลังงาน</th><th class="r">kWh/100 กม.</th><th>แบต</th></tr></thead>
+            <tbody id="trips"></tbody>
+          </table>
+        </div>
+      </section>
+
+    </main>
+    <footer class="app-foot"><span>อัปเดตล่าสุด: วันนี้ 10:30 น.</span><span>© 2026 EV Monitor Dashboard</span></footer>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="data.js"></script>
+<script src="app.js"></script>
+<script>
+function init() {
+  const v = EV.vehicleById(qs("id")) || EV.vehicles[0];
+  const d = EV.driverById(v.driver);
+  document.title = `${v.id} — EV Monitor`;
+  document.querySelector(".top-title h1").textContent = `${v.id} · ${v.model}`;
+
+  const col = { good: COLORS.green, mid: COLORS.amber, bad: COLORS.red }[socClass(v.soc)];
+  const arc = document.getElementById("gArc");
+  arc.setAttribute("stroke", col);
+  requestAnimationFrame(() => { arc.style.transition = "stroke-dashoffset .8s ease"; arc.setAttribute("stroke-dashoffset", 377 * (1 - v.soc / 100)); });
+  document.getElementById("gVal").textContent = v.soc + "%";
+
+  document.getElementById("vTitle").innerHTML = `${v.model} <span class="tag">${v.plate}</span> ${statusBadge(v.status)}`;
+  document.getElementById("vSub").textContent = `คนขับ: ${d.name} · ตำแหน่ง: ${v.loc} · อัปเดต 1 นาทีที่แล้ว`;
+  document.getElementById("vFacts").innerHTML = [
+    ["ระยะวิ่งคงเหลือ", v.range + " กม."], ["ความเร็ว", v.speed + " กม./ชม."], ["สุขภาพแบต (SoH)", v.soh + "%"], ["ประสิทธิภาพ", v.eff + " kWh/100"],
+  ].map(([l, b]) => `<div class="v-fact"><span>${l}</span><b>${b}</b></div>`).join("");
+
+  document.getElementById("spec").innerHTML = [
+    ["รุ่น", v.model], ["ทะเบียน", v.plate], ["ความจุแบต", v.battery + " kWh"], ["พลังงานคงเหลือ", (v.battery * v.soc / 100).toFixed(1) + " kWh"],
+    ["SoH", v.soh + "%"], ["เลขไมล์", fmt(v.odo) + " กม."], ["หัวชาร์จ", "CCS2 / Type 2"], ["อุปกรณ์ติดตาม", "OBD-Link · ออนไลน์"],
+  ].map(([k, val]) => `<dt>${k}</dt><dd>${val}</dd>`).join("");
+
+  const sc = d.score >= 85 ? COLORS.green : d.score >= 70 ? COLORS.amber : COLORS.red;
+  document.getElementById("drv").innerHTML = `
+    <div class="driver-head"><span class="avatar">${d.name.slice(0, 2)}</span><div><strong>${d.name}</strong><small>${d.phone}</small></div>
+      <div class="ring" style="--v:${d.score};--c:${sc}" data-v="${d.score}"></div></div>
+    <div class="mini-stats"><div><b>${fmt(d.km)}</b><span>กม.</span></div><div><b>${d.trips}</b><span>ทริป</span></div><div><b>${d.events}</b><span>เหตุการณ์</span></div></div>
+    <a class="btn btn-outline btn-sm" href="drivers.html">ดูข้อมูลคนขับทั้งหมด</a>`;
+
+  // SoC 24h — สร้างข้อมูลจำลอง
+  const hours = Array.from({ length: 25 }, (_, i) => `${String(i).padStart(2, "0")}:00`);
+  let s = Math.max(20, v.soc - 30), soc = [];
+  for (let i = 0; i < 25; i++) {
+    if (i < 6) s = Math.min(95, s + 9);           // ชาร์จกลางคืน
+    else if (i < 12) s = Math.max(10, s - 4);
+    else if (i < 13) s = Math.min(95, s + 10);    // ชาร์จพักเที่ยง
+    else s = Math.max(10, s - 3.2);
+    soc.push(Math.round(s));
+  }
+  soc[24] = v.soc;
+  new Chart(document.getElementById("socChart"), {
+    type: "line",
+    data: { labels: hours, datasets: [{ label: "SoC %", data: soc, borderColor: COLORS.navy, backgroundColor: "rgba(11,37,69,.08)", fill: true, tension: .35, pointRadius: 0, borderWidth: 2 }] },
+    options: { plugins: { legend: { display: false } }, scales: { y: { min: 0, max: 100, ticks: { callback: x => x + "%" } }, x: { grid: { display: false }, ticks: { maxTicksLimit: 8 } } } },
+  });
+
+  document.getElementById("locText").textContent = v.loc;
+  const m = makeMap(document.getElementById("vmap"), { center: [v.lat, v.lng], level: 13, scroll: false });
+  if (m) {
+    vehicleMarker(v).addTo(m);
+    EV.stations.forEach(st => stationMarker(st).addTo(m).bindPopup(`<div class="pop"><strong>${st.name}</strong><br>${st.power}</div>`));
+  }
+
+  const places = ["Depot A", "นิมมานเหมินท์", "เซ็นทรัล เฟสติวัล", "สนามบินเชียงใหม่", "มช. (CMU)", "หางดง", "สันกำแพง"];
+  document.getElementById("trips").innerHTML = Array.from({ length: 5 }, (_, i) => {
+    const km = [18.4, 32.1, 9.7, 24.6, 41.2][i], kwh = +(km * v.eff / 100).toFixed(1);
+    return `<tr><td>${["วันนี้ 09:12", "วันนี้ 07:40", "เมื่อวาน 17:05", "เมื่อวาน 13:20", "เมื่อวาน 08:15"][i]}</td>
+      <td>${places[i]} → ${places[i + 1]}</td><td class="r">${km} กม.</td><td class="r">${[28, 46, 19, 37, 58][i]} นาที</td>
+      <td class="r">${kwh} kWh</td><td class="r">${v.eff}</td><td>${socBar([v.soc, 92, 64, 81, 95][i], 48)}</td></tr>`;
+  }).join("");
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>สถานะแบตเตอรี่ — EV Monitor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body data-page="battery" data-title="สถานะแบตเตอรี่" data-sub="ระดับแบต (SoC) สุขภาพแบต (SoH) และระยะวิ่งของทุกคัน">
+<div class="shell">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main">
+    <header class="topbar" id="topbar"></header>
+    <main class="content">
+
+      <section class="grid g-4 mb kpi-grid-2m" id="kpis"></section>
+
+      <section class="grid g-21 mb">
+        <div class="card">
+          <div class="card-h">
+            <div><h3>ระดับแบตเตอรี่รายคัน</h3><p>เรียงจากน้อยไปมาก — เส้นแดงคือเกณฑ์แจ้งเตือน 30%</p></div>
+            <div class="seg" id="metricSeg"><button class="active" data-k="soc">SoC %</button><button data-k="range">ระยะวิ่ง (กม.)</button></div>
+          </div>
+          <div class="chart lg"><canvas id="socBars"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-h"><div><h3>ต้องชาร์จเร็วที่สุด</h3><p>รถที่แบตต่ำกว่าเกณฑ์</p></div></div>
+          <div class="list" id="needCharge"></div>
+          <div class="divider"></div>
+          <div class="card-h" style="margin-bottom:12px"><div><h3>คำแนะนำ</h3></div></div>
+          <div class="list">
+            <div class="li"><div class="li-ico t-green" data-icon="bolt"></div><div class="li-body"><strong>ชาร์จนอกเวลา Peak</strong><p>ตั้งเวลาชาร์จ 22:00–09:00 ที่ Depot ประหยัดค่าไฟได้ราว 35% (อัตรา TOU)</p></div></div>
+            <div class="li"><div class="li-ico t-blue" data-icon="shield"></div><div class="li-body"><strong>รักษาแบตที่ 20–80%</strong><p>ช่วยยืดอายุแบต ใช้ชาร์จเต็ม 100% เฉพาะวันที่ต้องวิ่งไกล</p></div></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="grid g-2 mb">
+        <div class="card">
+          <div class="card-h"><div><h3>แนวโน้มสุขภาพแบต (SoH)</h3><p>ค่าเฉลี่ยกองยาน 12 เดือนล่าสุด</p></div></div>
+          <div class="chart"><canvas id="sohTrend"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-h"><div><h3>ระยะวิ่งที่ใช้งานได้ตามรุ่น</h3><p>ระยะเฉลี่ยจากแบต 100% เทียบสเปก</p></div></div>
+          <div class="chart"><canvas id="rangeModel"></canvas></div>
+        </div>
+      </section>
+
+      <section class="card flush">
+        <div class="card-h"><div><h3>รายละเอียดแบตเตอรี่</h3><p>ข้อมูลรายคัน</p></div></div>
+        <div class="table-wrap">
+          <table class="tbl">
+            <thead><tr><th>รถ</th><th>SoC</th><th class="r">พลังงานคงเหลือ</th><th class="r">ความจุ</th><th class="r">ระยะวิ่ง</th><th>SoH</th><th class="r">อุณหภูมิแบต</th><th>สถานะ</th></tr></thead>
+            <tbody id="rows"></tbody>
+          </table>
+        </div>
+      </section>
+
+    </main>
+    <footer class="app-foot"><span>อัปเดตล่าสุด: วันนี้ 10:30 น.</span><span>© 2026 EV Monitor Dashboard</span></footer>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="data.js"></script>
+<script src="app.js"></script>
+<script>
+function init() {
+  const V = EV.vehicles;
+  const avgSoc = Math.round(V.reduce((s, v) => s + v.soc, 0) / V.length);
+  const avgSoh = (V.reduce((s, v) => s + v.soh, 0) / V.length).toFixed(1);
+  const kwhLeft = V.reduce((s, v) => s + v.battery * v.soc / 100, 0);
+  const low = V.filter(v => v.soc < 30);
+  document.getElementById("kpis").innerHTML = [
+    ["แบตเฉลี่ย (SoC)", avgSoc, "%", "ทั้งกองยาน", "battery", "t-green"],
+    ["สุขภาพแบตเฉลี่ย (SoH)", avgSoh, "%", "ลดลง 0.4% ใน 3 เดือน", "shield", "t-blue"],
+    ["พลังงานคงเหลือรวม", fmt(kwhLeft), "kWh", `จากความจุ ${fmt(V.reduce((s, v) => s + v.battery, 0))} kWh`, "bolt", "t-amber"],
+    ["แบตต่ำกว่า 30%", low.length, "คัน", "ต้องวางแผนชาร์จ", "alert", "t-red"],
+  ].map(([l, v, u, n, i, t]) => `<div class="card kpi"><div class="kpi-ico ${t}">${icon(i, 22)}</div><div><div class="kpi-label">${l}</div><div class="kpi-value">${v}<small>${u}</small></div><div class="kpi-note">${n}</div></div></div>`).join("");
+
+  const sorted = [...V].sort((a, b) => a.soc - b.soc);
+  const colorOf = v => ({ good: COLORS.green, mid: COLORS.amber, bad: COLORS.red })[socClass(v.soc)];
+  const threshold = { id: "th", afterDatasetsDraw(c) {
+    if (c.$metric !== "soc") return;
+    const x = c.scales.x.getPixelForValue(30), { top, bottom } = c.chartArea, g = c.ctx;
+    g.save(); g.strokeStyle = COLORS.red; g.setLineDash([4, 4]); g.beginPath(); g.moveTo(x, top); g.lineTo(x, bottom); g.stroke(); g.restore();
+  } };
+  const bars = new Chart(document.getElementById("socBars"), {
+    type: "bar", plugins: [threshold],
+    data: { labels: sorted.map(v => `${v.id} · ${v.model}`), datasets: [{ data: sorted.map(v => v.soc), backgroundColor: sorted.map(colorOf), borderRadius: 4, barThickness: 14 }] },
+    options: { indexAxis: "y", plugins: { legend: { display: false } }, scales: { x: { min: 0, max: 100, ticks: { callback: x => x + "%" } }, y: { grid: { display: false } } } },
+  });
+  bars.$metric = "soc";
+  document.querySelectorAll("#metricSeg button").forEach(b => b.onclick = () => {
+    document.querySelectorAll("#metricSeg button").forEach(x => x.classList.toggle("active", x === b));
+    const k = b.dataset.k; bars.$metric = k;
+    bars.data.datasets[0].data = sorted.map(v => v[k]);
+    bars.data.datasets[0].backgroundColor = k === "soc" ? sorted.map(colorOf) : COLORS.navy;
+    bars.options.scales.x.max = k === "soc" ? 100 : undefined;
+    bars.options.scales.x.ticks.callback = k === "soc" ? x => x + "%" : x => x + " กม.";
+    bars.update();
+  });
+
+  document.getElementById("needCharge").innerHTML = low.map(v => {
+    const near = EV.stations.find(s => s.ports > s.busy);
+    return `<div class="li"><div class="li-ico t-red">${icon("battery", 18)}</div><div class="li-body"><strong>${v.id} · ${v.soc}%</strong><p>เหลือ ${v.range} กม. · ${v.loc}<br>สถานีแนะนำ: ${near.name}</p></div><a class="btn btn-outline btn-sm" href="vehicle.html?id=${v.id}">ดู</a></div>`;
+  }).join("");
+
+  const months = ["พ.ย.", "ธ.ค.", "ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค."];
+  new Chart(document.getElementById("sohTrend"), {
+    type: "line",
+    data: { labels: months, datasets: [{ label: "SoH เฉลี่ย", data: [97.6, 97.4, 97.3, 97.1, 96.9, 96.8, 96.6, 96.4, 96.2, 96.0, 95.9, +avgSoh], borderColor: COLORS.green, backgroundColor: "rgba(10,159,110,.08)", fill: true, tension: .35, pointRadius: 3, pointBackgroundColor: "#fff", borderWidth: 2 }] },
+    options: { plugins: { legend: { display: false } }, scales: { y: { min: 94, max: 98, ticks: { callback: x => x + "%" } }, x: { grid: { display: false } } } },
+  });
+
+  const models = [...new Set(V.map(v => v.model))];
+  const spec = { "BYD Dolphin": 410, "MG4 Electric": 350, "BYD Atto 3": 420, "Neta V": 384, "ORA Good Cat": 400, "BYD Seal": 510, "Tesla Model 3": 491, "MG ZS EV": 403 };
+  new Chart(document.getElementById("rangeModel"), {
+    type: "bar",
+    data: { labels: models, datasets: [
+      { label: "ใช้งานจริง", data: models.map(m => Math.round(spec[m] * 0.86)), backgroundColor: COLORS.navy, borderRadius: 4, maxBarThickness: 18 },
+      { label: "ตามสเปก", data: models.map(m => spec[m]), backgroundColor: "#C9D4E3", borderRadius: 4, maxBarThickness: 18 },
+    ] },
+    options: { plugins: { legend: { position: "bottom" } }, scales: { x: { grid: { display: false }, ticks: { maxRotation: 0, autoSkip: false, font: { size: 10 } } }, y: { ticks: { callback: x => x + " กม." } } } },
+  });
+
+  document.getElementById("rows").innerHTML = sorted.map(v => `
+    <tr><td><a class="veh" href="vehicle.html?id=${v.id}"><span class="veh-ico">${icon("battery", 18)}</span><span><strong>${v.id}</strong><small>${v.model}</small></span></a></td>
+      <td>${socBar(v.soc, 90)}</td><td class="r">${(v.battery * v.soc / 100).toFixed(1)} kWh</td><td class="r">${v.battery} kWh</td>
+      <td class="r">${v.range} กม.</td><td>${socBar(v.soh, 60)}</td><td class="r">${28 + (v.soc % 9)}°C</td><td>${statusBadge(v.status)}</td></tr>`).join("");
+}
+</script>
+</body>
+</html>
