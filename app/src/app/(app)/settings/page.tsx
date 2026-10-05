@@ -228,7 +228,7 @@ export default function SettingsPage() {
                   <tr key={u.email}>
                     <td>
                       <div className="veh">
-                        <span className="avatar" style={{ width: 34, height: 34, fontSize: 11, ...(u.color ? { background: u.color } : {}) }}>
+                        <span className="avatar avatar-sm" style={u.color ? { background: u.color } : undefined}>
                           {u.initials}
                         </span>
                         <span>
@@ -287,7 +287,7 @@ export default function SettingsPage() {
               </div>
               <div className="v-fact">
                 <span>อีเมล</span>
-                <b style={{ fontSize: 14 }}>support@evmonitor.co.th</b>
+                <b className="v-fact-text">support@evmonitor.co.th</b>
               </div>
               <div className="v-fact">
                 <span>เวอร์ชันระบบ</span>

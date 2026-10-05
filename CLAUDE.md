@@ -2,7 +2,9 @@
 
 ## สถานะโครงการ
 - ขั้นออกแบบเสร็จแล้ว: ต้นแบบ HTML/CSS/JS แบบคงที่ 12 หน้า อยู่ใน `design/prototype/`
-- ขั้นถัดไป: สร้างเป็นเว็บแอปจริงจากต้นแบบนี้ (ยังไม่มีโค้ดแอป)
+- เว็บแอปจริงอยู่ใน `app/` (Next.js) — เฟส 1–8 ของ HANDOFF เสร็จแล้ว ทุก route ใช้งานได้บนข้อมูล mock
+- ยังไม่ทำ (HANDOFF §4): modal/ฟอร์ม (เพิ่มรถ/คนขับ, เชิญผู้ใช้, ปรับเป้าหมายชาร์จ, หยุดชาร์จ), ส่งออก Excel/PDF จริง, เรียลไทม์, pagination, backend จริง (ตอนนี้ auth เป็น mock ใน `app/src/lib/auth.ts`)
+- รัน: `cd app && npm run dev` หรือ `docker compose up --build` (ต้องมี `.env` ที่มี `AUTH_SECRET` ดู `.env.example`)
 - สเปกการส่งต่องานแบบละเอียด: `design/HANDOFF.md` — **อ่านไฟล์นี้ก่อนเริ่มงานทุกครั้ง**
 
 ## แหล่งอ้างอิงหลัก (Source of truth)
@@ -11,10 +13,10 @@
 - โครงเมนู ไอคอน helper: `design/prototype/app.js` (`NAV`, `ICON_PATHS`, `STATUS`, `socClass`)
 - รูปแบบข้อมูลและข้อมูลตัวอย่าง: `design/prototype/data.js`
 
-## Stack ที่แนะนำ (เปลี่ยนได้ถ้าผู้ใช้สั่ง)
-- React 18 + Vite + TypeScript, React Router
-- กราฟ: Chart.js + react-chartjs-2 · แผนที่: Leaflet + react-leaflet (tiles: CARTO light_all)
-- สไตล์: ย้าย `style.css` มาเป็น global tokens + CSS Modules — **ไม่ใช้ Tailwind** เว้นแต่ผู้ใช้ขอ
+## Stack ที่ใช้จริง (ผู้ใช้สั่งเปลี่ยนจาก Vite เป็น Next.js)
+- Next.js 14 (App Router) + React 18 + TypeScript
+- กราฟ: Chart.js + react-chartjs-2 · แผนที่: Leaflet + react-leaflet (tiles: OpenStreetMap — CARTO ต้องใช้ API key)
+- สไตล์: `app/src/styles/tokens.css` (ตัวแปรทั้งหมด รวมสี/ขนาดฟอนต์ที่แตกออกจากต้นแบบ) + `global.css` (คลาสจากต้นแบบ) — **ไม่ใช้ Tailwind** เว้นแต่ผู้ใช้ขอ; ห้ามใส่ค่า hex/rgba/font-size ดิบนอก `tokens.css`
 - ข้อมูล: เลเยอร์ `src/api/` ที่ตอนแรกคืนค่า mock จาก `data.js` แล้วค่อยต่อ backend จริง
 
 ## กฎการทำงาน

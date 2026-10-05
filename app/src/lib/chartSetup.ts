@@ -49,7 +49,7 @@ export function setupChart() {
   Chart.defaults.plugins.tooltip.backgroundColor = c.ink
   Chart.defaults.plugins.tooltip.padding = 10
   Chart.defaults.plugins.tooltip.cornerRadius = 6
-  Chart.defaults.scale.grid.color = '#E6EBF1' // กริดตาม HANDOFF
+  Chart.defaults.scale.grid.color = cssVar('--chart-grid')
   // typings ของ Chart.js ไม่มี border บน defaults.scale แต่ค่านี้มีอยู่จริงตอนรัน
   ;(Chart.defaults.scale as unknown as { border: { display: boolean } }).border.display = false
   Chart.defaults.maintainAspectRatio = false

@@ -67,7 +67,7 @@ export default function MapPage() {
     <div className="map-page">
       <aside className="map-side">
         <div className="map-side-h">
-          <SearchInput value={q} onChange={setQ} placeholder="ค้นหารถหรือคนขับ" fill />
+          <SearchInput value={q} onChange={setQ} placeholder="ค้นหารถหรือคนขับ" minWidth={0} />
           <Chips options={CHIPS} value={filter} onChange={setFilter} />
         </div>
         <div className="map-list">

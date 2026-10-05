@@ -12,17 +12,19 @@ export function LinkButton({
   variant = 'outline',
   size = 'sm',
   icon,
+  iconSize = 15,
   children,
 }: {
   href: string
   variant?: Variant
   size?: Size
   icon?: IconName
+  iconSize?: number
   children: ReactNode
 }) {
   return (
     <Link className={cls(variant, size)} href={href}>
-      {icon && <Icon name={icon} size={15} />}
+      {icon && <Icon name={icon} size={iconSize} />}
       {children}
     </Link>
   )

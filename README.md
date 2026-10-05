@@ -22,4 +22,6 @@ docker compose up --build   # http://localhost:3000
 
 ## สถานะ
 
-เฟส 1–3 เสร็จ (Setup, Shell, Mock API) และหน้า Dashboard เสร็จแล้ว หน้าอื่นเป็น placeholder
+เฟส 1–8 เสร็จ: ทุกหน้าในต้นแบบใช้งานได้บนข้อมูล mock (ดูรายการที่ยังไม่ทำใน CLAUDE.md)
+
+เข้าสู่ระบบเดโม: ดู `app/src/lib/auth.ts` (ต้องตั้ง `AUTH_SECRET` ใน `.env` — ดู `.env.example`)

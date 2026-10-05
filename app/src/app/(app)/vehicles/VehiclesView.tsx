@@ -50,7 +50,7 @@ export function VehiclesView() {
   const [sort, setSort] = useState<Sort>('id')
 
   const vehicles = data?.vehicles
-  const drivers: Driver[] = data?.drivers ?? []
+  const drivers = useMemo<Driver[]>(() => data?.drivers ?? [], [data])
   const driverName = (id: string) => drivers.find((d) => d.id === id)?.name ?? '-'
 
   const list = useMemo(() => {
@@ -81,7 +81,7 @@ export function VehiclesView() {
 
   return (
     <>
-      <section className="grid g-4 mb kpi-grid-2m">
+      <section className="grid g-4 mb kpi-grid-2m kpi-stack-m">
         <KpiCard label="รถไฟฟ้าทั้งหมด" value={vehicles.length} unit="คัน" note={`${brands} ยี่ห้อ ${models} รุ่น`} icon="car" tone="navy" />
         <KpiCard label="ระยะวิ่งคงเหลือรวม" value={fmt(vehicles.reduce((s, v) => s + v.range, 0))} unit="กม." note="จากแบตปัจจุบัน" icon="route" tone="blue" />
         <KpiCard label="สุขภาพแบตเฉลี่ย (SoH)" value={avgSoh} unit="%" note="อยู่ในเกณฑ์ดี" icon="shield" tone="green" />

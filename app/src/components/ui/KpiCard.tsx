@@ -33,7 +33,7 @@ export function KpiCard({
           {value}
           <small>{unit}</small>
         </div>
-        <div className={`kpi-note ${noteClass}`.trim()}>{note}</div>
+        {note !== '' && <div className={`kpi-note ${noteClass}`.trim()}>{note}</div>}
       </div>
     </Card>
   )

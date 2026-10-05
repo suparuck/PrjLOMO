@@ -109,7 +109,7 @@ function EnergyPanel({ r }: { r: Report }) {
   const t = r.totals
   return (
     <>
-      <section className="grid g-4 mb kpi-grid-2m">
+      <section className="grid g-4 mb kpi-grid-2m kpi-stack-m">
         <KpiCard
           label="พลังงานรวม"
           value={fmt(t.kwh)}
@@ -145,7 +145,7 @@ function CarbonPanel({ r }: { r: Report }) {
   const c = r.carbon
   return (
     <>
-      <section className="grid g-4 mb kpi-grid-2m">
+      <section className="grid g-4 mb kpi-grid-2m kpi-stack-m">
         <KpiCard label="CO₂ ที่ลดได้" value={c.avoidedTons} unit="ตัน" note="เทียบรถน้ำมันระยะเท่ากัน" icon="leaf" tone="green" />
         <KpiCard label="การปล่อยจากไฟฟ้า" value={c.gridTons} unit="ตัน" note={`ค่าการปล่อยกริด ${c.gridFactor.toFixed(2)} kgCO₂/kWh`} icon="globe" tone="blue" />
         <KpiCard label="เทียบเท่าปลูกต้นไม้" value={fmt(c.trees)} unit="ต้น" note={`ดูดซับ ${c.treeKgPerYear} kg/ต้น/ปี`} icon="leaf" tone="amber" />

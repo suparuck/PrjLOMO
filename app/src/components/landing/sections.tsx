@@ -74,7 +74,7 @@ export function Hero({ vehicles, monthCo2 }: { vehicles: Vehicle[]; monthCo2: nu
             <a className="btn btn-primary btn-lg" href="#demo">
               นัดคุยกับผู้เชี่ยวชาญ EV
             </a>
-            <LinkButton href="/dashboard" variant="light" size="lg" icon="dashboard">
+            <LinkButton href="/dashboard" variant="light" size="lg" icon="dashboard" iconSize={18}>
               ดูตัวอย่างแดชบอร์ด
             </LinkButton>
           </div>
@@ -376,7 +376,7 @@ export function Faq() {
           {FAQ.map(([q, a], i) => (
             <details key={q} open={i === 0}>
               <summary>
-                {q} <Icon name="chevron" />
+                {q} <span><Icon name="chevron" /></span>
               </summary>
               <p>{a}</p>
             </details>

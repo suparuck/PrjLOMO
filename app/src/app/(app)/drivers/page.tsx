@@ -53,7 +53,7 @@ export default function DriversPage() {
             sub="คะแนน Eco-Driving 30 วันล่าสุด"
             actions={
               <div className="card-tools">
-                <SearchInput value={q} onChange={setQ} placeholder="ค้นหาคนขับ" />
+                <SearchInput value={q} onChange={setQ} placeholder="ค้นหาคนขับ" minWidth={200} />
                 <button className="btn btn-primary btn-sm">
                   <Icon name="plus" size={15} />
                   เพิ่มคนขับ
@@ -87,7 +87,7 @@ export default function DriversPage() {
                         </td>
                         <td>
                           <div className="veh">
-                            <span className="avatar" style={{ width: 34, height: 34, fontSize: 11 }}>
+                            <span className="avatar avatar-sm">
                               {d.name.slice(0, 2)}
                             </span>
                             <span>

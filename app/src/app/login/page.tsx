@@ -14,7 +14,7 @@ export default async function LoginPage() {
   return (
     <div className="auth">
       <aside className="auth-art">
-        <Link className="brand" href="/" style={{ border: 0, padding: 0 }}>
+        <Link className="brand" href="/">
           <span className="brand-mark">
             <Icon name="bolt" size={20} />
           </span>
@@ -27,19 +27,19 @@ export default async function LoginPage() {
           <h2>ทุกคันในกองยาน EV ของคุณ อยู่ในสายตาตลอดเวลา</h2>
           <p>ติดตามแบตเตอรี่ การชาร์จ และตำแหน่งแบบเรียลไทม์ พร้อมรายงานต้นทุนและคาร์บอนในที่เดียว</p>
           <div className="grid g-2" style={{ marginTop: 32, maxWidth: 460 }}>
-            <div className="mock-kpi" style={{ background: 'rgba(255,255,255,.06)', borderColor: 'rgba(255,255,255,.1)' }}>
-              <span style={{ color: 'var(--faint)' }}>รถออนไลน์ตอนนี้</span>
-              <b style={{ color: '#fff' }}>
+            <div className="mock-kpi">
+              <span>รถออนไลน์ตอนนี้</span>
+              <b>
                 {online} / {vehicles.length}
               </b>
             </div>
-            <div className="mock-kpi" style={{ background: 'rgba(255,255,255,.06)', borderColor: 'rgba(255,255,255,.1)' }}>
-              <span style={{ color: 'var(--faint)' }}>กำลังชาร์จ</span>
-              <b style={{ color: 'var(--green)' }}>{sessions.length} คัน</b>
+            <div className="mock-kpi">
+              <span>กำลังชาร์จ</span>
+              <b className="accent">{sessions.length} คัน</b>
             </div>
           </div>
         </div>
-        <p className="small" style={{ color: 'var(--faint)' }}>
+        <p className="small foot-note">
           © 2026 EV Monitor · เชียงใหม่
         </p>
       </aside>
