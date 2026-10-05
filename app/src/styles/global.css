@@ -557,3 +557,22 @@ html { scroll-behavior: smooth; }
 @media (max-width: 640px) {
   .kpi-stack-m .kpi { flex-direction: column; gap: 10px; }
 }
+
+/* ===== Modal / ฟอร์ม / Toast (เฟสโมดัล) — ใช้เฉพาะ token ===== */
+.modal-scrim { position: fixed; inset: 0; z-index: 100; background: var(--a-rgb-6-20-40-45); display: grid; place-items: center; padding: 16px; overflow-y: auto; }
+.modal { background: var(--card); border-radius: var(--r-lg); box-shadow: var(--shadow-lg); width: 100%; max-width: 560px; max-height: calc(100vh - 32px); display: flex; flex-direction: column; outline: none; }
+.modal.sm { max-width: 420px; }
+.modal-h { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 20px 22px 0; }
+.modal-h h3 { font-size: var(--fs-18); }
+.modal-h p { font-size: var(--fs-12-5); color: var(--muted); margin-top: 2px; }
+.modal-b { padding: 18px 22px; overflow-y: auto; }
+.modal-f { display: flex; justify-content: flex-end; gap: 10px; padding: 14px 22px; border-top: 1px solid var(--line); }
+.field-error { font-size: var(--fs-12); color: var(--danger); }
+.input[aria-invalid="true"], .select[aria-invalid="true"] { border-color: var(--danger); }
+.btn-danger { background: var(--danger); color: var(--white); }
+.btn-danger:hover { background: var(--red-600); }
+.btn:disabled { opacity: .55; cursor: not-allowed; }
+.form-stack { display: grid; gap: 16px; }
+.toast-stack { position: fixed; right: 16px; bottom: 16px; z-index: 110; display: flex; flex-direction: column; gap: 8px; max-width: calc(100vw - 32px); }
+.toast { background: var(--ink); color: var(--white); padding: 12px 14px; border-radius: var(--r); box-shadow: var(--shadow-lg); font-size: var(--fs-13); display: flex; gap: 10px; align-items: flex-start; }
+.toast.error { background: var(--danger); }

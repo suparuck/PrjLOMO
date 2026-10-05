@@ -1,7 +1,8 @@
 import { delay } from './delay'
 import * as db from './mockData'
 import { computeElectrification, computeReport } from './report'
-import type { AppUser, Integration, ReportFilters, Settings, BatteryInsights, ChargingLoad, DriverEventStat, EnergySummary, MaintenanceItem, Sustainability, Vehicle, VehicleDetail, VehicleTrip } from '../types'
+import * as mut from './mutations'
+import type { AppUser, InviteUserDraft, NewDriverDraft, NewVehicleDraft, Integration, ReportFilters, Settings, BatteryInsights, ChargingLoad, DriverEventStat, EnergySummary, MaintenanceItem, Sustainability, Vehicle, VehicleDetail, VehicleTrip } from '../types'
 
 const PLACES = ['Depot A', 'นิมมานเหมินท์', 'เซ็นทรัล เฟสติวัล', 'สนามบินเชียงใหม่', 'มช. (CMU)', 'หางดง', 'สันกำแพง']
 
@@ -134,5 +135,12 @@ export const api = {
     return delay(db.settings)
   },
   listUsers: (): Promise<AppUser[]> => delay(db.users),
+
+  // ---- การเขียนข้อมูล (ดู mutations.ts) ----
+  addVehicle: (d: NewVehicleDraft) => delay(mut.addVehicle(d), 200),
+  addDriver: (d: NewDriverDraft) => delay(mut.addDriver(d), 200),
+  inviteUser: (d: InviteUserDraft) => delay(mut.inviteUser(d), 200),
+  setChargingTarget: (vehicleId: string, target: number) => delay(mut.setChargingTarget(vehicleId, target), 200),
+  stopCharging: (vehicleId: string) => delay(mut.stopCharging(vehicleId), 200),
   listIntegrations: (): Promise<Integration[]> => delay(db.integrations),
 }

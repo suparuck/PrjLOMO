@@ -214,6 +214,33 @@ export interface Settings {
   charging: { tariff: string; offPeak: string; onPeak: string; defaultTarget: string; smartSchedule: boolean; demandLimit: boolean }
 }
 
+/** ผลลัพธ์ของการเขียนข้อมูล: สำเร็จ หรือคืนข้อความผิดพลาดรายฟิลด์ (key '_' = ข้อผิดพลาดทั่วไป) */
+export type Result<T> = { ok: true; data: T } | { ok: false; errors: Record<string, string> }
+
+export type UserRole = 'admin' | 'manager' | 'viewer'
+
+/** ค่าจากฟอร์มเพิ่มรถ (ทุกฟิลด์เป็น string ตามที่ผู้ใช้พิมพ์) */
+export interface NewVehicleDraft {
+  id: string
+  model: string
+  plate: string
+  driverId: string
+  batteryKwh: string
+  soc: string
+  odometer: string
+}
+
+export interface NewDriverDraft {
+  name: string
+  phone: string
+  vehicleId: string
+}
+
+export interface InviteUserDraft {
+  email: string
+  role: UserRole | ''
+}
+
 export interface AppUser {
   name: string
   email: string

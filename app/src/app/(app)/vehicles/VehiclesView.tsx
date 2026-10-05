@@ -12,6 +12,8 @@ import { KpiCard } from '@/components/ui/KpiCard'
 import { Chips } from '@/components/ui/Chips'
 import { SearchInput } from '@/components/ui/SearchInput'
 import { SocBar } from '@/components/ui/SocBar'
+import { AddVehicleModal } from '@/components/modals/AddVehicleModal'
+import { useToast } from '@/components/ui/Toast'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import type { Driver, Vehicle, VehicleStatus } from '@/types'
 
@@ -44,7 +46,9 @@ function exportCsv(list: Vehicle[], driverName: (id: string) => string) {
 }
 
 export function VehiclesView() {
-  const { data } = useAsync(load)
+  const { data, reload } = useAsync(load)
+  const toast = useToast()
+  const [adding, setAdding] = useState(false)
   const [filter, setFilter] = useState<Filter>('all')
   const [q, setQ] = useState(useSearchParams()?.get('q') ?? '')
   const [sort, setSort] = useState<Sort>('id')
@@ -104,7 +108,7 @@ export function VehiclesView() {
                 <Icon name="download" size={16} />
                 ส่งออก
               </button>
-              <button className="btn btn-primary">
+              <button type="button" className="btn btn-primary" onClick={() => setAdding(true)}>
                 <Icon name="plus" size={16} />
                 เพิ่มรถ
               </button>
@@ -180,6 +184,19 @@ export function VehiclesView() {
           </div>
         </div>
       </section>
+
+      {adding && (
+        <AddVehicleModal
+          vehicles={vehicles}
+          drivers={drivers}
+          onClose={() => setAdding(false)}
+          onDone={(v) => {
+            setAdding(false)
+            reload()
+            toast(`เพิ่มรถ ${v.id} (${v.model}) แล้ว`)
+          }}
+        />
+      )}
     </>
   )
 }

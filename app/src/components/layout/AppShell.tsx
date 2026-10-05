@@ -9,6 +9,7 @@ import { Topbar } from './Topbar'
 import { PAGE_META } from './navConfig'
 import { PageHeaderSetter, type PageHeader } from './PageHeader'
 import { AlertsProvider, useAlerts } from './AlertsProvider'
+import { ToastProvider } from '@/components/ui/Toast'
 
 /** หน้าที่ใช้พื้นที่เต็มจอ (ไม่มี padding และ footer) */
 const FULL_BLEED = ['/map']
@@ -16,7 +17,9 @@ const FULL_BLEED = ['/map']
 export function AppShell({ children }: { children: ReactNode }) {
   return (
     <AlertsProvider>
-      <Shell>{children}</Shell>
+      <ToastProvider>
+        <Shell>{children}</Shell>
+      </ToastProvider>
     </AlertsProvider>
   )
 }

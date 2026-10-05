@@ -7,6 +7,8 @@ import { Card, CardHeader } from '@/components/ui/Card'
 import { Icon, type IconName } from '@/components/ui/Icon'
 import { RangeField } from '@/components/ui/RangeField'
 import { Switch } from '@/components/ui/Switch'
+import { InviteUserModal } from '@/components/modals/InviteUserModal'
+import { useToast } from '@/components/ui/Toast'
 import type { Settings } from '@/types'
 
 const SECTIONS: { id: string; label: string; icon: IconName }[] = [
@@ -22,8 +24,8 @@ const SECTIONS: { id: string; label: string; icon: IconName }[] = [
 const anchor = { scrollMarginTop: 96 }
 
 async function load() {
-  const [settings, users, integrations] = await Promise.all([api.getSettings(), api.listUsers(), api.listIntegrations()])
-  return { settings, users, integrations }
+  const [settings, integrations] = await Promise.all([api.getSettings(), api.listIntegrations()])
+  return { settings, integrations }
 }
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
@@ -49,6 +51,10 @@ function SetRow({ title, text, checked, onChange }: { title: string; text: strin
 
 export default function SettingsPage() {
   const { data } = useAsync(load)
+  // แยกจาก settings: เชิญผู้ใช้แล้วโหลดเฉพาะรายชื่อ ไม่ทับค่าที่ผู้ใช้กำลังแก้ในฟอร์ม
+  const { data: users, reload: reloadUsers } = useAsync(() => api.listUsers())
+  const toast = useToast()
+  const [inviting, setInviting] = useState(false)
   const [saved, setSaved] = useState<Settings | null>(null)
   const [form, setForm] = useState<Settings | null>(null)
   const [justSaved, setJustSaved] = useState(false)
@@ -92,7 +98,7 @@ export default function SettingsPage() {
     }
   }, [ready])
 
-  if (!form || !saved || !data) return <div className="muted">กำลังโหลดข้อมูล…</div>
+  if (!form || !saved || !data || !users) return <div className="muted">กำลังโหลดข้อมูล…</div>
 
   const dirty = JSON.stringify(form) !== JSON.stringify(saved)
   const patch = <K extends keyof Settings>(key: K, v: Partial<Settings[K]>) => {
@@ -206,7 +212,7 @@ export default function SettingsPage() {
             title="ผู้ใช้และสิทธิ์"
             sub="กำหนดบทบาทการเข้าถึงข้อมูล"
             actions={
-              <button className="btn btn-primary btn-sm">
+              <button type="button" className="btn btn-primary btn-sm" onClick={() => setInviting(true)}>
                 <Icon name="plus" size={15} />
                 เชิญผู้ใช้
               </button>
@@ -224,7 +230,7 @@ export default function SettingsPage() {
                 </tr>
               </thead>
               <tbody>
-                {data.users.map((u) => (
+                {users.map((u) => (
                   <tr key={u.email}>
                     <td>
                       <div className="veh">
@@ -313,6 +319,18 @@ export default function SettingsPage() {
           </button>
         </div>
       </div>
+
+      {inviting && (
+        <InviteUserModal
+          users={users}
+          onClose={() => setInviting(false)}
+          onDone={(u) => {
+            setInviting(false)
+            reloadUsers()
+            toast(`บันทึกคำเชิญถึง ${u.email} แล้ว (ยังไม่ได้ส่งอีเมลจริง)`)
+          }}
+        />
+      )}
     </div>
   )
 }

@@ -1,0 +1,121 @@
+/**
+ * ตรวจสอบข้อมูลฟอร์ม — ใช้ทั้งฝั่งฟอร์ม (แจ้งผิดทันที) และฝั่ง API (ตัดสินจริง)
+ * ทุกฟังก์ชันคืน { errors, value } โดย value เป็นข้อมูลที่ปรับรูปแบบแล้ว (ว่างถ้ามี error)
+ */
+import type { InviteUserDraft, NewDriverDraft, NewVehicleDraft, UserRole } from '@/types'
+
+export type Errors = Record<string, string>
+
+export const USER_ROLES: Record<UserRole, { label: string; badge: string; permissions: string }> = {
+  admin: { label: 'ผู้ดูแลระบบ', badge: 's-driving', permissions: 'ทั้งหมด' },
+  manager: { label: 'ผู้จัดการกองยาน', badge: 's-charging', permissions: 'รถ คนขับ รายงาน' },
+  viewer: { label: 'ผู้ดูรายงาน', badge: 's-parked', permissions: 'รายงานเท่านั้น' },
+}
+
+export const normalizeVehicleId = (s: string) => s.trim().toUpperCase()
+/** ทะเบียนไทย: ให้มีช่องว่างระหว่างอักษรกับเลข เช่น "1กข1234" → "1กข 1234" */
+export const normalizePlate = (s: string) => s.trim().replace(/\s+/g, ' ').replace(/([ก-ฮ])\s*([0-9])/, '$1 $2')
+export const normalizePhone = (s: string) => {
+  const d = s.replace(/\D/g, '')
+  return d.length === 10 ? `${d.slice(0, 3)}-${d.slice(3, 6)}-${d.slice(6)}` : s.trim()
+}
+export const normalizeEmail = (s: string) => s.trim().toLowerCase()
+
+const PLATE_RE = /^[0-9]{0,2}[ก-ฮ]{1,3} [0-9]{1,4}$/
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
+
+/** แปลงข้อความตัวเลข: คืน NaN ถ้าไม่ใช่ตัวเลขล้วน (อนุญาตทศนิยมเมื่อ allowDecimal) */
+function parseNum(s: string, allowDecimal = false) {
+  const t = s.trim().replace(/,/g, '')
+  const re = allowDecimal ? /^\d+(\.\d+)?$/ : /^\d+$/
+  return re.test(t) ? Number(t) : NaN
+}
+
+export function validateNewVehicle(
+  d: NewVehicleDraft,
+  ctx: { ids: string[]; plates: string[]; freeDriverIds: string[] },
+): { errors: Errors; value?: { id: string; model: string; plate: string; driverId: string; batteryKwh: number; soc: number; odometer: number } } {
+  const errors: Errors = {}
+  const id = normalizeVehicleId(d.id)
+  const model = d.model.trim()
+  const plate = normalizePlate(d.plate)
+  const batteryKwh = parseNum(d.batteryKwh, true)
+  const soc = parseNum(d.soc)
+  const odometer = parseNum(d.odometer)
+
+  if (!id) errors.id = 'กรุณากรอกรหัสรถ'
+  else if (!/^EV-\d{3,4}$/.test(id)) errors.id = 'รูปแบบรหัสรถคือ EV- ตามด้วยเลข 3–4 หลัก เช่น EV-013'
+  else if (ctx.ids.includes(id)) errors.id = 'รหัสรถนี้มีอยู่แล้ว'
+
+  if (!model) errors.model = 'กรุณากรอกรุ่นรถ'
+  else if (model.length > 40) errors.model = 'รุ่นรถต้องไม่เกิน 40 ตัวอักษร'
+
+  if (!plate) errors.plate = 'กรุณากรอกทะเบียนรถ'
+  else if (!PLATE_RE.test(plate)) errors.plate = 'รูปแบบทะเบียนไม่ถูกต้อง เช่น 1กข 1234'
+  else if (ctx.plates.map(normalizePlate).includes(plate)) errors.plate = 'ทะเบียนนี้มีอยู่แล้ว'
+
+  if (Number.isNaN(batteryKwh)) errors.batteryKwh = 'กรุณากรอกความจุแบตเป็นตัวเลข'
+  else if (batteryKwh < 10 || batteryKwh > 200) errors.batteryKwh = 'ความจุแบตต้องอยู่ระหว่าง 10–200 kWh'
+
+  if (Number.isNaN(soc)) errors.soc = 'กรุณากรอกระดับแบตเป็นตัวเลข'
+  else if (soc > 100) errors.soc = 'ระดับแบตต้องอยู่ระหว่าง 0–100%'
+
+  if (Number.isNaN(odometer)) errors.odometer = 'กรุณากรอกเลขไมล์เป็นตัวเลข'
+  else if (odometer > 999999) errors.odometer = 'เลขไมล์ต้องไม่เกิน 999,999 กม.'
+
+  if (d.driverId && !ctx.freeDriverIds.includes(d.driverId)) errors.driverId = 'คนขับคนนี้ไม่ว่างหรือไม่มีในระบบ'
+
+  return Object.keys(errors).length ? { errors } : { errors, value: { id, model, plate, driverId: d.driverId, batteryKwh, soc, odometer } }
+}
+
+export function validateNewDriver(
+  d: NewDriverDraft,
+  ctx: { phones: string[]; freeVehicleIds: string[] },
+): { errors: Errors; value?: { name: string; phone: string; vehicleId: string } } {
+  const errors: Errors = {}
+  const name = d.name.trim().replace(/\s+/g, ' ')
+  const phone = normalizePhone(d.phone)
+
+  if (!name) errors.name = 'กรุณากรอกชื่อ-นามสกุล'
+  else if (name.length < 2 || name.length > 60) errors.name = 'ชื่อต้องยาว 2–60 ตัวอักษร'
+
+  if (!d.phone.trim()) errors.phone = 'กรุณากรอกเบอร์โทร'
+  else if (!/^0\d{2}-\d{3}-\d{4}$/.test(phone)) errors.phone = 'เบอร์โทรต้องเป็นตัวเลข 10 หลักขึ้นต้นด้วย 0 เช่น 081-234-5678'
+  else if (ctx.phones.map(normalizePhone).includes(phone)) errors.phone = 'เบอร์โทรนี้ถูกใช้แล้ว'
+
+  if (d.vehicleId && !ctx.freeVehicleIds.includes(d.vehicleId)) errors.vehicleId = 'รถคันนี้มีคนขับประจำแล้วหรือไม่มีในระบบ'
+
+  return Object.keys(errors).length ? { errors } : { errors, value: { name, phone, vehicleId: d.vehicleId } }
+}
+
+export function validateInvite(
+  d: InviteUserDraft,
+  ctx: { emails: string[] },
+): { errors: Errors; value?: { email: string; role: UserRole } } {
+  const errors: Errors = {}
+  const email = normalizeEmail(d.email)
+
+  if (!email) errors.email = 'กรุณากรอกอีเมล'
+  else if (!EMAIL_RE.test(email)) errors.email = 'รูปแบบอีเมลไม่ถูกต้อง'
+  else if (ctx.emails.map(normalizeEmail).includes(email)) errors.email = 'อีเมลนี้อยู่ในระบบแล้ว'
+
+  if (!d.role || !(d.role in USER_ROLES)) errors.role = 'กรุณาเลือกบทบาท'
+
+  return Object.keys(errors).length ? { errors } : { errors, value: { email, role: d.role as UserRole } }
+}
+
+export function validateChargingTarget(target: number, nowSoc: number): string | null {
+  if (!Number.isInteger(target)) return 'เป้าหมายต้องเป็นจำนวนเต็ม'
+  if (target > 100) return 'เป้าหมายต้องไม่เกิน 100%'
+  if (target < nowSoc) return `เป้าหมายต้องไม่ต่ำกว่าระดับแบตปัจจุบัน (${nowSoc}%)`
+  return null
+}
+
+/** นาที → ข้อความไทย เช่น 18 → "18 นาที", 130 → "2 ชม. 10 นาที" */
+export function formatDuration(mins: number): string {
+  const m = Math.max(0, Math.round(mins))
+  if (m < 60) return `${m} นาที`
+  const h = Math.floor(m / 60)
+  const r = m % 60
+  return r ? `${h} ชม. ${r} นาที` : `${h} ชม.`
+}

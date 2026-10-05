@@ -10,6 +10,8 @@ import { Icon } from '@/components/ui/Icon'
 import { KpiCard } from '@/components/ui/KpiCard'
 import { ScoreRing } from '@/components/ui/ScoreRing'
 import { SearchInput } from '@/components/ui/SearchInput'
+import { AddDriverModal } from '@/components/modals/AddDriverModal'
+import { useToast } from '@/components/ui/Toast'
 import { DriverEventsDonut } from '@/components/charts/DriverEventsDonut'
 import type { Vehicle } from '@/types'
 
@@ -21,15 +23,19 @@ async function load() {
 }
 
 export default function DriversPage() {
-  const { data } = useAsync(load)
+  const { data, reload } = useAsync(load)
+  const toast = useToast()
+  const [adding, setAdding] = useState(false)
   const [q, setQ] = useState('')
   if (!data) return <div className="muted">กำลังโหลดข้อมูล…</div>
 
   const { drivers: D, vehicles, events } = data
   const vehOf = (driverId: string): Vehicle | undefined => vehicles.find((v) => v.driverId === driverId)
-  const ranked = [...D].sort((a, b) => b.score - a.score)
-  const avg = Math.round(D.reduce((s, d) => s + d.score, 0) / D.length)
-  const good = D.filter((d) => d.score >= 85).length
+  // คนขับที่ยังไม่มีทริปไม่มีคะแนน: ไม่นับในค่าเฉลี่ยและอันดับ (แสดงท้ายตาราง)
+  const scored = D.filter((d) => d.trips > 0)
+  const ranked = [...scored].sort((a, b) => b.score - a.score).concat(D.filter((d) => d.trips === 0))
+  const avg = scored.length ? Math.round(scored.reduce((s, d) => s + d.score, 0) / scored.length) : 0
+  const good = scored.filter((d) => d.score >= 85).length
   const totalKm = D.reduce((s, d) => s + d.km, 0)
   const working = D.filter((d) => {
     const v = vehOf(d.id)
@@ -54,7 +60,7 @@ export default function DriversPage() {
             actions={
               <div className="card-tools">
                 <SearchInput value={q} onChange={setQ} placeholder="ค้นหาคนขับ" minWidth={200} />
-                <button className="btn btn-primary btn-sm">
+                <button type="button" className="btn btn-primary btn-sm" onClick={() => setAdding(true)}>
                   <Icon name="plus" size={15} />
                   เพิ่มคนขับ
                 </button>
@@ -83,7 +89,7 @@ export default function DriversPage() {
                     return (
                       <tr key={d.id}>
                         <td>
-                          <span className={`pill-num${i < 3 ? ' gold' : ''}`}>{i + 1}</span>
+                          <span className={`pill-num${d.trips > 0 && i < 3 ? ' gold' : ''}`}>{d.trips > 0 ? i + 1 : '–'}</span>
                         </td>
                         <td>
                           <div className="veh">
@@ -107,7 +113,7 @@ export default function DriversPage() {
                           )}
                         </td>
                         <td className="r">
-                          <span className={`score ${scoreClass(d.score)}`}>{d.score}</span>
+                          {d.trips > 0 ? <span className={`score ${scoreClass(d.score)}`}>{d.score}</span> : <span className="muted">–</span>}
                         </td>
                         <td className="r">{fmt(d.km)} กม.</td>
                         <td className="r">{v?.efficiency ?? '-'}</td>
@@ -143,11 +149,11 @@ export default function DriversPage() {
               <div className="top">
                 <span>คนขับที่คะแนน ≥ 85</span>
                 <b>
-                  {good}/{D.length} คน
+                  {good}/{scored.length} คน
                 </b>
               </div>
               <div className="bar">
-                <div className="bar-fill" style={{ width: `${(good / D.length) * 100}%` }} />
+                <div className="bar-fill" style={{ width: `${scored.length ? (good / scored.length) * 100 : 0}%` }} />
               </div>
             </div>
           </div>
@@ -170,7 +176,7 @@ export default function DriversPage() {
                     <strong>{d.name}</strong>
                     <small>{v ? `${v.id} · ${v.model}` : 'ยังไม่มีรถประจำ'}</small>
                   </div>
-                  <ScoreRing score={d.score} />
+                  <ScoreRing score={d.trips > 0 ? d.score : null} />
                 </div>
                 <div className="mini-stats">
                   <div>
@@ -191,6 +197,19 @@ export default function DriversPage() {
           })}
         </div>
       </section>
+
+      {adding && (
+        <AddDriverModal
+          drivers={D}
+          vehicles={vehicles}
+          onClose={() => setAdding(false)}
+          onDone={(d) => {
+            setAdding(false)
+            reload()
+            toast(`เพิ่มคนขับ ${d.name} แล้ว`)
+          }}
+        />
+      )}
     </>
   )
 }

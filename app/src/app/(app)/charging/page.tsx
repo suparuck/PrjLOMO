@@ -12,6 +12,10 @@ import { Segmented } from '@/components/ui/Segmented'
 import { ChargingSessionCard } from '@/components/domain/ChargingSessionCard'
 import { StationCard } from '@/components/domain/StationCard'
 import { ChargingLoadChart } from '@/components/charts/ChargingLoadChart'
+import { ChargingTargetModal } from '@/components/modals/ChargingTargetModal'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { useToast } from '@/components/ui/Toast'
+import type { ChargingSession } from '@/types'
 
 async function load() {
   const [vehicles, stations, sessions, history, loadKw] = await Promise.all([
@@ -27,7 +31,10 @@ async function load() {
 type StationFilter = 'all' | 'depot' | 'public'
 
 export default function ChargingPage() {
-  const { data } = useAsync(load)
+  const { data, reload } = useAsync(load)
+  const toast = useToast()
+  const [adjusting, setAdjusting] = useState<ChargingSession | null>(null)
+  const [stopping, setStopping] = useState<ChargingSession | null>(null)
   const [stFilter, setStFilter] = useState<StationFilter>('all')
   if (!data) return <div className="muted">กำลังโหลดข้อมูล…</div>
 
@@ -75,8 +82,10 @@ export default function ChargingPage() {
                 showFrom
                 actions={
                   <>
-                    <button className="btn btn-outline btn-sm">ปรับเป้าหมาย</button>
-                    <button className="btn btn-ghost btn-sm" style={{ color: 'var(--danger)' }}>
+                    <button type="button" className="btn btn-outline btn-sm" onClick={() => setAdjusting(s)}>
+                      ปรับเป้าหมาย
+                    </button>
+                    <button type="button" className="btn btn-ghost btn-sm" style={{ color: 'var(--danger)' }} onClick={() => setStopping(s)}>
                       หยุดชาร์จ
                     </button>
                   </>
@@ -172,6 +181,40 @@ export default function ChargingPage() {
           </table>
         </div>
       </section>
+
+      {adjusting && (
+        <ChargingTargetModal
+          session={adjusting}
+          model={modelOf(adjusting.vehicleId)}
+          onClose={() => setAdjusting(null)}
+          onDone={(target, eta) => {
+            toast(`ปรับเป้าหมาย ${adjusting.vehicleId} เป็น ${target}% แล้ว (เหลือประมาณ ${eta})`)
+            setAdjusting(null)
+            reload()
+          }}
+        />
+      )}
+      {stopping && (
+        <ConfirmDialog
+          title={`หยุดชาร์จ ${stopping.vehicleId}?`}
+          confirmLabel="หยุดชาร์จ"
+          danger
+          onClose={() => setStopping(null)}
+          onConfirm={async () => {
+            const res = await api.stopCharging(stopping.vehicleId)
+            if (!res.ok) return res.errors._ ?? 'หยุดชาร์จไม่สำเร็จ'
+            toast(`หยุดชาร์จ ${stopping.vehicleId} แล้ว (แบต ${stopping.nowSoc}%)`)
+            setStopping(null)
+            reload()
+            return null
+          }}
+        >
+          <p>
+            {modelOf(stopping.vehicleId)} กำลังชาร์จที่ {stopping.stationName} ({stopping.nowSoc}% จากเป้าหมาย {stopping.targetSoc}%)
+          </p>
+          <p style={{ marginTop: 8 }}>การหยุดชาร์จจะบันทึกเซสชันลงประวัติ และรถจะไม่ชาร์จต่อจนกว่าจะเสียบสายใหม่</p>
+        </ConfirmDialog>
+      )}
     </>
   )
 }

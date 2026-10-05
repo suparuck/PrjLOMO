@@ -16,6 +16,9 @@ import type {
   VehicleStatus,
 } from '../types'
 
+/** เวลา "ปัจจุบัน" ของข้อมูลจำลอง (ตรงกับ "อัปเดตล่าสุด" ใน footer) ข้อมูลเซสชันอิงเวลานี้ ไม่ใช่นาฬิกาเครื่อง */
+export const MOCK_NOW_MINUTES = 10 * 60 + 30
+
 export const org: Org = { name: 'EV Monitor', city: 'เชียงใหม่', center: [18.7883, 98.9853] }
 
 type VRow = [string, string, string, string, number, number, number, number, VehicleStatus, string, number, number, number, number, number]

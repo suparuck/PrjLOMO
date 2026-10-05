@@ -131,7 +131,7 @@ export default function VehicleDetailPage({ params }: { params: { id: string } }
                   <strong>{d.name}</strong>
                   <small>{d.phone}</small>
                 </div>
-                <ScoreRing score={d.score} />
+                <ScoreRing score={d.trips > 0 ? d.score : null} />
               </div>
               <div className="mini-stats">
                 <div>
