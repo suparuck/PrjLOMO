@@ -16,13 +16,17 @@ export interface Vehicle {
   odometer: number
   efficiency: number // kWh/100km
   batteryKwh: number
+  batteryTempC: number | null
+  /** เวลาที่อุปกรณ์ส่งข้อมูลล่าสุด (ISO) */
+  lastSeenAt: string | null
 }
 
 export interface Driver {
   id: string
   name: string
   phone: string
-  score: number
+  /** null = ยังไม่มีคะแนน (ยังไม่มีทริป) */
+  score: number | null
   km: number
   events: number
   trips: number
@@ -63,6 +67,8 @@ export interface ChargingHistory {
   cost: number
   fromSoc: number
   toSoc: number
+  /** ISO — ใช้กรองช่วงเวลา */
+  startedAt: string
 }
 
 export type AlertSeverity = 'critical' | 'warning' | 'info'
@@ -118,8 +124,8 @@ export interface VehicleTrip {
   km: number
   minutes: number
   kwh: number
-  efficiency: number
-  soc: number
+  efficiency: number | null
+  soc: number | null
 }
 
 export interface MaintenanceItem {
@@ -266,4 +272,43 @@ export interface Org {
   name: string
   city: string
   center: [number, number]
+}
+
+export interface AlertRule {
+  key: string
+  title: string
+  text: string
+  enabled: boolean
+}
+
+export interface NotificationChannel {
+  key: string
+  name: string
+  detail: string
+  icon: 'bell' | 'globe' | 'phone'
+  tone: 'navy' | 'blue' | 'green'
+  enabled: boolean
+}
+
+export interface ApiKeyInfo {
+  id: string
+  name: string
+  prefix: string
+  createdAt: string
+  lastUsedAt: string | null
+  revokedAt: string | null
+}
+
+/** ตัวเลขรวมสำหรับหน้า Landing/Login (ไม่มีข้อมูลรายคัน) */
+export interface PublicOverview {
+  vehicleCount: number
+  onlineCount: number
+  avgSoc: number
+  chargingCount: number
+  efficiency: number
+  weekKwh: number
+  latestMonthKwh: number
+  latestMonthCo2Tons: number
+  yearCo2Tons: number
+  yearFuelSavings: number
 }

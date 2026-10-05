@@ -63,7 +63,7 @@ export function Topbar({
               href="/login"
               onClick={async (e) => {
                 e.preventDefault()
-                await fetch('/api/auth/logout', { method: 'POST' })
+                await fetch('/api/v1/auth/logout', { method: 'POST' })
                 router.replace('/login')
                 router.refresh()
               }}

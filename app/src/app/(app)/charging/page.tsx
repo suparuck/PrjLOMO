@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { PageLoading } from '@/components/ui/PageLoading'
 import Link from 'next/link'
 import { api } from '@/api'
 import { useAsync } from '@/hooks/useAsync'
@@ -31,12 +32,12 @@ async function load() {
 type StationFilter = 'all' | 'depot' | 'public'
 
 export default function ChargingPage() {
-  const { data, reload } = useAsync(load)
+  const { data, error, reload } = useAsync(load)
   const toast = useToast()
   const [adjusting, setAdjusting] = useState<ChargingSession | null>(null)
   const [stopping, setStopping] = useState<ChargingSession | null>(null)
   const [stFilter, setStFilter] = useState<StationFilter>('all')
-  if (!data) return <div className="muted">กำลังโหลดข้อมูล…</div>
+  if (!data) return <PageLoading error={error} />
 
   const { vehicles, stations, sessions: S, history: H, loadKw } = data
   const modelOf = (id: string) => vehicles.find((v) => v.id === id)?.model ?? ''

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { PageLoading } from '@/components/ui/PageLoading'
 import Link from 'next/link'
 import { api } from '@/api'
 import { useAsync } from '@/hooks/useAsync'
@@ -42,10 +43,10 @@ const LEGEND = [
 ] as const
 
 export default function DashboardPage() {
-  const { data } = useAsync(loadDashboard)
+  const { data, error } = useAsync(loadDashboard)
   const [metric, setMetric] = useState<'kwh' | 'cost'>('kwh')
 
-  if (!data) return <div className="muted">กำลังโหลดข้อมูล…</div>
+  if (!data) return <PageLoading error={error} />
 
   const { org, vehicles: V, drivers, stations, alerts, sessions, week, energy, sustain } = data
   const count = (s: string) => V.filter((v) => v.status === s).length

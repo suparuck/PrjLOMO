@@ -1,41 +1,37 @@
 import type { Metadata } from 'next'
 import { api } from '@/api'
 import { CtaBand, DetailBlocks, Faq, Features, Hero, SiteFooter, SiteNav, StatsBand } from '@/components/landing/sections'
+import { FALLBACK_OVERVIEW, SAMPLE_ICE, SAMPLE_SESSION, SAMPLE_SESSION_MODEL, SAMPLE_VEHICLE_ROWS } from '@/components/landing/sampleData'
 
 export const metadata: Metadata = {
   title: 'EV Monitor — ระบบบริหารกองยานรถยนต์ไฟฟ้า',
   description: 'ติดตามแบตเตอรี่ การชาร์จ ตำแหน่ง และรายงานต้นทุน/คาร์บอนของกองยาน EV ในแพลตฟอร์มเดียว',
 }
 
-/** Landing — ตัวเลขในส่วนโชว์สินค้าดึงจาก API เดียวกับแอป เพื่อให้ตรงกันทุกหน้า */
+// ตัวเลขรวมดึงจาก API ตอนเปิดหน้า (ไม่ prerender ตอน build เพราะ API อาจยังไม่พร้อม)
+export const dynamic = 'force-dynamic'
+
 export default async function Landing() {
-  const [vehicles, ice, sessions, sustain, energy, sep] = await Promise.all([
-    api.listVehicles(),
-    api.listIceVehicles(),
-    api.listChargingSessions(),
-    api.getSustainability(),
-    api.getEnergySummary(),
-    api.getReport({ period: 'sep', brand: 'all' }),
-  ])
-  const session = sessions[0]
+  // ตัวเลขรวมเท่านั้น (ไม่ต้องล็อกอิน) — ถ้า API ไม่ตอบ หน้ายังแสดงผลได้ด้วยค่าว่าง
+  const o = await api.getPublicOverview().catch(() => FALLBACK_OVERVIEW)
 
   return (
     <div className="site">
       <SiteNav />
-      <Hero vehicles={vehicles} monthCo2={sep.carbon.avoidedTons} />
+      <Hero online={o.onlineCount} total={o.vehicleCount} avgSoc={o.avgSoc} monthCo2={o.latestMonthCo2Tons} rows={SAMPLE_VEHICLE_ROWS} />
       <Features />
       <DetailBlocks
-        ice={ice}
-        session={session}
-        sessionModel={vehicles.find((v) => v.id === session.vehicleId)?.model ?? ''}
+        ice={SAMPLE_ICE}
+        session={SAMPLE_SESSION}
+        sessionModel={SAMPLE_SESSION_MODEL}
         kpis={{
-          co2Tons: sustain.co2Tons,
-          fuelSavingsK: Math.round(sustain.fuelSavings / 1000),
-          weekKwh: energy.totalKwh,
-          efficiency: energy.efficiency,
+          co2Tons: o.yearCo2Tons,
+          fuelSavingsK: Math.round(o.yearFuelSavings / 1000),
+          weekKwh: o.weekKwh,
+          efficiency: o.efficiency,
         }}
       />
-      <StatsBand vehicleCount={vehicles.length} monthKwh={sep.totals.kwh} />
+      <StatsBand vehicleCount={o.vehicleCount} monthKwh={o.latestMonthKwh} />
       <Faq />
       <CtaBand />
       <SiteFooter />

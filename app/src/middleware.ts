@@ -1,9 +1,9 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { SESSION_COOKIE, safeNext, verifyToken } from '@/lib/auth'
+import { SESSION_COOKIE, safeNext, verifySession } from '@/lib/auth'
 
 export async function middleware(req: NextRequest) {
   const { pathname, search } = req.nextUrl
-  const user = await verifyToken(req.cookies.get(SESSION_COOKIE)?.value)
+  const user = await verifySession(req.cookies.get(SESSION_COOKIE)?.value)
 
   if (pathname === '/login') {
     // ล็อกอินอยู่แล้ว → ไปหน้าที่ต้องการ (หรือแดชบอร์ด)

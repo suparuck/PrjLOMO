@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, type ReactNode } from 'react'
+import { PageLoading } from '@/components/ui/PageLoading'
 import { api } from '@/api'
 import { useAsync } from '@/hooks/useAsync'
 import { Card, CardHeader } from '@/components/ui/Card'
@@ -8,6 +9,7 @@ import { Icon, type IconName } from '@/components/ui/Icon'
 import { RangeField } from '@/components/ui/RangeField'
 import { Switch } from '@/components/ui/Switch'
 import { InviteUserModal } from '@/components/modals/InviteUserModal'
+import { ApiKeyModal } from '@/components/modals/ApiKeyModal'
 import { useToast } from '@/components/ui/Toast'
 import type { Settings } from '@/types'
 
@@ -19,6 +21,10 @@ const SECTIONS: { id: string; label: string; icon: IconName }[] = [
   { id: 'integrations', label: 'การเชื่อมต่อ', icon: 'plug' },
   { id: 'support', label: 'ช่วยเหลือ', icon: 'help' },
 ]
+
+/** JSON ที่เรียงคีย์คงที่ — ใช้เทียบค่าโดยไม่สนลำดับคีย์ */
+const stable = (v: unknown): string =>
+  JSON.stringify(v, (_k, val) => (val && typeof val === 'object' && !Array.isArray(val) ? Object.fromEntries(Object.entries(val).sort(([a], [b]) => a.localeCompare(b))) : val))
 
 // เผื่อความสูง topbar แบบ sticky เมื่อเลื่อนไปยังหัวข้อ
 const anchor = { scrollMarginTop: 96 }
@@ -50,11 +56,12 @@ function SetRow({ title, text, checked, onChange }: { title: string; text: strin
 }
 
 export default function SettingsPage() {
-  const { data } = useAsync(load)
+  const { data, error } = useAsync(load)
   // แยกจาก settings: เชิญผู้ใช้แล้วโหลดเฉพาะรายชื่อ ไม่ทับค่าที่ผู้ใช้กำลังแก้ในฟอร์ม
-  const { data: users, reload: reloadUsers } = useAsync(() => api.listUsers())
+  const { data: users, error: usersError, reload: reloadUsers } = useAsync(() => api.listUsers())
   const toast = useToast()
   const [inviting, setInviting] = useState(false)
+  const [managingKeys, setManagingKeys] = useState(false)
   const [saved, setSaved] = useState<Settings | null>(null)
   const [form, setForm] = useState<Settings | null>(null)
   const [justSaved, setJustSaved] = useState(false)
@@ -98,16 +105,22 @@ export default function SettingsPage() {
     }
   }, [ready])
 
-  if (!form || !saved || !data || !users) return <div className="muted">กำลังโหลดข้อมูล…</div>
+  if (!form || !saved || !data || !users) return <PageLoading error={error ?? usersError} />
 
-  const dirty = JSON.stringify(form) !== JSON.stringify(saved)
+  // jsonb ใน PostgreSQL เรียงคีย์ใหม่ จึงเทียบแบบไม่สนลำดับคีย์
+  const dirty = stable(form) !== stable(saved)
   const patch = <K extends keyof Settings>(key: K, v: Partial<Settings[K]>) => {
     setJustSaved(false)
     setForm((f) => (f ? { ...f, [key]: { ...f[key], ...v } } : f))
   }
   const save = async () => {
-    const s = await api.saveSettings(form)
-    setSaved(s)
+    const res = await api.saveSettings(form)
+    if (!res.ok) {
+      toast(Object.values(res.errors)[0] ?? 'บันทึกการตั้งค่าไม่สำเร็จ', 'error')
+      return
+    }
+    setSaved(res.data)
+    setForm(structuredClone(res.data))
     setJustSaved(true)
   }
   const cancel = () => {
@@ -276,7 +289,9 @@ export default function SettingsPage() {
                     เชื่อมต่อ
                   </span>
                 ) : (
-                  <button className="btn btn-outline btn-sm">{i.actionLabel}</button>
+                  <button type="button" className="btn btn-outline btn-sm" onClick={i.key === 'api' ? () => setManagingKeys(true) : undefined}>
+                    {i.actionLabel}
+                  </button>
                 )}
               </div>
             ))}
@@ -320,6 +335,7 @@ export default function SettingsPage() {
         </div>
       </div>
 
+      {managingKeys && <ApiKeyModal onClose={() => setManagingKeys(false)} />}
       {inviting && (
         <InviteUserModal
           users={users}

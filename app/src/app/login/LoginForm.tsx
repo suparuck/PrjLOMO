@@ -4,14 +4,16 @@ import { useState, type FormEvent } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Icon } from '@/components/ui/Icon'
-import { MOCK_USER, safeNext } from '@/lib/auth'
+import { safeNext } from '@/lib/auth'
+
+// ช่วงพัฒนา/เดโม: ตั้ง NEXT_PUBLIC_DEMO_LOGIN=อีเมล:รหัสผ่าน เพื่อเติมค่าในฟอร์มให้ (production ไม่ต้องตั้ง)
+const DEMO = (process.env.NEXT_PUBLIC_DEMO_LOGIN ?? '').split(':')
 
 export function LoginForm() {
   const router = useRouter()
   const next = safeNext(useSearchParams()?.get('next'))
-  // ช่วงพัฒนา: เติมบัญชีเดโมให้เหมือนต้นแบบ (ลบออกเมื่อมีผู้ใช้จริง)
-  const [email, setEmail] = useState(MOCK_USER.email)
-  const [password, setPassword] = useState(MOCK_USER.password)
+  const [email, setEmail] = useState(DEMO[0] ?? '')
+  const [password, setPassword] = useState(DEMO.slice(1).join(':'))
   const [remember, setRemember] = useState(true)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -21,13 +23,13 @@ export function LoginForm() {
     setBusy(true)
     setError('')
     try {
-      const res = await fetch('/api/auth/login', {
+      const res = await fetch('/api/v1/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password, remember }),
       })
       if (!res.ok) {
-        setError(((await res.json().catch(() => null)) as { error?: string } | null)?.error ?? 'เข้าสู่ระบบไม่สำเร็จ')
+        setError(((await res.json().catch(() => null)) as { error?: { message?: string } } | null)?.error?.message ?? 'เข้าสู่ระบบไม่สำเร็จ')
         return
       }
       router.replace(next)

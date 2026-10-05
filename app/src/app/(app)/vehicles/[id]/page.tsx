@@ -1,9 +1,11 @@
 'use client'
 
 import Link from 'next/link'
+import { PageLoading } from '@/components/ui/PageLoading'
 import { api } from '@/api'
 import { useAsync } from '@/hooks/useAsync'
 import { fmt } from '@/lib/format'
+import { formatRelative } from '@/lib/time'
 import { usePageHeader } from '@/components/layout/PageHeader'
 import { Card, CardHeader } from '@/components/ui/Card'
 import { LinkButton } from '@/components/ui/Button'
@@ -22,7 +24,7 @@ async function load(id: string) {
 
 export default function VehicleDetailPage({ params }: { params: { id: string } }) {
   const id = decodeURIComponent(params.id)
-  const { data } = useAsync(() => load(id), [id])
+  const { data, error } = useAsync(() => load(id), [id])
   const v = data?.detail?.vehicle
   usePageHeader(
     v
@@ -30,7 +32,7 @@ export default function VehicleDetailPage({ params }: { params: { id: string } }
       : { title: 'รายละเอียดรถ', crumb: { href: '/vehicles', label: 'รถทั้งหมด', current: 'รายละเอียด' } },
   )
 
-  if (!data) return <div className="muted">กำลังโหลดข้อมูล…</div>
+  if (!data) return <PageLoading error={error} />
   if (!data.detail || !v) {
     return (
       <Card>
@@ -73,7 +75,7 @@ export default function VehicleDetailPage({ params }: { params: { id: string } }
               {v.model} <span className="tag">{v.plate}</span> <StatusBadge status={v.status} />
             </h2>
             <p>
-              คนขับ: {d?.name ?? '-'} · ตำแหน่ง: {v.location} · อัปเดต 1 นาทีที่แล้ว
+              คนขับ: {d?.name ?? '-'} · ตำแหน่ง: {v.location} · อัปเดต {v.lastSeenAt ? formatRelative(v.lastSeenAt) : 'ยังไม่เคยส่งข้อมูล'}
             </p>
             <div className="v-facts">
               {facts.map(([l, b]) => (
@@ -131,7 +133,7 @@ export default function VehicleDetailPage({ params }: { params: { id: string } }
                   <strong>{d.name}</strong>
                   <small>{d.phone}</small>
                 </div>
-                <ScoreRing score={d.trips > 0 ? d.score : null} />
+                <ScoreRing score={d.score} />
               </div>
               <div className="mini-stats">
                 <div>
@@ -203,9 +205,9 @@ export default function VehicleDetailPage({ params }: { params: { id: string } }
                   <td className="r">{t.km} กม.</td>
                   <td className="r">{t.minutes} นาที</td>
                   <td className="r">{t.kwh} kWh</td>
-                  <td className="r">{t.efficiency}</td>
+                  <td className="r">{t.efficiency ?? '–'}</td>
                   <td>
-                    <SocBar value={t.soc} width={48} />
+                    {t.soc === null ? <span className="muted">–</span> : <SocBar value={t.soc} width={48} />}
                   </td>
                 </tr>
               ))}

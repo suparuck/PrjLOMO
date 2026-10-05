@@ -1,17 +1,19 @@
 'use client'
 
 import { useState } from 'react'
+import { PageLoading } from '@/components/ui/PageLoading'
 import Link from 'next/link'
 import { api } from '@/api'
 import { useAsync } from '@/hooks/useAsync'
 import { useAlerts } from '@/components/layout/AlertsProvider'
+import { useToast } from '@/components/ui/Toast'
 import { Card, CardHeader } from '@/components/ui/Card'
 import { LinkButton } from '@/components/ui/Button'
 import { Chips } from '@/components/ui/Chips'
 import { Icon, type IconName } from '@/components/ui/Icon'
 import { KpiCard } from '@/components/ui/KpiCard'
 import { Switch } from '@/components/ui/Switch'
-import type { AlertSeverity, AlertType } from '@/types'
+import type { AlertRule, AlertSeverity, AlertType } from '@/types'
 
 type SevFilter = 'all' | AlertSeverity
 
@@ -34,22 +36,27 @@ const TYPE_TH: Record<AlertType, string> = {
   geofence: 'พื้นที่',
 }
 
-const RULES = [
-  { id: 'low', title: 'แบตต่ำกว่า 30%', text: 'แจ้งผู้จัดการและคนขับ', on: true },
-  { id: 'offline', title: 'รถออฟไลน์เกิน 30 นาที', text: 'แจ้งผู้ดูแลระบบ', on: true },
-  { id: 'speed', title: 'ความเร็วเกิน 100 กม./ชม.', text: 'บันทึกเป็นเหตุการณ์การขับ', on: true },
-  { id: 'charge', title: 'ชาร์จเสร็จ / หยุดชาร์จผิดปกติ', text: 'แจ้งคนขับผ่านแอป', on: true },
-  { id: 'geo', title: 'ออกนอกพื้นที่ (Geofence)', text: 'เขตเมืองเชียงใหม่', on: false },
-]
-
 export default function AlertsPage() {
-  const { alerts: A, acknowledge, acknowledgeAll } = useAlerts()
+  const { alerts: A, error, acknowledge, acknowledgeAll } = useAlerts()
   const { data: stats } = useAsync(() => api.getAlertStats())
   const [sev, setSev] = useState<SevFilter>('all')
   const [type, setType] = useState<'all' | AlertType>('all')
-  const [rules, setRules] = useState(() => Object.fromEntries(RULES.map((r) => [r.id, r.on])))
+  const toast = useToast()
+  const { data: rules, setData: setRules } = useAsync(() => api.listAlertRules())
+  const { data: channels } = useAsync(() => api.listNotificationChannels())
 
-  if (!A) return <div className="muted">กำลังโหลดข้อมูล…</div>
+  // เปิด/ปิดกฎ: อัปเดตหน้าจอทันที แล้วบันทึกลงฐานข้อมูล ถ้าบันทึกไม่ได้ให้ย้อนกลับ
+  async function toggleRule(r: AlertRule, enabled: boolean) {
+    const apply = (v: boolean) => setRules((list) => (list ?? []).map((x) => (x.key === r.key ? { ...x, enabled: v } : x)))
+    apply(enabled)
+    const res = await api.setAlertRule(r.key, enabled)
+    if (!res.ok) {
+      apply(!enabled)
+      toast(Object.values(res.errors)[0] ?? 'บันทึกกฎไม่สำเร็จ', 'error')
+    }
+  }
+
+  if (!A) return <PageLoading error={error} />
 
   const open = A.filter((a) => !a.acknowledged)
   const list = A.filter((a) => (sev === 'all' || a.severity === sev) && (type === 'all' || a.type === type))
@@ -121,33 +128,27 @@ export default function AlertsPage() {
         <div>
           <Card className="mb">
             <CardHeader title="กฎการแจ้งเตือน" sub="เปิด/ปิดได้ทันที" actions={<LinkButton href="/settings#alerts" variant="ghost">แก้ไข</LinkButton>} />
-            {RULES.map((r) => (
-              <div className="set-row" key={r.id}>
+            {(rules ?? []).map((r) => (
+              <div className="set-row" key={r.key}>
                 <div>
                   <strong>{r.title}</strong>
                   <p>{r.text}</p>
                 </div>
-                <Switch label={r.title} checked={rules[r.id]} onChange={(v) => setRules((s) => ({ ...s, [r.id]: v }))} />
+                <Switch label={r.title} checked={r.enabled} onChange={(v) => void toggleRule(r, v)} />
               </div>
             ))}
           </Card>
           <Card>
             <CardHeader title="ช่องทางแจ้งเตือน" />
             <div className="list">
-              {(
-                [
-                  ['t-navy', 'bell', 'ในระบบ', 'เปิดใช้งาน'],
-                  ['t-blue', 'globe', 'อีเมล', 'fleet@company.co.th'],
-                  ['t-green', 'phone', 'LINE Official Account', 'กลุ่มผู้จัดการกองยาน'],
-                ] as const
-              ).map(([tone, ico, title, text]) => (
-                <div className="li" key={title}>
-                  <div className={`li-ico ${tone}`}>
-                    <Icon name={ico} />
+              {(channels ?? []).map((c) => (
+                <div className="li" key={c.key}>
+                  <div className={`li-ico t-${c.tone}`}>
+                    <Icon name={c.icon} />
                   </div>
                   <div className="li-body">
-                    <strong>{title}</strong>
-                    <p>{text}</p>
+                    <strong>{c.name}</strong>
+                    <p>{c.detail}</p>
                   </div>
                 </div>
               ))}

@@ -4,7 +4,7 @@ import { LinkButton } from '../ui/Button'
 import { SocBar } from '../ui/SocBar'
 import { socClass } from '@/lib/status'
 import { fmt } from '@/lib/format'
-import type { ChargingSession, IceVehicle, Vehicle } from '@/types'
+import type { ChargingSession, IceVehicle } from '@/types'
 
 const Brand = ({ size = 20 }: { size?: number }) => (
   <Link className="brand" href="/">
@@ -46,10 +46,19 @@ export function SiteNav() {
   )
 }
 
-export function Hero({ vehicles, monthCo2 }: { vehicles: Vehicle[]; monthCo2: number }) {
-  const online = vehicles.filter((v) => v.status !== 'offline').length
-  const avgSoc = Math.round(vehicles.reduce((s, v) => s + v.soc, 0) / vehicles.length)
-  const rows = ['EV-001', 'EV-004', 'EV-003'].map((id) => vehicles.find((v) => v.id === id)).filter((v): v is Vehicle => !!v)
+export function Hero({
+  online,
+  total,
+  avgSoc,
+  monthCo2,
+  rows,
+}: {
+  online: number
+  total: number
+  avgSoc: number
+  monthCo2: number
+  rows: { id: string; soc: number }[]
+}) {
   const pins = [
     { top: '30%', left: '22%', bg: 'var(--blue)' },
     { top: '58%', left: '48%', bg: 'var(--green)' },
@@ -116,7 +125,7 @@ export function Hero({ vehicles, monthCo2 }: { vehicles: Vehicle[]; monthCo2: nu
                 <div className="mock-kpi">
                   <span>รถออนไลน์</span>
                   <b>
-                    {online}/{vehicles.length}
+                    {online}/{total}
                   </b>
                 </div>
                 <div className="mock-kpi">

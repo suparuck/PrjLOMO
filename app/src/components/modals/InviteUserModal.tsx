@@ -79,6 +79,11 @@ export function InviteUserModal({ users, onClose, onDone }: { users: AppUser[]; 
           )}
         />
         <p className="small muted">ต้นแบบนี้ยังไม่ได้ส่งอีเมลจริง — ระบบบันทึกคำเชิญเป็น “รอตอบรับ” เท่านั้น</p>
+        {errors._ && (
+          <p className="field-error" role="alert" style={{ marginTop: 12 }}>
+            {errors._}
+          </p>
+        )}
       </form>
     </Modal>
   )

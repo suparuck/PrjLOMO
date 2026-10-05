@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { PageLoading } from '@/components/ui/PageLoading'
 import { api } from '@/api'
 import { useAsync } from '@/hooks/useAsync'
 import { fmt } from '@/lib/format'
@@ -52,8 +53,8 @@ export default function ReportsPage() {
     window.history.replaceState(null, '', `#${t}`)
   }
 
-  const { data: report } = useAsync(() => api.getReport({ period, brand }), [period, brand])
-  const { data: electrify } = useAsync(() => api.getElectrification())
+  const { data: report, error: reportError } = useAsync(() => api.getReport({ period, brand }), [period, brand])
+  const { data: electrify, error: electrifyError } = useAsync(() => api.getElectrification())
 
   return (
     <>
@@ -89,7 +90,7 @@ export default function ReportsPage() {
       <Tabs tabs={TABS} value={tab} onChange={selectTab} />
 
       {tab === 'electrify' ? (
-        electrify ? <ElectrifyPanel data={electrify} /> : <Loading />
+        electrify ? <ElectrifyPanel data={electrify} /> : <PageLoading error={electrifyError} />
       ) : report ? (
         <>
           {tab === 'energy' && <EnergyPanel r={report} />}
@@ -97,13 +98,11 @@ export default function ReportsPage() {
           {tab === 'usage' && <UsagePanel r={report} />}
         </>
       ) : (
-        <Loading />
+        <PageLoading error={reportError} />
       )}
     </>
   )
 }
-
-const Loading = () => <div className="muted">กำลังโหลดข้อมูล…</div>
 
 function EnergyPanel({ r }: { r: Report }) {
   const t = r.totals

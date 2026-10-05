@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { PageLoading } from '@/components/ui/PageLoading'
 import Link from 'next/link'
 import { api } from '@/api'
 import { useAsync } from '@/hooks/useAsync'
@@ -13,7 +14,7 @@ import { SearchInput } from '@/components/ui/SearchInput'
 import { AddDriverModal } from '@/components/modals/AddDriverModal'
 import { useToast } from '@/components/ui/Toast'
 import { DriverEventsDonut } from '@/components/charts/DriverEventsDonut'
-import type { Vehicle } from '@/types'
+import type { Driver, Vehicle } from '@/types'
 
 const scoreClass = (s: number) => (s >= 85 ? 'good' : s >= 70 ? 'mid' : 'bad')
 
@@ -23,19 +24,20 @@ async function load() {
 }
 
 export default function DriversPage() {
-  const { data, reload } = useAsync(load)
+  const { data, error, reload } = useAsync(load)
   const toast = useToast()
   const [adding, setAdding] = useState(false)
   const [q, setQ] = useState('')
-  if (!data) return <div className="muted">กำลังโหลดข้อมูล…</div>
+  if (!data) return <PageLoading error={error} />
 
   const { drivers: D, vehicles, events } = data
   const vehOf = (driverId: string): Vehicle | undefined => vehicles.find((v) => v.driverId === driverId)
   // คนขับที่ยังไม่มีทริปไม่มีคะแนน: ไม่นับในค่าเฉลี่ยและอันดับ (แสดงท้ายตาราง)
-  const scored = D.filter((d) => d.trips > 0)
-  const ranked = [...scored].sort((a, b) => b.score - a.score).concat(D.filter((d) => d.trips === 0))
-  const avg = scored.length ? Math.round(scored.reduce((s, d) => s + d.score, 0) / scored.length) : 0
-  const good = scored.filter((d) => d.score >= 85).length
+  const scored = D.filter((d) => d.score !== null)
+  const byScore = (a: Driver, b: Driver) => (b.score ?? 0) - (a.score ?? 0)
+  const ranked = [...scored].sort(byScore).concat(D.filter((d) => d.score === null))
+  const avg = scored.length ? Math.round(scored.reduce((s, d) => s + (d.score ?? 0), 0) / scored.length) : 0
+  const good = scored.filter((d) => (d.score ?? 0) >= 85).length
   const totalKm = D.reduce((s, d) => s + d.km, 0)
   const working = D.filter((d) => {
     const v = vehOf(d.id)
@@ -89,7 +91,7 @@ export default function DriversPage() {
                     return (
                       <tr key={d.id}>
                         <td>
-                          <span className={`pill-num${d.trips > 0 && i < 3 ? ' gold' : ''}`}>{d.trips > 0 ? i + 1 : '–'}</span>
+                          <span className={`pill-num${d.score !== null && i < 3 ? ' gold' : ''}`}>{d.score !== null ? i + 1 : '–'}</span>
                         </td>
                         <td>
                           <div className="veh">
@@ -113,7 +115,7 @@ export default function DriversPage() {
                           )}
                         </td>
                         <td className="r">
-                          {d.trips > 0 ? <span className={`score ${scoreClass(d.score)}`}>{d.score}</span> : <span className="muted">–</span>}
+                          {d.score !== null ? <span className={`score ${scoreClass(d.score)}`}>{d.score}</span> : <span className="muted">–</span>}
                         </td>
                         <td className="r">{fmt(d.km)} กม.</td>
                         <td className="r">{v?.efficiency ?? '-'}</td>
@@ -176,7 +178,7 @@ export default function DriversPage() {
                     <strong>{d.name}</strong>
                     <small>{v ? `${v.id} · ${v.model}` : 'ยังไม่มีรถประจำ'}</small>
                   </div>
-                  <ScoreRing score={d.trips > 0 ? d.score : null} />
+                  <ScoreRing score={d.score} />
                 </div>
                 <div className="mini-stats">
                   <div>

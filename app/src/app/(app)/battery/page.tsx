@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { PageLoading } from '@/components/ui/PageLoading'
 import Link from 'next/link'
 import { api } from '@/api'
 import { useAsync } from '@/hooks/useAsync'
@@ -20,13 +21,10 @@ async function load() {
   return { vehicles, stations, insights }
 }
 
-/** อุณหภูมิแบตจำลอง (ยังไม่มีเซ็นเซอร์จริง) — สูตรเดียวกับต้นแบบ */
-const batteryTemp = (soc: number) => 28 + (soc % 9)
-
 export default function BatteryPage() {
-  const { data } = useAsync(load)
+  const { data, error } = useAsync(load)
   const [metric, setMetric] = useState<'soc' | 'range'>('soc')
-  if (!data) return <div className="muted">กำลังโหลดข้อมูล…</div>
+  if (!data) return <PageLoading error={error} />
 
   const { vehicles: V, stations, insights } = data
   const sorted = [...V].sort((a, b) => a.soc - b.soc)
@@ -174,7 +172,7 @@ export default function BatteryPage() {
                   <td>
                     <SocBar value={v.soh} width={60} />
                   </td>
-                  <td className="r">{batteryTemp(v.soc)}°C</td>
+                  <td className="r">{v.batteryTempC === null ? '–' : `${v.batteryTempC}°C`}</td>
                   <td>
                     <StatusBadge status={v.status} />
                   </td>

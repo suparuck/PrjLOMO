@@ -1,54 +1,41 @@
 /**
- * Auth แบบ mock สำหรับช่วงพัฒนา — ใช้ได้ทั้ง Edge (middleware) และ Node (route handlers)
- * Session = โทเคนที่เซ็นด้วย HMAC-SHA256 เก็บใน cookie แบบ httpOnly
- * เมื่อมี backend จริง ให้แทนที่ MOCK_USER และ verifyCredentials ด้วยการเรียก API
+ * ตรวจ session ของเว็บ — ใช้ใน middleware (Edge runtime) เท่านั้น
+ * โทเคนออกโดย API (POST /api/v1/auth/login → cookie ev_session) เป็น JWT แบบ HS256 ที่เซ็นด้วย AUTH_SECRET เดียวกัน
+ * เว็บแค่ตรวจลายเซ็นและวันหมดอายุเพื่อกันเข้าหน้า สิทธิ์ตามบทบาทจริงถูกบังคับที่ API ทุก request
  */
 export const SESSION_COOKIE = 'ev_session'
 
-/** ผู้ใช้เดโม (ค่าเดียวกับต้นแบบ) — ห้ามใช้เป็นบัญชีจริง */
-export const MOCK_USER = { email: 'admin@evmonitor.co.th', password: 'demo1234' }
-
-export function verifyCredentials(email: string, password: string) {
-  return email.trim().toLowerCase() === MOCK_USER.email && password === MOCK_USER.password
+export interface SessionUser {
+  id: string
+  email: string
+  name: string
+  role: 'admin' | 'manager' | 'viewer'
 }
 
 const enc = new TextEncoder()
+const dec = new TextDecoder()
 
-function secret(): string {
-  const s = process.env.AUTH_SECRET
-  if (s) return s
-  if (process.env.NODE_ENV === 'production') throw new Error('ต้องตั้งค่า AUTH_SECRET ใน production')
-  return 'dev-only-secret-do-not-use-in-production'
+function fromB64u(s: string): Uint8Array {
+  const b = atob(s.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(s.length / 4) * 4, '='))
+  return Uint8Array.from(b, (c) => c.charCodeAt(0))
 }
 
-const b64url = (bytes: Uint8Array) =>
-  btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
-
-async function sign(data: string): Promise<string> {
-  const key = await crypto.subtle.importKey('raw', enc.encode(secret()), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
-  return b64url(new Uint8Array(await crypto.subtle.sign('HMAC', key, enc.encode(data))))
-}
-
-/** สร้างโทเคน `<email>|<หมดอายุ(วินาที)>.<ลายเซ็น>` */
-export async function createToken(email: string, ttlSeconds: number): Promise<string> {
-  const payload = b64url(enc.encode(`${email}|${Math.floor(Date.now() / 1000) + ttlSeconds}`))
-  return `${payload}.${await sign(payload)}`
-}
-
-/** คืนอีเมลถ้าโทเคนถูกต้องและยังไม่หมดอายุ ไม่เช่นนั้นคืน null */
-export async function verifyToken(token: string | undefined): Promise<string | null> {
-  if (!token) return null
-  const [payload, sig] = token.split('.')
-  if (!payload || !sig) return null
-  const expected = await sign(payload)
-  if (sig.length !== expected.length) return null
-  let diff = 0
-  for (let i = 0; i < sig.length; i++) diff |= sig.charCodeAt(i) ^ expected.charCodeAt(i)
-  if (diff !== 0) return null
+export async function verifySession(token: string | undefined): Promise<SessionUser | null> {
+  const secret = process.env.AUTH_SECRET
+  if (!token || !secret) return null
+  const parts = token.split('.')
+  if (parts.length !== 3) return null
+  const [h, p, sig] = parts
   try {
-    const raw = atob(payload.replace(/-/g, '+').replace(/_/g, '/'))
-    const [email, exp] = raw.split('|')
-    return Number(exp) > Date.now() / 1000 ? email : null
+    if (JSON.parse(dec.decode(fromB64u(h))).alg !== 'HS256') return null // กัน alg=none / สลับอัลกอริทึม
+    const key = await crypto.subtle.importKey('raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['verify'])
+    // verify() ของ WebCrypto เทียบแบบ constant-time
+    const ok = await crypto.subtle.verify('HMAC', key, fromB64u(sig) as BufferSource, enc.encode(`${h}.${p}`))
+    if (!ok) return null
+    const payload = JSON.parse(dec.decode(fromB64u(p)))
+    if (typeof payload.exp !== 'number' || payload.exp < Date.now() / 1000) return null
+    if (!payload.sub || !['admin', 'manager', 'viewer'].includes(payload.role)) return null
+    return { id: payload.sub, email: payload.email, name: payload.name ?? payload.email, role: payload.role }
   } catch {
     return null
   }

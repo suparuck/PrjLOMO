@@ -124,6 +124,11 @@ export function AddVehicleModal({
         <p className="small muted" style={{ marginTop: 14 }}>
           รถจะแสดงเป็น “ออฟไลน์” จนกว่าอุปกรณ์ติดตามจะส่งสัญญาณครั้งแรก
         </p>
+        {errors._ && (
+          <p className="field-error" role="alert" style={{ marginTop: 12 }}>
+            {errors._}
+          </p>
+        )}
       </form>
     </Modal>
   )

@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import { PageLoading } from '@/components/ui/PageLoading'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { api } from '@/api'
@@ -46,7 +47,7 @@ function exportCsv(list: Vehicle[], driverName: (id: string) => string) {
 }
 
 export function VehiclesView() {
-  const { data, reload } = useAsync(load)
+  const { data, error, reload } = useAsync(load)
   const toast = useToast()
   const [adding, setAdding] = useState(false)
   const [filter, setFilter] = useState<Filter>('all')
@@ -69,7 +70,7 @@ export function VehiclesView() {
       .sort(SORTERS[sort])
   }, [vehicles, drivers, filter, q, sort])
 
-  if (!vehicles) return <div className="muted">กำลังโหลดข้อมูล…</div>
+  if (!vehicles) return <PageLoading error={error} />
 
   const avgSoh = (vehicles.reduce((s, v) => s + v.soh, 0) / vehicles.length).toFixed(1)
   const brands = new Set(vehicles.map((v) => brandOf(v.model))).size

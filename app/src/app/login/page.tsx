@@ -7,9 +7,12 @@ import { api } from '@/api'
 
 export const metadata: Metadata = { title: 'เข้าสู่ระบบ — EV Monitor' }
 
+// ตัวเลขรวมดึงจาก API ตอนเปิดหน้า
+export const dynamic = 'force-dynamic'
+
 export default async function LoginPage() {
-  const [vehicles, sessions] = await Promise.all([api.listVehicles(), api.listChargingSessions()])
-  const online = vehicles.filter((v) => v.status !== 'offline').length
+  // ตัวเลขรวมเท่านั้น (ไม่ต้องล็อกอิน) — ถ้า API ไม่ตอบ แสดงขีดแทนตัวเลข
+  const o = await api.getPublicOverview().catch(() => null)
 
   return (
     <div className="auth">
@@ -30,12 +33,12 @@ export default async function LoginPage() {
             <div className="mock-kpi">
               <span>รถออนไลน์ตอนนี้</span>
               <b>
-                {online} / {vehicles.length}
+                {o ? `${o.onlineCount} / ${o.vehicleCount}` : '–'}
               </b>
             </div>
             <div className="mock-kpi">
               <span>กำลังชาร์จ</span>
-              <b className="accent">{sessions.length} คัน</b>
+              <b className="accent">{o ? o.chargingCount : '–'} คัน</b>
             </div>
           </div>
         </div>

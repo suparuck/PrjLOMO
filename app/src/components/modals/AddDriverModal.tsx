@@ -89,6 +89,11 @@ export function AddDriverModal({
           )}
         />
         <p className="small muted">คนขับใหม่จะยังไม่มีคะแนนจนกว่าจะมีทริปแรก</p>
+        {errors._ && (
+          <p className="field-error" role="alert" style={{ marginTop: 12 }}>
+            {errors._}
+          </p>
+        )}
       </form>
     </Modal>
   )

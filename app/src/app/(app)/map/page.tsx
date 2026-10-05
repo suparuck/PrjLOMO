@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import { PageLoading } from '@/components/ui/PageLoading'
 import { api } from '@/api'
 import { useAsync } from '@/hooks/useAsync'
 import { Chips } from '@/components/ui/Chips'
@@ -36,7 +37,7 @@ async function load() {
 }
 
 export default function MapPage() {
-  const { data } = useAsync(load)
+  const { data, error } = useAsync(load)
   const [filter, setFilter] = useState<Filter>('all')
   const [q, setQ] = useState('')
   const [layers, setLayers] = useState<MapLayers>({ vehicles: true, depot: true, public: true, range: false })
@@ -54,7 +55,7 @@ export default function MapPage() {
   }, [data, filter, q])
   const visibleIds = useMemo(() => new Set(list.map((v) => v.id)), [list])
 
-  if (!data) return <div className="content muted">กำลังโหลดข้อมูล…</div>
+  if (!data) return <div className="content"><PageLoading error={error} /></div>
   const { org, vehicles: V, drivers, stations } = data
 
   const stats: [string, string | number][] = [

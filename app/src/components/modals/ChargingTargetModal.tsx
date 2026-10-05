@@ -30,7 +30,7 @@ export function ChargingTargetModal({
     const res = await api.setChargingTarget(session.vehicleId, target)
     setBusy(false)
     if (res.ok) return onDone(target, res.data.eta)
-    setError(res.errors.target ?? res.errors._ ?? 'บันทึกไม่สำเร็จ')
+    setError(res.errors.targetSoc ?? res.errors._ ?? 'บันทึกไม่สำเร็จ')
   }
 
   return (

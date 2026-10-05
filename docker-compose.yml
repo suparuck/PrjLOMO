@@ -1,10 +1,55 @@
+# EV Monitor — 3 container แยกกัน: db (PostgreSQL) · api (Fastify) · web (Next.js)
+# เริ่ม:        docker compose up --build -d
+# ล้างข้อมูล:    docker compose down -v   (ลบ volume แล้ว db จะสร้างใหม่จาก db/init/*.sql)
 services:
+  db:
+    build: ./db
+    image: ev-monitor-db:latest
+    command: ["postgres", "-c", "timezone=Asia/Bangkok"]
+    environment:
+      POSTGRES_USER: evm
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?กำหนด POSTGRES_PASSWORD ในไฟล์ .env (ดู .env.example)}
+      POSTGRES_DB: evmonitor
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      # เปิดให้เครื่องนี้เท่านั้น (ใช้ต่อ psql / รันชุดทดสอบของ API) ไม่เปิดสู่เครือข่ายภายนอก
+      - "127.0.0.1:${DB_PORT:-5433}:5432"
+    restart: unless-stopped
+
+  api:
+    build: ./api
+    image: ev-monitor-api:latest
+    environment:
+      DATABASE_URL: postgres://evm:${POSTGRES_PASSWORD}@db:5432/evmonitor
+      AUTH_SECRET: ${AUTH_SECRET:?กำหนด AUTH_SECRET ในไฟล์ .env (ดู .env.example)}
+      INGEST_API_KEY: ${INGEST_API_KEY:-}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      # เปิดให้เครื่องนี้ (อุปกรณ์ในเครือข่ายภายในควรเรียกผ่านพร็อกซี/ไฟร์วอลล์ที่ควบคุมเอง) — เอกสาร API ที่ /docs
+      - "127.0.0.1:${API_PORT:-4000}:4000"
+    restart: unless-stopped
+
   web:
-    build: ./app
-    image: ev-monitor:latest
+    build:
+      context: ./app
+      args:
+        API_INTERNAL_URL: http://api:4000
+        NEXT_PUBLIC_DEMO_LOGIN: ${NEXT_PUBLIC_DEMO_LOGIN:-}
+    image: ev-monitor-web:latest
+    environment:
+      API_INTERNAL_URL: http://api:4000
+      AUTH_SECRET: ${AUTH_SECRET:?กำหนด AUTH_SECRET ในไฟล์ .env (ดู .env.example)}
+    depends_on:
+      api:
+        condition: service_healthy
     ports:
       - "${WEB_PORT:-3000}:3000"
-    environment:
-      AUTH_SECRET: ${AUTH_SECRET:?กำหนด AUTH_SECRET ในไฟล์ .env (ดู .env.example)}
-      COOKIE_SECURE: ${COOKIE_SECURE:-false}
     restart: unless-stopped
+
+volumes:
+  pgdata:
