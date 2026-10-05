@@ -48,11 +48,14 @@ create table users (
   password_hash  text,                       -- bcrypt ผ่าน pgcrypto crypt(); null = ยังไม่ตอบรับคำเชิญ
   invited_at     timestamptz,
   last_login_at  timestamptz,
+  invite_token_hash  text,                   -- sha256 ของโทเคนคำเชิญ (ใช้ครั้งเดียว) — ไม่เก็บโทเคนจริง
+  invite_expires_at  timestamptz,
   created_at     timestamptz not null default now(),
   updated_at     timestamptz not null default now(),
   check (status = 'invited' or password_hash is not null)
 );
 create unique index users_email_key on users (lower(email));
+create unique index users_invite_token_key on users (invite_token_hash) where invite_token_hash is not null;
 create trigger trg_users_updated before update on users for each row execute function set_updated_at();
 
 create table api_keys (

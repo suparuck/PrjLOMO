@@ -247,7 +247,22 @@ export interface InviteUserDraft {
   role: UserRole | ''
 }
 
+/** ผลของการสร้างคำเชิญ: โทเคนแสดงได้ครั้งเดียว (ผู้ดูแลนำลิงก์ไปส่งต่อ — ยังไม่มีบริการส่งอีเมล) */
+export interface InviteResult {
+  user: AppUser
+  token: string
+  expiresAt: string
+}
+
+export interface InviteInfo {
+  email: string
+  name: string
+  role: UserRole
+}
+
 export interface AppUser {
+  id: string
+  status: 'active' | 'invited'
   name: string
   email: string
   initials: string

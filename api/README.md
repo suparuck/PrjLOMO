@@ -23,14 +23,14 @@ REST API (Node.js 22 · Fastify 5 · TypeScript · PostgreSQL) — container แ
 
 | กลุ่ม | Endpoint |
 |---|---|
-| auth | `POST /auth/login` · `POST /auth/logout` · `GET /auth/me` |
+| auth | `POST /auth/login` · `POST /auth/logout` · `GET /auth/me` · `POST /auth/invite/lookup` · `POST /auth/invite/accept` (ผู้ถูกเชิญ ไม่ต้องล็อกอิน) |
 | สาธารณะ | `GET /public/overview` (ตัวเลขรวม ไม่มีข้อมูลรายคัน — ใช้กับ Landing/Login) |
 | รถ | `GET /vehicles` · `GET /vehicles/:id` (คนขับ กราฟ SoC 24 ชม. ทริป บำรุงรักษา) · `POST /vehicles` · `PATCH /vehicles/:id` · `POST /vehicles/:id/maintenance` · `POST /maintenance/:id/complete` |
 | คนขับ | `GET /drivers` · `GET /drivers/events` · `POST /drivers` · `PATCH /drivers/:id` |
 | การชาร์จ | `GET /stations` · `GET /charging/sessions` · `GET /charging/history` · `GET /charging/load` · `PATCH /charging/sessions/:vehicleId/target` · `POST /charging/sessions/:vehicleId/stop` |
 | แจ้งเตือน | `GET /alerts` · `GET /alerts/stats` · `POST /alerts/:id/ack` · `POST /alerts/ack-all` · `GET/PATCH /alert-rules` · `GET /notification-channels` |
 | รายงาน/แดชบอร์ด | `GET /reports?period=year\|q3\|sep&brand=all\|BYD\|MG` · `GET /reports/electrification` · `GET /ice-vehicles` · `GET /energy/week` · `GET /energy/summary` · `GET /sustainability` · `GET /battery/insights` |
-| ตั้งค่า | `GET /org` · `GET/PUT /settings` · `GET /integrations` · `GET /users` · `POST /users/invite` · `GET/POST /api-keys` · `DELETE /api-keys/:id` |
+| ตั้งค่า | `GET /org` · `GET/PUT /settings` · `GET /integrations` · `GET /users` · `POST /users/invite` · `POST /users/:id/invite-link` · `DELETE /users/:id` (ยกเลิกคำเชิญ) · `GET/POST /api-keys` · `DELETE /api-keys/:id` |
 
 **ส่งข้อมูลเข้า** (`X-API-Key`) — แต่ละอันอัปเดตตารางหลัก *และ* ผลต่อเนื่อง
 
@@ -57,7 +57,7 @@ curl -X POST http://localhost:4000/api/v1/ingest/telemetry \
 ```bash
 docker compose up --build -d          # ทั้งระบบ (root)
 cd api && npm run dev                 # dev: ต้องมี DATABASE_URL และ AUTH_SECRET ใน environment
-cd api && npm test                    # 55 การทดสอบ — สร้างฐานข้อมูล evmonitor_test ใหม่จาก db/init/*.sql ทุกครั้ง
+cd api && npm test                    # 70 การทดสอบ — สร้างฐานข้อมูล evmonitor_test ใหม่จาก db/init/*.sql ทุกครั้ง
 ```
 
 ชุดทดสอบเชื่อม `postgres://evm:evm_dev@localhost:5433/postgres` โดยปริยาย — ตั้ง `TEST_ADMIN_URL` ให้ตรงกับรหัสผ่านใน `.env`
@@ -77,4 +77,21 @@ cd api && npm test                    # 55 การทดสอบ — สร�
 - **JWT HS256 เซ็นด้วย `AUTH_SECRET`** ที่ API ออกให้ ส่วนเว็บ (middleware) ตรวจลายเซ็นด้วยคีย์เดียวกันเพื่อกันเข้าหน้า สิทธิ์จริงบังคับที่ API · ยังไม่มี token revocation (หมดอายุเองใน 12 ชม./30 วันถ้าจดจำ)
 - **กฎซ้ำกับเว็บ**: `src/lib/validators.ts` ตรงกับ `app/src/lib/validators.ts` (เว็บใช้แจ้งผิดทันที API เป็นผู้ตัดสิน) — แก้กฎต้องแก้ทั้งสองที่
 - **ค่าที่ยังเป็นการประมาณ** (ระบุในโค้ดและ `report_config`): อัตราการใช้งานรถในรายงาน (ประมาณจากเลขไมล์) · ระยะวิ่งใช้งานจริง = 86% ของสเปก · % เทียบปีก่อน/ช่วงก่อนที่ยังไม่มีข้อมูลย้อนหลัง
-- **ยังไม่ทำ**: ตรวจ "รถออฟไลน์" อัตโนมัติ (ต้องมี job ตามเวลา) · ตอบรับคำเชิญ/ตั้งรหัสผ่านผู้ใช้ใหม่ · ส่งอีเมล/LINE/SMS จริง · เพิกถอน JWT
+- **ยังไม่ทำ**: ส่งอีเมล/LINE/SMS จริง (รวมการส่งลิงก์คำเชิญอัตโนมัติ) · เพิกถอน JWT · ลืมรหัสผ่าน/เปลี่ยนรหัสผ่าน
+
+## คำเชิญผู้ใช้
+
+1. admin เรียก `POST /users/invite` → สร้างผู้ใช้สถานะ `invited` พร้อมโทเคนใช้ครั้งเดียว อายุ 7 วัน (คืน `inviteToken` **ครั้งเดียว** ฐานข้อมูลเก็บเฉพาะ sha256)
+2. admin นำลิงก์ `<เว็บ>/invite/<โทเคน>` ไปส่งให้ผู้ถูกเชิญเอง (ระบบยังไม่ส่งอีเมล)
+3. ผู้ถูกเชิญเปิดลิงก์ → เว็บเรียก `POST /auth/invite/lookup` ตรวจลิงก์ → กรอกชื่อ/รหัสผ่าน (≥8 ตัว มีทั้งตัวอักษรและตัวเลข) → `POST /auth/invite/accept` เปิดใช้บัญชี ตั้ง cookie เข้าสู่ระบบทันที และทำให้โทเคนใช้ซ้ำไม่ได้
+4. ลิงก์หาย/หมดอายุ: `POST /users/:id/invite-link` สร้างใหม่ (ลิงก์เดิมใช้ไม่ได้ทันที) · `DELETE /users/:id` ยกเลิกคำเชิญ (ลบผู้ใช้ที่ใช้งานแล้วไม่ได้ → 409)
+
+โทเคนส่งใน body ของ POST เสมอ (ไม่อยู่ใน URL ของ API) เพื่อไม่ให้ติด access log · ลิงก์ผิด/ถูกใช้แล้ว → 404 · หมดอายุ → 410 · ตอบรับจำกัด 10 ครั้ง/นาที/IP
+
+## Job ตรวจรถออฟไลน์
+
+ทำงานในโปรเซส API ทุก `OFFLINE_CHECK_INTERVAL_SECONDS` (ค่าเริ่มต้น 60, `0` = ปิด) — รถที่ไม่ส่ง telemetry นานกว่า **เกณฑ์ `offlineMinutes` ในหน้าตั้งค่า** (ปริยาย 30 นาที) จะถูกตั้งเป็น `offline` และสร้างแจ้งเตือน "รถออฟไลน์" หนึ่งรายการ (ตามกฎ `offline` ที่เปิดอยู่; ไม่แจ้งซ้ำถ้ามีของเดิมที่ยังไม่รับทราบ)
+- รถที่ยังไม่เคยส่งข้อมูลเลย (`last_seen_at` ว่าง เช่น เพิ่งเพิ่มใหม่) ไม่ถูกแตะ
+- รถส่งข้อมูลกลับมา → สถานะคำนวณใหม่เองใน `POST /ingest/telemetry` (ไม่ต้องมี job ฝั่งกลับมาออนไลน์)
+- ใช้ advisory lock ในฐานข้อมูล: รัน API หลายอินสแตนซ์ได้ จะมีเพียงตัวเดียวที่ตรวจในแต่ละรอบ
+- **ข้อมูลเดโมไม่มี telemetry ไหลเข้า** รถทั้งกองจึงถูกตั้งเป็นออฟไลน์หลังผ่านไปเกินเกณฑ์ — เปิดตัวจำลองเพื่อให้เดโมมีชีวิต: `docker compose --profile demo up -d` (`api/src/simulate.ts` ส่งข้อมูลผ่าน `/ingest/telemetry` ด้วย API key จริงทุก 30 วินาที เฉพาะรถที่ยังออนไลน์)

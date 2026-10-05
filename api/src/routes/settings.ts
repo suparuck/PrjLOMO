@@ -1,9 +1,11 @@
 import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox'
 import { Type } from '@sinclair/typebox'
 import type { Pool } from 'pg'
-import { generateApiKey, requireRole } from '../auth'
+import { randomBytes } from 'node:crypto'
+import { generateApiKey, hashKey, requireRole } from '../auth'
+import { config } from '../config'
 import { one, rows } from '../db'
-import { AppError, invalid, notFound } from '../errors'
+import { AppError, conflict, invalid, notFound } from '../errors'
 import { checkEmail } from '../lib/validators'
 
 import { sec } from '../security'
@@ -34,6 +36,19 @@ const SettingsBody = Type.Object({
     demandLimit: Type.Boolean(),
   }),
 })
+
+const USER_COLS = `id, email, name, role, status, last_login_at as "lastLoginAt", invited_at as "invitedAt"`
+
+function newInvite() {
+  const token = randomBytes(32).toString('base64url')
+  return { token, hash: hashKey(token) }
+}
+
+/** ไม่พบผู้ใช้ → 404, พบแต่ตอบรับแล้ว → 409 */
+async function missingOrActive(pool: Pool, id: string) {
+  const exists = await one(pool, 'select 1 from users where id = $1', [id])
+  return exists ? conflict('ผู้ใช้นี้ตอบรับคำเชิญแล้ว จึงทำรายการนี้ไม่ได้') : notFound('ผู้ใช้')
+}
 
 const SETTINGS_SQL = `select org, thresholds, notify, charging from app_settings where id = 1`
 
@@ -84,13 +99,15 @@ export const settingsRoutes =
       ),
     )
 
+    // คำเชิญ: สร้างโทเคนใช้ครั้งเดียว (เก็บเฉพาะ sha256) ส่งโทเคนกลับครั้งเดียวให้ผู้ดูแลนำลิงก์ไปส่งต่อ
+    // (ยังไม่มีบริการส่งอีเมล) ผู้ถูกเชิญเปิด /invite/<โทเคน> เพื่อตั้งรหัสผ่านและเข้าระบบ
     app.post(
       '/users/invite',
       {
         preValidation: adm,
         schema: {
           tags: ['users'],
-          summary: 'เชิญผู้ใช้ (บันทึกคำเชิญสถานะ invited — ยังไม่ส่งอีเมลจริง)',
+          summary: 'เชิญผู้ใช้ — คืนโทเคนคำเชิญ (แสดงครั้งเดียว อายุ 7 วัน)',
           security: sec,
           body: Type.Object({
             email: Type.String({ maxLength: 200 }),
@@ -100,13 +117,48 @@ export const settingsRoutes =
       },
       async (req, reply) => {
         const email = checkEmail(req.body.email)
+        const inv = newInvite()
         const u = await one(
           pool,
-          `insert into users (email, name, role, status, invited_at) values ($1, split_part($1, '@', 1), $2, 'invited', now())
-           returning id, email, name, role, status, last_login_at as "lastLoginAt", invited_at as "invitedAt"`,
-          [email, req.body.role],
+          `insert into users (email, name, role, status, invited_at, invite_token_hash, invite_expires_at)
+           values ($1, split_part($1, '@', 1), $2, 'invited', now(), $3, now() + ($4::int * interval '1 day'))
+           returning ${USER_COLS}, invite_expires_at as "inviteExpiresAt"`,
+          [email, req.body.role, inv.hash, config.inviteTtlDays],
         )
-        return reply.status(201).send(u)
+        return reply.status(201).send({ ...u, inviteToken: inv.token })
+      },
+    )
+
+    app.post(
+      '/users/:id/invite-link',
+      {
+        preValidation: adm,
+        schema: { tags: ['users'], summary: 'สร้างลิงก์คำเชิญใหม่ (ลิงก์เดิมใช้ไม่ได้ทันที)', params: Type.Object({ id: Type.String({ format: 'uuid' }) }), security: sec },
+      },
+      async (req) => {
+        const inv = newInvite()
+        const u = await one(
+          pool,
+          `update users set invite_token_hash = $2, invite_expires_at = now() + ($3::int * interval '1 day'), invited_at = now()
+            where id = $1 and status = 'invited'
+            returning ${USER_COLS}, invite_expires_at as "inviteExpiresAt"`,
+          [req.params.id, inv.hash, config.inviteTtlDays],
+        )
+        if (!u) throw await missingOrActive(pool, req.params.id)
+        return { ...u, inviteToken: inv.token }
+      },
+    )
+
+    app.delete(
+      '/users/:id',
+      {
+        preValidation: adm,
+        schema: { tags: ['users'], summary: 'ยกเลิกคำเชิญที่ยังไม่ตอบรับ (ลบผู้ใช้ที่ใช้งานแล้วไม่ได้)', params: Type.Object({ id: Type.String({ format: 'uuid' }) }), security: sec },
+      },
+      async (req) => {
+        const r = await one(pool, "delete from users where id = $1 and status = 'invited' returning id", [req.params.id])
+        if (!r) throw await missingOrActive(pool, req.params.id)
+        return { cancelled: true }
       },
     )
 

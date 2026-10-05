@@ -119,3 +119,11 @@ export function formatDuration(mins: number): string {
   const r = m % 60
   return r ? `${h} ชม. ${r} นาที` : `${h} ชม.`
 }
+
+/** รหัสผ่านตอนตอบรับคำเชิญ: 8–128 ตัวอักษร ต้องมีทั้งตัวอักษรและตัวเลข (กฎเดียวกับ api/src/lib/validators.ts) */
+export function validatePassword(pw: string): string | null {
+  if (pw.length < 8) return 'รหัสผ่านต้องยาวอย่างน้อย 8 ตัวอักษร'
+  if (pw.length > 128) return 'รหัสผ่านต้องไม่เกิน 128 ตัวอักษร'
+  if (!/[A-Za-z]/.test(pw) || !/\d/.test(pw)) return 'รหัสผ่านต้องมีทั้งตัวอักษรและตัวเลข'
+  return null
+}

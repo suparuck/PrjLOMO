@@ -7,18 +7,18 @@ import * as m from './mappers'
 import type * as D from './dto'
 import type {
   AlertRule, Alert, ApiKeyInfo, AppUser, BatteryInsights, ChargingHistory, ChargingLoad, ChargingSession, Driver, DriverEventStat,
-  ElectrificationReport, EnergySummary, EnergyWeek, IceVehicle, Integration, InviteUserDraft, NewDriverDraft, NewVehicleDraft,
+  ElectrificationReport, EnergySummary, EnergyWeek, IceVehicle, Integration, InviteInfo, InviteUserDraft, UserRole, NewDriverDraft, NewVehicleDraft,
   NotificationChannel, Org, PublicOverview, Report, ReportFilters, Result, Settings, Station, Sustainability, Vehicle, VehicleDetail,
 } from '@/types'
 
 export { ApiError }
 
-/** แปลงข้อผิดพลาดจากการตรวจข้อมูลหรือสิทธิ์ (400/403/404/409/422) เป็น Result ให้ฟอร์มแสดงใต้ช่อง ส่วนข้อผิดพลาดอื่นโยนต่อ */
+/** แปลงข้อผิดพลาดจากการตรวจข้อมูลหรือสิทธิ์ (400/403/404/409/410/422) เป็น Result ให้ฟอร์มแสดงใต้ช่อง ส่วนข้อผิดพลาดอื่นโยนต่อ */
 async function write<T>(fn: () => Promise<T>, rename: Record<string, string> = {}): Promise<Result<T>> {
   try {
     return { ok: true, data: await fn() }
   } catch (e) {
-    if (e instanceof ApiError && [400, 403, 404, 409, 422].includes(e.status)) {
+    if (e instanceof ApiError && [400, 403, 404, 409, 410, 422].includes(e.status)) {
       const fields = e.fields && Object.keys(e.fields).length ? e.fields : { _: e.message }
       // ชื่อฟิลด์ใน API กับชื่อช่องในฟอร์มอาจต่างกัน (เช่น odometerKm ↔ odometer)
       return { ok: false, errors: Object.fromEntries(Object.entries(fields).map(([k, v]) => [rename[k] ?? k, v])) }
@@ -32,6 +32,8 @@ const num = (s: string) => Number(s.trim().replace(/,/g, ''))
 export const api = {
   // ---- อ่านข้อมูล ----
   getOrg: () => get<Org>('/org'),
+  /** ผู้ใช้ที่ล็อกอินอยู่ (จาก session cookie) */
+  getMe: async () => (await get<{ user: { id: string; email: string; name: string; role: UserRole } }>('/auth/me')).user,
   listVehicles: async (): Promise<Vehicle[]> => (await get<D.VehicleDTO[]>('/vehicles')).map(m.vehicle),
   getVehicleDetail: async (id: string): Promise<VehicleDetail | null> => {
     try {
@@ -85,7 +87,14 @@ export const api = {
   addDriver: (d: NewDriverDraft) =>
     write(async () => m.driver(await post<D.DriverDTO>('/drivers', { name: d.name, phone: d.phone, vehicleId: d.vehicleId || null }))),
   inviteUser: (d: InviteUserDraft) =>
-    write(async () => m.user(await post<D.UserDTO>('/users/invite', { email: d.email, role: d.role }))),
+    write(async () => m.invite(await post<D.InviteDTO>('/users/invite', { email: d.email, role: d.role }))),
+  /** สร้างลิงก์คำเชิญใหม่ (ลิงก์เดิมใช้ไม่ได้ทันที) */
+  resendInvite: (userId: string) => write(async () => m.invite(await post<D.InviteDTO>(`/users/${userId}/invite-link`))),
+  cancelInvite: (userId: string) => write(() => del<{ cancelled: boolean }>(`/users/${userId}`)),
+  // ---- ผู้ถูกเชิญ (ยังไม่ล็อกอิน) ----
+  lookupInvite: (token: string) => write(() => post<InviteInfo>('/auth/invite/lookup', { token })),
+  acceptInvite: (token: string, password: string, name: string) =>
+    write(() => post<{ user: { role: UserRole } }>('/auth/invite/accept', { token, password, name: name.trim() || undefined })),
   setChargingTarget: (vehicleId: string, targetSoc: number) =>
     write(async () => {
       const s = await patch<D.SessionDTO>(`/charging/sessions/${encodeURIComponent(vehicleId)}/target`, { targetSoc })

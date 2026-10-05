@@ -26,6 +26,7 @@ docker compose up --build -d
 - เว็บ: http://localhost:3000 (ปรับพอร์ตด้วย `WEB_PORT`) — เข้าสู่ระบบเดโม `admin@evmonitor.co.th` / `demo1234`
   (ฟอร์มเติมให้อัตโนมัติเมื่อตั้ง `NEXT_PUBLIC_DEMO_LOGIN=อีเมล:รหัสผ่าน` ใน `.env`)
 - เอกสาร API: http://localhost:4000/docs
+- **รถเดโมจะเป็น "ออฟไลน์" หลังไม่มีข้อมูลเข้าเกิน 30 นาที** (job ตรวจออฟไลน์ของ API) — เปิดตัวจำลอง telemetry ด้วย `docker compose --profile demo up -d`
 - ล้างข้อมูลแล้วสร้างใหม่จากข้อมูลเดโม: `docker compose down -v && docker compose up --build -d`
 
 ผู้ใช้เดโม (รหัสผ่านเดียวกัน): `admin@evmonitor.co.th` (admin) · `prasit@company.co.th` (manager) · `wanna@company.co.th` (viewer — เห็นเฉพาะรายงาน)
@@ -42,4 +43,5 @@ cd api && npm test                   # ดูวิธีตั้งค่า�
 ## สถานะ
 
 เฟส 1–8 ของ `design/HANDOFF.md` เสร็จ + ฟอร์ม/โมดัล + **ฐานข้อมูลจริงและ API** (แทน mock เดิมทั้งหมด) ข้อมูลที่เพิ่ม/แก้ผ่านหน้าเว็บบันทึกถาวรใน PostgreSQL
-ที่ยังไม่ทำ: ส่งออก Excel/PDF จริง · อัปเดตเรียลไทม์ในหน้าเว็บ (ตอนนี้ต้องรีเฟรช) · pagination · ตรวจรถออฟไลน์อัตโนมัติ · ตอบรับคำเชิญผู้ใช้ — ดู `CLAUDE.md`
+มี job ตรวจรถออฟไลน์ และการตอบรับคำเชิญ (ลิงก์ใช้ครั้งเดียว) แล้ว
+ที่ยังไม่ทำ: ส่งออก Excel/PDF จริง · อัปเดตเรียลไทม์ในหน้าเว็บ (ตอนนี้ต้องรีเฟรช) · pagination · ส่งอีเมล/LINE/SMS จริง (ลิงก์คำเชิญต้องส่งต่อเอง) — ดู `CLAUDE.md`

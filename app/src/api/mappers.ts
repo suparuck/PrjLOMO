@@ -2,7 +2,7 @@ import { daysUntil, formatClock, formatDayTime, formatMonthYear, formatRelative 
 import { USER_ROLES, formatDuration } from '@/lib/validators'
 import { fmt } from '@/lib/format'
 import type {
-  Alert, AppUser, ChargingHistory, ChargingSession, Driver, Integration, MaintenanceItem, Station, Vehicle, VehicleDetail,
+  Alert, AppUser, ChargingHistory, ChargingSession, Driver, Integration, InviteResult, MaintenanceItem, Station, Vehicle, VehicleDetail,
 } from '@/types'
 import type * as D from './dto'
 
@@ -91,6 +91,8 @@ export function user(u: D.UserDTO, now = new Date()): AppUser {
   const r = USER_ROLES[u.role]
   const online = u.lastLoginAt && now.getTime() - new Date(u.lastLoginAt).getTime() < 5 * 60_000
   return {
+    id: u.id,
+    status: u.status,
     name: u.name,
     email: u.email,
     initials: u.name.slice(0, 2).toUpperCase(),
@@ -101,6 +103,8 @@ export function user(u: D.UserDTO, now = new Date()): AppUser {
     color: ROLE_COLOR[u.role],
   }
 }
+
+export const invite = (d: D.InviteDTO): InviteResult => ({ user: user(d), token: d.inviteToken, expiresAt: d.inviteExpiresAt })
 
 export const integration = (i: D.IntegrationDTO): Integration => ({
   key: i.key,

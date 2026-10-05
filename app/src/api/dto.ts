@@ -82,6 +82,12 @@ export interface UserDTO {
   invitedAt: string | null
 }
 
+/** ผลของ POST /users/invite และ POST /users/:id/invite-link */
+export interface InviteDTO extends UserDTO {
+  inviteToken: string
+  inviteExpiresAt: string
+}
+
 export interface IntegrationDTO {
   key: string
   name: string

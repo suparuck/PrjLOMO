@@ -9,7 +9,8 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test --test-concurrency=1 test/*.test.ts"
+    "test": "tsx --test --test-concurrency=1 test/*.test.ts",
+    "simulate": "tsx src/simulate.ts"
   },
   "dependencies": {
     "@fastify/cookie": "^11.1.2",

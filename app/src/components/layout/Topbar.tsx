@@ -3,6 +3,9 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { api } from '@/api'
+import { useAsync } from '@/hooks/useAsync'
+import { USER_ROLES } from '@/lib/validators'
 import { Icon } from '../ui/Icon'
 
 export function Topbar({
@@ -20,6 +23,7 @@ export function Topbar({
 }) {
   const router = useRouter()
   const [q, setQ] = useState('')
+  const { data: me } = useAsync(() => api.getMe())
   return (
     <header className="topbar">
       <button className="icon-btn menu-btn" aria-label="เมนู" onClick={onMenu}>
@@ -50,10 +54,10 @@ export function Topbar({
           {unread > 0 && <span className="dot-count">{unread}</span>}
         </Link>
         <div className="user-chip" tabIndex={0}>
-          <span className="avatar">AE</span>
+          <span className="avatar">{me ? me.name.slice(0, 2).toUpperCase() : ''}</span>
           <span className="user-meta">
-            <strong>Admin EV</strong>
-            <small>ผู้ดูแลระบบ</small>
+            <strong>{me?.name ?? ''}</strong>
+            <small>{me ? USER_ROLES[me.role].label : ''}</small>
           </span>
           <div className="user-menu">
             <Link href="/settings">

@@ -26,6 +26,8 @@ services:
       INGEST_API_KEY: ${INGEST_API_KEY:-}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      # job ตรวจรถออฟไลน์ทำงานทุกกี่วินาที (0 = ปิด)
+      OFFLINE_CHECK_INTERVAL_SECONDS: ${OFFLINE_CHECK_INTERVAL_SECONDS:-60}
     depends_on:
       db:
         condition: service_healthy
@@ -49,6 +51,22 @@ services:
         condition: service_healthy
     ports:
       - "${WEB_PORT:-3000}:3000"
+    restart: unless-stopped
+
+  # ตัวจำลอง telemetry สำหรับเดโม — ไม่ทำงานโดยปริยาย เปิดด้วย:  docker compose --profile demo up -d
+  # (ถ้าไม่มี telemetry ไหลเข้า job ตรวจออฟไลน์จะตั้งรถเดโมทั้งกองเป็นออฟไลน์หลัง ~30 นาที ซึ่งเป็นพฤติกรรมที่ถูกต้อง)
+  simulator:
+    profiles: ["demo"]
+    image: ev-monitor-api:latest
+    command: ["node", "dist/simulate.js"]
+    environment:
+      DATABASE_URL: postgres://evm:${POSTGRES_PASSWORD}@db:5432/evmonitor
+      API_URL: http://api:4000
+      INGEST_API_KEY: ${INGEST_API_KEY:?ต้องตั้ง INGEST_API_KEY ใน .env เพื่อใช้ตัวจำลอง}
+      SIM_INTERVAL_SECONDS: ${SIM_INTERVAL_SECONDS:-30}
+    depends_on:
+      api:
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:

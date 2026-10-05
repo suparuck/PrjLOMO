@@ -5,7 +5,8 @@ import { api } from '@/api'
 import { Modal } from '@/components/ui/Modal'
 import { FormField, focusFirstError } from '@/components/ui/FormField'
 import { USER_ROLES, validateInvite } from '@/lib/validators'
-import type { AppUser, InviteUserDraft, UserRole } from '@/types'
+import { InviteLinkPanel } from './InviteLinkPanel'
+import type { AppUser, InviteResult, InviteUserDraft, UserRole } from '@/types'
 
 const ORDER = ['email', 'role']
 
@@ -15,6 +16,7 @@ export function InviteUserModal({ users, onClose, onDone }: { users: AppUser[]; 
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [submitted, setSubmitted] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [created, setCreated] = useState<InviteResult | null>(null)
 
   const set = (k: keyof InviteUserDraft, v: string) => {
     const nextDraft = { ...draft, [k]: v } as InviteUserDraft
@@ -34,12 +36,33 @@ export function InviteUserModal({ users, onClose, onDone }: { users: AppUser[]; 
     setBusy(true)
     const res = await api.inviteUser(draft)
     setBusy(false)
-    if (res.ok) return onDone(res.data)
+    if (res.ok) return setCreated(res.data) // แสดงลิงก์ก่อน แล้วค่อยปิดเมื่อผู้ดูแลกด "เสร็จสิ้น"
     setErrors(res.errors)
     focusFirstError(ORDER, res.errors)
   }
 
   const role = draft.role ? USER_ROLES[draft.role as UserRole] : null
+
+  if (created) {
+    return (
+      <Modal
+        title="สร้างคำเชิญแล้ว"
+        description="ผู้ถูกเชิญเปิดลิงก์เพื่อตั้งรหัสผ่านและเข้าสู่ระบบ"
+        size="sm"
+        onClose={() => onDone(created.user)}
+        footer={
+          <button type="button" className="btn btn-primary" onClick={() => onDone(created.user)} data-autofocus>
+            เสร็จสิ้น
+          </button>
+        }
+      >
+        <InviteLinkPanel email={created.user.email} token={created.token} expiresAt={created.expiresAt} />
+        <p className="small muted" style={{ marginTop: 12 }}>
+          ระบบยังไม่ส่งอีเมลให้อัตโนมัติ — หากทำลิงก์หาย สร้างลิงก์ใหม่ได้จากรายชื่อผู้ใช้ (ลิงก์เดิมจะใช้ไม่ได้)
+        </p>
+      </Modal>
+    )
+  }
 
   return (
     <Modal
@@ -54,7 +77,7 @@ export function InviteUserModal({ users, onClose, onDone }: { users: AppUser[]; 
             ยกเลิก
           </button>
           <button type="submit" form="invite-form" className="btn btn-primary" disabled={busy}>
-            {busy ? 'กำลังบันทึก…' : 'ส่งคำเชิญ'}
+            {busy ? 'กำลังบันทึก…' : 'สร้างคำเชิญ'}
           </button>
         </>
       }
@@ -78,7 +101,7 @@ export function InviteUserModal({ users, onClose, onDone }: { users: AppUser[]; 
             </select>
           )}
         />
-        <p className="small muted">ต้นแบบนี้ยังไม่ได้ส่งอีเมลจริง — ระบบบันทึกคำเชิญเป็น “รอตอบรับ” เท่านั้น</p>
+        <p className="small muted">ระบบจะสร้างลิงก์ตอบรับคำเชิญ (ใช้ครั้งเดียว อายุ 7 วัน) ให้นำไปส่งให้ผู้ถูกเชิญ</p>
         {errors._ && (
           <p className="field-error" role="alert" style={{ marginTop: 12 }}>
             {errors._}

@@ -2,6 +2,7 @@ import { buildApp } from './app'
 import { config } from './config'
 import { createPool, one } from './db'
 import { hashKey } from './auth'
+import { startJobs } from './services/jobs'
 
 async function main() {
   const pool = createPool()
@@ -23,9 +24,11 @@ async function main() {
 
   const app = await buildApp(pool)
   await app.listen({ port: config.port, host: config.host })
+  const stopJobs = startJobs(pool, app.log, config.offlineCheckIntervalSeconds)
 
   const shutdown = async (signal: string) => {
     app.log.info({ signal }, 'shutting down')
+    stopJobs()
     await app.close()
     await pool.end()
     process.exit(0)

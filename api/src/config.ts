@@ -18,6 +18,9 @@ export const config = {
   cookieSecure: process.env.COOKIE_SECURE === 'true',
   /** ถ้าตั้งค่า จะสร้าง API key สำหรับ ingest ตั้งต้นตอนเริ่มระบบ (ถ้ายังไม่มี) */
   bootstrapIngestKey: process.env.INGEST_API_KEY || undefined,
+  /** ตรวจรถออฟไลน์ทุกกี่วินาที (0 = ปิด job) */
+  offlineCheckIntervalSeconds: Number(process.env.OFFLINE_CHECK_INTERVAL_SECONDS ?? 60),
+  inviteTtlDays: 7,
   sessionCookie: 'ev_session',
   sessionTtlSeconds: 12 * 60 * 60,
   rememberTtlSeconds: 30 * 24 * 60 * 60,

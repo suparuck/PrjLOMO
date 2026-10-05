@@ -9,9 +9,10 @@ import { Icon, type IconName } from '@/components/ui/Icon'
 import { RangeField } from '@/components/ui/RangeField'
 import { Switch } from '@/components/ui/Switch'
 import { InviteUserModal } from '@/components/modals/InviteUserModal'
+import { InviteManageModal } from '@/components/modals/InviteManageModal'
 import { ApiKeyModal } from '@/components/modals/ApiKeyModal'
 import { useToast } from '@/components/ui/Toast'
-import type { Settings } from '@/types'
+import type { AppUser, Settings } from '@/types'
 
 const SECTIONS: { id: string; label: string; icon: IconName }[] = [
   { id: 'org', label: 'องค์กร', icon: 'dashboard' },
@@ -61,6 +62,7 @@ export default function SettingsPage() {
   const { data: users, error: usersError, reload: reloadUsers } = useAsync(() => api.listUsers())
   const toast = useToast()
   const [inviting, setInviting] = useState(false)
+  const [managingInvite, setManagingInvite] = useState<AppUser | null>(null)
   const [managingKeys, setManagingKeys] = useState(false)
   const [saved, setSaved] = useState<Settings | null>(null)
   const [form, setForm] = useState<Settings | null>(null)
@@ -262,7 +264,13 @@ export default function SettingsPage() {
                     <td>{u.permissions}</td>
                     <td>{u.lastSeen}</td>
                     <td>
-                      <button className="btn btn-ghost btn-sm">แก้ไข</button>
+                      {u.status === 'invited' ? (
+                        <button type="button" className="btn btn-ghost btn-sm" onClick={() => setManagingInvite(u)}>
+                          ลิงก์คำเชิญ
+                        </button>
+                      ) : (
+                        <button className="btn btn-ghost btn-sm">แก้ไข</button>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -336,6 +344,19 @@ export default function SettingsPage() {
       </div>
 
       {managingKeys && <ApiKeyModal onClose={() => setManagingKeys(false)} />}
+      {managingInvite && (
+        <InviteManageModal
+          user={managingInvite}
+          onClose={() => setManagingInvite(null)}
+          onChanged={(action) => {
+            reloadUsers()
+            if (action === 'cancelled') {
+              toast(`ยกเลิกคำเชิญของ ${managingInvite.email} แล้ว`)
+              setManagingInvite(null)
+            }
+          }}
+        />
+      )}
       {inviting && (
         <InviteUserModal
           users={users}
@@ -343,7 +364,7 @@ export default function SettingsPage() {
           onDone={(u) => {
             setInviting(false)
             reloadUsers()
-            toast(`บันทึกคำเชิญถึง ${u.email} แล้ว (ยังไม่ได้ส่งอีเมลจริง)`)
+            toast(`สร้างคำเชิญถึง ${u.email} แล้ว — นำลิงก์ไปส่งให้ผู้ถูกเชิญ`)
           }}
         />
       )}
