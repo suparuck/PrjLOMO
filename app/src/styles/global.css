@@ -534,3 +534,7 @@ table.tbl { width: 100%; border-collapse: collapse; min-width: 760px; }
   .kpi-value { font-size: 24px; }
   .card { padding: 18px; }
 }
+
+/* Landing: เผื่อความสูง nav แบบ sticky เมื่อกดลิงก์ anchor */
+html { scroll-behavior: smooth; }
+.site section[id] { scroll-margin-top: 72px; }

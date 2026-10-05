@@ -4,4 +4,7 @@ services:
     image: ev-monitor:latest
     ports:
       - "${WEB_PORT:-3000}:3000"
+    environment:
+      AUTH_SECRET: ${AUTH_SECRET:?กำหนด AUTH_SECRET ในไฟล์ .env (ดู .env.example)}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
     restart: unless-stopped

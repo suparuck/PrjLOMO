@@ -59,9 +59,17 @@ export function Topbar({
             <Link href="/settings">
               <Icon name="settings" size={16} /> ตั้งค่าบัญชี
             </Link>
-            <Link href="/login">
+            <a
+              href="/login"
+              onClick={async (e) => {
+                e.preventDefault()
+                await fetch('/api/auth/logout', { method: 'POST' })
+                router.replace('/login')
+                router.refresh()
+              }}
+            >
               <Icon name="logout" size={16} /> ออกจากระบบ
-            </Link>
+            </a>
           </div>
         </div>
       </div>
