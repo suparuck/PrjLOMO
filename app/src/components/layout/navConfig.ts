@@ -25,6 +25,6 @@ export const PAGE_META: Record<string, { title: string; sub?: string }> = {
   battery: { title: 'สถานะแบตเตอรี่', sub: 'ระดับแบต (SoC) สุขภาพแบต (SoH) และระยะวิ่งของทุกคัน' },
   charging: { title: 'การชาร์จ', sub: 'เซสชันการชาร์จ สถานี และค่าใช้จ่ายพลังงาน' },
   drivers: { title: 'พนักงานขับรถ', sub: 'คะแนนการขับแบบประหยัดพลังงานและความปลอดภัย' },
-  reports: { title: 'รายงาน' },
-  settings: { title: 'ตั้งค่า' },
+  reports: { title: 'รายงาน', sub: 'พลังงาน ต้นทุน คาร์บอน และความพร้อมเปลี่ยนเป็น EV' },
+  settings: { title: 'ตั้งค่า', sub: 'องค์กร การแจ้งเตือน ผู้ใช้ และการเชื่อมต่อ' },
 }

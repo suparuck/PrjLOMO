@@ -1,6 +1,7 @@
 import { delay } from './delay'
 import * as db from './mockData'
-import type { BatteryInsights, ChargingLoad, DriverEventStat, EnergySummary, MaintenanceItem, Sustainability, Vehicle, VehicleDetail, VehicleTrip } from '../types'
+import { computeElectrification, computeReport } from './report'
+import type { AppUser, Integration, ReportFilters, Settings, BatteryInsights, ChargingLoad, DriverEventStat, EnergySummary, MaintenanceItem, Sustainability, Vehicle, VehicleDetail, VehicleTrip } from '../types'
 
 const PLACES = ['Depot A', 'นิมมานเหมินท์', 'เซ็นทรัล เฟสติวัล', 'สนามบินเชียงใหม่', 'มช. (CMU)', 'หางดง', 'สันกำแพง']
 
@@ -113,14 +114,25 @@ export const api = {
     })
   },
 
-  /** ความยั่งยืนปี 2026 — ค่าประมาณจากต้นแบบ รอสูตรจริงจาก backend */
+  /** ความยั่งยืนปี 2026 — คำนวณจากรายงาน (ม.ค.–ต.ค. ทุกคัน) ให้ตรงกับหน้า Reports */
   getSustainability(): Promise<Sustainability> {
+    const r = computeReport({ period: 'year', brand: 'all' })
     return delay({
-      co2Tons: 32.1,
-      treesEquivalent: 1460,
-      fuelSavings: 412800,
+      co2Tons: r.carbon.avoidedTons,
+      treesEquivalent: r.carbon.trees,
+      fuelSavings: r.totals.fuelSavings,
       totalKm: db.vehicles.reduce((s, v) => s + v.odometer, 0),
       iceReadyCount: db.iceVehicles.filter((i) => i.readinessScore >= 80).length,
     })
   },
+
+  getReport: (f: ReportFilters) => delay(computeReport(f), 150),
+  getElectrification: () => delay(computeElectrification()),
+  getSettings: () => delay(db.settings),
+  async saveSettings(s: Settings) {
+    db.saveSettings(s)
+    return delay(db.settings)
+  },
+  listUsers: (): Promise<AppUser[]> => delay(db.users),
+  listIntegrations: (): Promise<Integration[]> => delay(db.integrations),
 }

@@ -1,4 +1,7 @@
 import type {
+  AppUser,
+  Integration,
+  Settings,
   Alert,
   AlertSeverity,
   AlertType,
@@ -132,6 +135,53 @@ export const driverEvents = [
   { label: 'เร่งแรง', count: 15 },
   { label: 'จอดติดเครื่องนาน', count: 7 },
 ]
+
+export const energyYear = {
+  labels: ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.'],
+  kwh: [4200, 4050, 4580, 4320, 4890, 5120, 5340, 5410, 5280, 1250],
+  co2: [2.8, 2.7, 3.1, 2.9, 3.3, 3.5, 3.6, 3.7, 3.6, 0.9],
+}
+
+/** สัดส่วนค่าใช้จ่ายตามประเภทการชาร์จ (%) */
+export const costMix = [
+  { label: 'Depot (TOU Off-Peak)', pct: 38 },
+  { label: 'Depot (On-Peak)', pct: 14 },
+  { label: 'สาธารณะ DC', pct: 41 },
+  { label: 'สาธารณะ AC', pct: 7 },
+]
+
+/** TCO 5 ปีต่อคัน (บาท): ราคารถ, พลังงาน, บำรุงรักษา, ภาษี/ประกัน */
+export const tco = {
+  iceName: 'รถสันดาป (Yaris Ativ)',
+  evName: 'EV (BYD Dolphin)',
+  ice: [559000, 372000, 68000, 95000],
+  ev: [569900, 104000, 30000, 72000],
+}
+
+export const users: AppUser[] = [
+  { name: 'Admin EV', email: 'admin@evmonitor.co.th', initials: 'AE', role: 'ผู้ดูแลระบบ', roleBadge: 's-driving', permissions: 'ทั้งหมด', lastSeen: 'ออนไลน์' },
+  { name: 'ประสิทธิ์ สายทอง', email: 'prasit@company.co.th', initials: 'ปส', role: 'ผู้จัดการกองยาน', roleBadge: 's-charging', permissions: 'รถ คนขับ รายงาน', lastSeen: '2 ชม.ที่แล้ว', color: 'var(--green)' },
+  { name: 'วรรณา รักดี', email: 'wanna@company.co.th', initials: 'วร', role: 'ผู้ดูรายงาน', roleBadge: 's-parked', permissions: 'รายงานเท่านั้น', lastSeen: 'เมื่อวาน', color: 'var(--amber)' },
+]
+
+export const integrations: Integration[] = [
+  { key: 'obd', name: 'อุปกรณ์ Telematics', text: '12 อุปกรณ์ · ออนไลน์ 11', logo: 'OBD', color: 'var(--navy-900)', connected: true },
+  { key: 'pea', name: 'PEA VOLTA', text: 'ดึงข้อมูลเซสชันชาร์จสาธารณะ', logo: 'PEA', color: 'var(--navy-700)', connected: true },
+  { key: 'ea', name: 'EA Anywhere', text: 'บัตรสมาชิกองค์กร', logo: 'EA', color: 'var(--green)', connected: false, actionLabel: 'เชื่อมต่อ' },
+  { key: 'line', name: 'LINE Official Account', text: 'ส่งการแจ้งเตือน', logo: 'LINE', color: 'var(--green)', connected: true },
+  { key: 'api', name: 'REST API / Webhook', text: 'ส่งข้อมูลไป ERP หรือ BI', logo: 'API', color: 'var(--blue)', connected: false, actionLabel: 'สร้างคีย์' },
+  { key: 'sso', name: 'Single Sign-On', text: 'Microsoft Entra ID / Google', logo: 'SSO', color: 'var(--red)', connected: false, actionLabel: 'ตั้งค่า' },
+]
+
+export let settings: Settings = {
+  org: { name: 'บริษัท ตัวอย่าง จำกัด', fleetName: 'EV Fleet เชียงใหม่', timezone: 'Asia/Bangkok (UTC+07:00)', distanceUnit: 'กิโลเมตร', language: 'ไทย', currency: 'บาท (฿)' },
+  thresholds: { lowBattery: 30, criticalBattery: 20, maxSpeed: 100, offlineMinutes: 30 },
+  notify: { email: true, line: true, sms: false, dailyDigest: true },
+  charging: { tariff: 'TOU (On-Peak / Off-Peak)', offPeak: '2.60', onPeak: '5.80', defaultTarget: '80%', smartSchedule: true, demandLimit: true },
+}
+export const saveSettings = (s: Settings) => {
+  settings = structuredClone(s)
+}
 
 type IRow = [string, string, number, number, number, number, string]
 const iRows: IRow[] = [

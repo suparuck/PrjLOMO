@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { Card } from './Card'
 import { Icon, type IconName } from './Icon'
 
@@ -8,13 +9,16 @@ export function KpiCard({
   value,
   unit,
   note,
+  noteClass = '',
   icon,
   tone,
 }: {
   label: string
   value: number | string
   unit: string
-  note: string
+  note: ReactNode
+  /** เช่น 'up' (เขียว) หรือ 'down' (แดง) */
+  noteClass?: string
   icon: IconName
   tone: KpiTone
 }) {
@@ -29,7 +33,7 @@ export function KpiCard({
           {value}
           <small>{unit}</small>
         </div>
-        <div className="kpi-note">{note}</div>
+        <div className={`kpi-note ${noteClass}`.trim()}>{note}</div>
       </div>
     </Card>
   )

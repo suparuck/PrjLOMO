@@ -155,6 +155,86 @@ export interface DriverEventStat {
   count: number
 }
 
+export type ReportPeriod = 'year' | 'q3' | 'sep'
+export type ReportBrand = 'all' | 'BYD' | 'MG'
+export interface ReportFilters {
+  period: ReportPeriod
+  brand: ReportBrand
+}
+
+export interface Report {
+  labels: string[]
+  kwhDepot: number[]
+  kwhPublic: number[]
+  co2: number[]
+  totals: {
+    kwh: number
+    kwhChangePct: number
+    cost: number
+    avgPricePerKwh: number
+    km: number
+    costPerKm: number
+    oilCostPerKm: number
+    vehicleCount: number
+    fuelSavings: number
+  }
+  costMix: { label: string; pct: number }[]
+  carbon: {
+    avoidedTons: number
+    gridTons: number
+    gridFactor: number
+    trees: number
+    treeKgPerYear: number
+    netZeroPct: number
+    evCount: number
+    fleetCount: number
+  }
+  perKm: { label: string; grams: number }[]
+  usage: { id: string; utilization: number; efficiency: number }[]
+}
+
+export interface ElectrificationRow {
+  ice: IceVehicle
+  evMonthlyCost: number
+  readiness: 'ready' | 'consider' | 'not'
+}
+
+export interface ElectrificationReport {
+  rows: ElectrificationRow[]
+  readyCount: number
+  laterCount: number
+  annualSavings: number
+  tco: { labels: string[]; ice: number[]; ev: number[]; iceName: string; evName: string }
+}
+
+export interface Settings {
+  org: { name: string; fleetName: string; timezone: string; distanceUnit: string; language: string; currency: string }
+  thresholds: { lowBattery: number; criticalBattery: number; maxSpeed: number; offlineMinutes: number }
+  notify: { email: boolean; line: boolean; sms: boolean; dailyDigest: boolean }
+  charging: { tariff: string; offPeak: string; onPeak: string; defaultTarget: string; smartSchedule: boolean; demandLimit: boolean }
+}
+
+export interface AppUser {
+  name: string
+  email: string
+  initials: string
+  role: string
+  roleBadge: string
+  permissions: string
+  lastSeen: string
+  color?: string
+}
+
+export interface Integration {
+  key: string
+  name: string
+  text: string
+  logo: string
+  color: string
+  connected: boolean
+  actionLabel?: string
+}
+
 export interface Org {
   name: string
   city: string
