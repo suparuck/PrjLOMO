@@ -8,11 +8,13 @@ import { Icon } from '../ui/Icon'
 export function Topbar({
   title,
   sub,
+  crumb,
   unread,
   onMenu,
 }: {
   title: string
   sub?: string
+  crumb?: { href: string; label: string; current: string }
   unread: number
   onMenu: () => void
 }) {
@@ -24,6 +26,11 @@ export function Topbar({
         <Icon name="menu" size={20} />
       </button>
       <div className="top-title">
+        {crumb && (
+          <p className="crumb">
+            <Link href={crumb.href}>{crumb.label}</Link> / {crumb.current}
+          </p>
+        )}
         <h1>{title}</h1>
         {sub && <p className="top-sub">{sub}</p>}
       </div>

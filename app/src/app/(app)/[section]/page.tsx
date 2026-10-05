@@ -2,7 +2,8 @@ import { notFound } from 'next/navigation'
 import { PAGE_META } from '@/components/layout/navConfig'
 import { Card } from '@/components/ui/Card'
 
-const SECTIONS = Object.keys(PAGE_META).filter((k) => k !== 'dashboard')
+const IMPLEMENTED = ['dashboard', 'vehicles', 'map']
+const SECTIONS = Object.keys(PAGE_META).filter((k) => !IMPLEMENTED.includes(k))
 
 export function generateStaticParams() {
   return SECTIONS.map((section) => ({ section }))

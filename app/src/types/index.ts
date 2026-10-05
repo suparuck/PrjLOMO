@@ -112,6 +112,31 @@ export interface Sustainability {
   iceReadyCount: number
 }
 
+export interface VehicleTrip {
+  when: string
+  route: string
+  km: number
+  minutes: number
+  kwh: number
+  efficiency: number
+  soc: number
+}
+
+export interface MaintenanceItem {
+  title: string
+  text: string
+  tone: 'amber' | 'blue' | 'green'
+  icon: 'wrench' | 'shield' | 'battery'
+}
+
+export interface VehicleDetail {
+  vehicle: Vehicle
+  driver: Driver | null
+  socSeries: { labels: string[]; values: number[] }
+  trips: VehicleTrip[]
+  maintenance: MaintenanceItem[]
+}
+
 export interface Org {
   name: string
   city: string

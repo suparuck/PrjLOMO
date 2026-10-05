@@ -7,14 +7,20 @@ import { useAsync } from '@/hooks/useAsync'
 import { Sidebar } from './Sidebar'
 import { Topbar } from './Topbar'
 import { PAGE_META } from './navConfig'
+import { PageHeaderSetter, type PageHeader } from './PageHeader'
+
+/** หน้าที่ใช้พื้นที่เต็มจอ (ไม่มี padding และ footer) */
+const FULL_BLEED = ['/map']
 
 export function AppShell({ children }: { children: ReactNode }) {
   const [navOpen, setNavOpen] = useState(false)
+  const [override, setOverride] = useState<PageHeader | null>(null)
   const pathname = usePathname() ?? ''
   const { data: alerts } = useAsync(() => api.listAlerts())
   const { data: org } = useAsync(() => api.getOrg())
   const unread = alerts?.filter((a) => !a.acknowledged).length ?? 0
-  const meta = PAGE_META[pathname.split('/')[1]] ?? { title: '' }
+  const meta: PageHeader = override ?? PAGE_META[pathname.split('/')[1]] ?? { title: '' }
+  const full = FULL_BLEED.includes(pathname)
 
   useEffect(() => setNavOpen(false), [pathname])
   useEffect(() => {
@@ -26,17 +32,25 @@ export function AppShell({ children }: { children: ReactNode }) {
   }, [meta.title])
 
   return (
-    <div className="shell">
-      <Sidebar unread={unread} city={org?.city ?? ''} onNavigate={() => setNavOpen(false)} />
-      <div className="main">
-        <Topbar title={meta.title} sub={meta.sub} unread={unread} onMenu={() => setNavOpen((o) => !o)} />
-        <main className="content">{children}</main>
-        <footer className="app-foot">
-          <span>อัปเดตล่าสุด: วันนี้ 10:30 น.</span>
-          <span>© 2026 EV Monitor Dashboard</span>
-        </footer>
+    <PageHeaderSetter.Provider value={setOverride}>
+      <div className="shell">
+        <Sidebar unread={unread} city={org?.city ?? ''} onNavigate={() => setNavOpen(false)} />
+        <div className="main">
+          <Topbar title={meta.title} sub={meta.sub} crumb={meta.crumb} unread={unread} onMenu={() => setNavOpen((o) => !o)} />
+          {full ? (
+            children
+          ) : (
+            <>
+              <main className="content">{children}</main>
+              <footer className="app-foot">
+                <span>อัปเดตล่าสุด: วันนี้ 10:30 น.</span>
+                <span>© 2026 EV Monitor Dashboard</span>
+              </footer>
+            </>
+          )}
+        </div>
+        <div className="scrim" onClick={() => setNavOpen(false)} />
       </div>
-      <div className="scrim" onClick={() => setNavOpen(false)} />
-    </div>
+    </PageHeaderSetter.Provider>
   )
 }

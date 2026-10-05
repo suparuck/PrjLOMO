@@ -1,4 +1,18 @@
-import { ArcElement, BarElement, CategoryScale, Chart, DoughnutController, BarController, Legend, LinearScale, Tooltip } from 'chart.js'
+import {
+  ArcElement,
+  BarController,
+  BarElement,
+  CategoryScale,
+  Chart,
+  DoughnutController,
+  Filler,
+  Legend,
+  LineController,
+  LineElement,
+  LinearScale,
+  PointElement,
+  Tooltip,
+} from 'chart.js'
 
 /** อ่านค่าสีจาก CSS token — ไม่ hardcode สีซ้ำใน JS */
 export const cssVar = (name: string) => getComputedStyle(document.documentElement).getPropertyValue(name).trim()
@@ -20,7 +34,10 @@ let ready = false
 export function setupChart() {
   if (ready) return
   ready = true
-  Chart.register(ArcElement, BarElement, CategoryScale, LinearScale, DoughnutController, BarController, Legend, Tooltip)
+  Chart.register(
+    ArcElement, BarElement, LineElement, PointElement, CategoryScale, LinearScale,
+    DoughnutController, BarController, LineController, Filler, Legend, Tooltip,
+  )
   const c = chartColors()
   Chart.defaults.font.family = cssVar('--font')
   Chart.defaults.font.size = 12
