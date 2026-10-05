@@ -20,11 +20,11 @@ export const NAV: NavItem[] = [
 export const PAGE_META: Record<string, { title: string; sub?: string }> = {
   dashboard: { title: 'ภาพรวมกองยาน EV', sub: 'ติดตามรถยนต์ไฟฟ้าของคุณแบบเรียลไทม์' },
   map: { title: 'แผนที่สด', sub: 'ตำแหน่งรถและสถานีชาร์จแบบเรียลไทม์' },
-  alerts: { title: 'การแจ้งเตือน' },
+  alerts: { title: 'การแจ้งเตือน', sub: 'เหตุการณ์จากรถ แบตเตอรี่ การชาร์จ และการขับขี่' },
   vehicles: { title: 'รถทั้งหมด', sub: 'จัดการและติดตามรถยนต์ไฟฟ้าทุกคันในกองยาน' },
-  battery: { title: 'สถานะแบตเตอรี่' },
-  charging: { title: 'การชาร์จ' },
-  drivers: { title: 'พนักงานขับรถ' },
+  battery: { title: 'สถานะแบตเตอรี่', sub: 'ระดับแบต (SoC) สุขภาพแบต (SoH) และระยะวิ่งของทุกคัน' },
+  charging: { title: 'การชาร์จ', sub: 'เซสชันการชาร์จ สถานี และค่าใช้จ่ายพลังงาน' },
+  drivers: { title: 'พนักงานขับรถ', sub: 'คะแนนการขับแบบประหยัดพลังงานและความปลอดภัย' },
   reports: { title: 'รายงาน' },
   settings: { title: 'ตั้งค่า' },
 }

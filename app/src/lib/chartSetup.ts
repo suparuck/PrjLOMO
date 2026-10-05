@@ -24,6 +24,7 @@ export const chartColors = () => ({
   amber: cssVar('--amber'),
   red: cssVar('--red'),
   ink: cssVar('--ink'),
+  slate: cssVar('--slate'),
   muted: cssVar('--muted'),
   grid: cssVar('--line-2'),
   card: cssVar('--card'),

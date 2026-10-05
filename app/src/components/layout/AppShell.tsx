@@ -8,17 +8,25 @@ import { Sidebar } from './Sidebar'
 import { Topbar } from './Topbar'
 import { PAGE_META } from './navConfig'
 import { PageHeaderSetter, type PageHeader } from './PageHeader'
+import { AlertsProvider, useAlerts } from './AlertsProvider'
 
 /** หน้าที่ใช้พื้นที่เต็มจอ (ไม่มี padding และ footer) */
 const FULL_BLEED = ['/map']
 
 export function AppShell({ children }: { children: ReactNode }) {
+  return (
+    <AlertsProvider>
+      <Shell>{children}</Shell>
+    </AlertsProvider>
+  )
+}
+
+function Shell({ children }: { children: ReactNode }) {
   const [navOpen, setNavOpen] = useState(false)
   const [override, setOverride] = useState<PageHeader | null>(null)
   const pathname = usePathname() ?? ''
-  const { data: alerts } = useAsync(() => api.listAlerts())
+  const { unread } = useAlerts()
   const { data: org } = useAsync(() => api.getOrg())
-  const unread = alerts?.filter((a) => !a.acknowledged).length ?? 0
   const meta: PageHeader = override ?? PAGE_META[pathname.split('/')[1]] ?? { title: '' }
   const full = FULL_BLEED.includes(pathname)
 

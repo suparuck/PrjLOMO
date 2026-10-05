@@ -1,6 +1,6 @@
 import { delay } from './delay'
 import * as db from './mockData'
-import type { EnergySummary, MaintenanceItem, Sustainability, Vehicle, VehicleDetail, VehicleTrip } from '../types'
+import type { BatteryInsights, ChargingLoad, DriverEventStat, EnergySummary, MaintenanceItem, Sustainability, Vehicle, VehicleDetail, VehicleTrip } from '../types'
 
 const PLACES = ['Depot A', 'นิมมานเหมินท์', 'เซ็นทรัล เฟสติวัล', 'สนามบินเชียงใหม่', 'มช. (CMU)', 'หางดง', 'สันกำแพง']
 
@@ -56,6 +56,40 @@ export const api = {
       maintenance: MAINTENANCE,
     })
   },
+  getBatteryInsights(): Promise<BatteryInsights> {
+    const avgSoh = Math.round((db.vehicles.reduce((s, v) => s + v.soh, 0) / db.vehicles.length) * 10) / 10
+    const values = [...db.sohHistory, avgSoh]
+    const models = [...new Set(db.vehicles.map((v) => v.model))]
+    return delay({
+      sohTrend: { labels: [...db.sohMonths, 'ต.ค.'], values },
+      sohChange3m: Math.round((values[8] - avgSoh) * 10) / 10,
+      // ใช้งานจริงประมาณ 86% ของสเปก (ค่าประมาณ รอข้อมูลจริงจาก backend)
+      modelRanges: models.map((model) => ({
+        model,
+        spec: db.modelSpecRange[model],
+        actual: Math.round(db.modelSpecRange[model] * 0.86),
+      })),
+    })
+  },
+  getChargingLoad: (): Promise<ChargingLoad> =>
+    delay({
+      hours: Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0')),
+      kw: db.chargingLoadKw,
+      peakStart: 9,
+      peakEnd: 22,
+    }),
+  getDriverEvents: (): Promise<DriverEventStat[]> => delay(db.driverEvents),
+  async acknowledgeAlert(id: number) {
+    const a = db.alerts.find((x) => x.id === id)
+    if (a) a.acknowledged = true
+    return delay(db.alerts)
+  },
+  async acknowledgeAllAlerts() {
+    db.alerts.forEach((a) => (a.acknowledged = true))
+    return delay(db.alerts)
+  },
+  /** เวลาตอบสนองเฉลี่ยต่อการแจ้งเตือน (นาที) — ค่าประมาณจากต้นแบบ */
+  getAlertStats: () => delay({ avgResponseMinutes: 6.4 }),
   listDrivers: () => delay(db.drivers),
   listStations: () => delay(db.stations),
   listAlerts: () => delay(db.alerts),

@@ -107,6 +107,32 @@ export const energyWeek: EnergyWeek = {
   cost: [790, 1010, 860, 1240, 1080, 560, 470],
 }
 
+/** ระยะวิ่งตามสเปกผู้ผลิต (กม.) */
+export const modelSpecRange: Record<string, number> = {
+  'BYD Dolphin': 410,
+  'MG4 Electric': 350,
+  'BYD Atto 3': 420,
+  'Neta V': 384,
+  'ORA Good Cat': 400,
+  'BYD Seal': 510,
+  'Tesla Model 3': 491,
+  'MG ZS EV': 403,
+}
+
+export const sohMonths = ['พ.ย.', 'ธ.ค.', 'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.']
+/** SoH เฉลี่ยย้อนหลัง 11 เดือน (เดือนที่ 12 = ค่าปัจจุบันคำนวณจากรถ) */
+export const sohHistory = [97.6, 97.4, 97.3, 97.1, 96.9, 96.8, 96.6, 96.4, 96.2, 96.0, 95.9]
+
+/** โหลดการชาร์จรายชั่วโมงวันนี้ (kW) */
+export const chargingLoadKw = [44, 66, 66, 52, 44, 22, 60, 30, 0, 0, 172, 172, 60, 0, 22, 0, 0, 45, 60, 22, 0, 0, 88, 66]
+
+export const driverEvents = [
+  { label: 'เบรกแรง', count: 26 },
+  { label: 'ขับเร็วเกินกำหนด', count: 19 },
+  { label: 'เร่งแรง', count: 15 },
+  { label: 'จอดติดเครื่องนาน', count: 7 },
+]
+
 type IRow = [string, string, number, number, number, number, string]
 const iRows: IRow[] = [
   ['ICE-21', 'Toyota Hilux Revo', 96, 180, 9800, 92, 'BYD Shark 6 / Isuzu D-Max EV'],

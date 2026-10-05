@@ -137,6 +137,24 @@ export interface VehicleDetail {
   maintenance: MaintenanceItem[]
 }
 
+export interface BatteryInsights {
+  sohTrend: { labels: string[]; values: number[] }
+  sohChange3m: number
+  modelRanges: { model: string; spec: number; actual: number }[]
+}
+
+export interface ChargingLoad {
+  hours: string[]
+  kw: number[]
+  peakStart: number // ชั่วโมงเริ่ม On-Peak (รวม)
+  peakEnd: number // ชั่วโมงสิ้นสุด On-Peak (ไม่รวม)
+}
+
+export interface DriverEventStat {
+  label: string
+  count: number
+}
+
 export interface Org {
   name: string
   city: string

@@ -1,6 +1,17 @@
+import type { ReactNode } from 'react'
 import type { ChargingSession } from '@/types'
 
-export function ChargingSessionCard({ session: s, model }: { session: ChargingSession; model: string }) {
+export function ChargingSessionCard({
+  session: s,
+  model,
+  showFrom = false,
+  actions,
+}: {
+  session: ChargingSession
+  model: string
+  showFrom?: boolean
+  actions?: ReactNode
+}) {
   return (
     <div className="session">
       <div className="session-top">
@@ -10,6 +21,7 @@ export function ChargingSessionCard({ session: s, model }: { session: ChargingSe
           </strong>
           <small>
             {s.stationName} · {s.kw} kW · เริ่ม {s.start}
+            {showFrom && ` (จาก ${s.fromSoc}%)`}
           </small>
         </div>
         <div className="session-pct">{s.nowSoc}%</div>
@@ -32,6 +44,11 @@ export function ChargingSessionCard({ session: s, model }: { session: ChargingSe
           เหลือ<b>{s.eta}</b>
         </div>
       </div>
+      {actions && (
+        <div className="flex mt" style={{ marginTop: 12 }}>
+          {actions}
+        </div>
+      )}
     </div>
   )
 }
