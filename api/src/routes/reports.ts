@@ -1,0 +1,108 @@
+import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox'
+import { Type } from '@sinclair/typebox'
+import type { Pool } from 'pg'
+import { requireRole } from '../auth'
+import { one, rows } from '../db'
+import { monthLabel, weekdayLabel } from '../lib/labels'
+import { computeElectrification, computeReport, loadConfig } from '../services/report'
+
+import { sec } from '../security'
+const round = (n: number, d = 0) => Math.round(n * 10 ** d) / 10 ** d
+
+export const reportRoutes =
+  (pool: Pool): FastifyPluginAsyncTypebox =>
+  async (app) => {
+    const viewer = requireRole('viewer')
+    const mgr = requireRole('manager')
+
+    app.get(
+      '/reports',
+      {
+        preValidation: viewer,
+        schema: {
+          tags: ['reports'],
+          summary: 'รายงานพลังงาน คาร์บอน การใช้งาน — ตัวกรองมีผลกับทุกตัวเลขและกราฟ',
+          security: sec,
+          querystring: Type.Object({
+            period: Type.Optional(Type.Union([Type.Literal('year'), Type.Literal('q3'), Type.Literal('sep')], { default: 'year' })),
+            brand: Type.Optional(Type.String({ maxLength: 40, default: 'all' })),
+          }),
+        },
+      },
+      async (req) => computeReport(pool, req.query.period ?? 'year', req.query.brand ?? 'all'),
+    )
+
+    app.get('/reports/electrification', { preValidation: viewer, schema: { tags: ['reports'], summary: 'รายงานความพร้อมเปลี่ยนรถสันดาปเป็น EV และ TCO', security: sec } }, async () =>
+      computeElectrification(pool),
+    )
+
+    // ---- ตัวเลขสำหรับแดชบอร์ด ----
+    app.get('/energy/week', { preValidation: mgr, schema: { tags: ['dashboard'], summary: 'พลังงานรายวัน 7 วันล่าสุด', security: sec } }, async () => {
+      const list = await rows<{ day: string; kwh: number; cost: number }>(
+        pool,
+        `select to_char(day, 'YYYY-MM-DD') as day, kwh, cost from energy_daily
+          where day > (select max(day) from energy_daily) - 7 order by day`,
+      )
+      return { labels: list.map((r) => weekdayLabel(r.day)), days: list.map((r) => r.day), kwh: list.map((r) => r.kwh), cost: list.map((r) => r.cost) }
+    })
+
+    app.get('/energy/summary', { preValidation: mgr, schema: { tags: ['dashboard'], summary: 'สรุปพลังงานสัปดาห์นี้เทียบสัปดาห์ก่อน', security: sec } }, async () => {
+      const cfg = await loadConfig(pool)
+      const r = await one<{ cur_kwh: number | null; cur_cost: number | null; prev_kwh: number | null; eff: number }>(
+        pool,
+        `with m as (select max(day) as d from energy_daily)
+         select (select sum(kwh) from energy_daily, m where day > m.d - 7) as cur_kwh,
+                (select sum(cost) from energy_daily, m where day > m.d - 7) as cur_cost,
+                (select sum(kwh) from energy_daily, m where day <= m.d - 7 and day > m.d - 14) as prev_kwh,
+                (select coalesce(avg(efficiency), 0) from vehicles) as eff`,
+      )
+      const kwh = r?.cur_kwh ?? 0
+      const cost = r?.cur_cost ?? 0
+      return {
+        totalKwh: kwh,
+        kwhChangePct: r?.prev_kwh ? round((kwh / r.prev_kwh - 1) * 100, 1) : 0,
+        totalCost: cost,
+        avgPricePerKwh: kwh ? round(cost / kwh, 2) : 0,
+        efficiency: round(r?.eff ?? 0, 1),
+        efficiencyChangePct: cfg.efficiencyChangePct,
+      }
+    })
+
+    app.get('/sustainability', { preValidation: mgr, schema: { tags: ['dashboard'], summary: 'ความยั่งยืนของปี (CO₂ ต้นไม้ ประหยัดน้ำมัน)', security: sec } }, async () => {
+      const r = await computeReport(pool, 'year', 'all')
+      const extra = await one<{ km: number; ready: number }>(
+        pool,
+        `select (select coalesce(sum(odometer_km), 0) from vehicles)::int as km,
+                (select count(*) from ice_vehicles where readiness_score >= 80)::int as ready`,
+      )
+      return { co2Tons: r.carbon.avoidedTons, treesEquivalent: r.carbon.trees, fuelSavings: r.totals.fuelSavings, totalKm: extra?.km ?? 0, iceReadyCount: extra?.ready ?? 0 }
+    })
+
+    app.get('/battery/insights', { preValidation: mgr, schema: { tags: ['dashboard'], summary: 'แนวโน้ม SoH และระยะวิ่งตามรุ่น', security: sec } }, async () => {
+      const cfg = await loadConfig(pool)
+      const hist = await rows<{ month: string; soh: number }>(pool, `select to_char(month, 'YYYY-MM-DD') as month, avg_soh as soh from fleet_soh_monthly order by month`)
+      const cur = await one<{ soh: number; month: string }>(pool, `select coalesce(round(avg(soh), 1), 0)::float8 as soh, to_char(now() at time zone 'Asia/Bangkok', 'YYYY-MM-DD') as month from vehicles`)
+      const values = [...hist.map((h) => h.soh), cur!.soh]
+      const labels = [...hist.map((h) => monthLabel(h.month)), monthLabel(cur!.month)]
+      // เทียบกับ 3 เดือนก่อนหน้า
+      const ref = values.length >= 4 ? values[values.length - 4] : values[0]
+      const models = await rows<{ model: string; spec: number }>(
+        pool,
+        `select v.model, vm.spec_range_km as spec from (select distinct model from vehicles) v
+           join vehicle_models vm on vm.model = v.model where vm.spec_range_km is not null order by v.model`,
+      )
+      return {
+        sohTrend: { labels, values },
+        sohChange3m: round(ref - cur!.soh, 1),
+        modelRanges: models.map((m) => ({ model: m.model, spec: m.spec, actual: Math.round(m.spec * cfg.actualRangeRatio) })),
+      }
+    })
+
+    app.get('/ice-vehicles', { preValidation: viewer, schema: { tags: ['reports'], summary: 'รถสันดาปที่ยังเหลือในกองยาน', security: sec } }, async () =>
+      rows(
+        pool,
+        `select id, model, km_per_day as "kmPerDay", max_km_per_day as "maxKmPerDay", fuel_per_month as "fuelPerMonth",
+                readiness_score as "readinessScore", recommended_ev as "recommendedEv" from ice_vehicles order by id`,
+      ),
+    )
+  }
