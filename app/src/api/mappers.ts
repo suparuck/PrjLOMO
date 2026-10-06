@@ -34,6 +34,8 @@ export const driver = (d: D.DriverDTO): Driver => ({
   km: d.km30d,
   events: d.events30d,
   trips: d.trips30d,
+  rank: d.rank ?? null,
+  vehicle: d.vehicleId ? { id: d.vehicleId, model: d.vehicleModel ?? '', efficiency: d.vehicleEfficiency ?? null, status: d.vehicleStatus ?? 'offline' } : null,
 })
 
 export const station = (s: D.StationDTO): Station => ({

@@ -30,6 +30,17 @@ export interface Driver {
   km: number
   events: number
   trips: number
+  /** อันดับรวม (มีเมื่อได้จากรายการแบ่งหน้า; null = ยังไม่มีคะแนน) */
+  rank?: number | null
+  /** รถประจำ (มีเมื่อได้จากรายการแบ่งหน้า) */
+  vehicle?: DriverVehicle | null
+}
+
+export interface DriverVehicle {
+  id: string
+  model: string
+  efficiency: number | null
+  status: VehicleStatus
 }
 
 export interface Station {
@@ -307,6 +318,10 @@ export interface Paged<T> {
 export interface VehiclesPage extends Paged<Vehicle> {
   /** ภาพรวมทั้งกอง ไม่ขึ้นกับตัวกรอง/หน้า */
   summary: { total: number; rangeKm: number; avgSoh: number; odometerKm: number; models: string[]; byStatus: Partial<Record<VehicleStatus, number>> }
+}
+
+export interface DriversPage extends Paged<Driver> {
+  summary: { total: number; scored: number; avgScore: number; good: number; totalKm: number; events: number; working: number }
 }
 
 export interface AlertsPage extends Paged<Alert> {

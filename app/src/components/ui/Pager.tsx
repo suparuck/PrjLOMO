@@ -1,9 +1,17 @@
 'use client'
 
-import type { Pagination } from '@/hooks/usePagination'
+/** ค่าที่ Pager ต้องใช้ — สร้างจากซองข้อมูลของ API ด้วย pagerOf */
+export interface PagerState {
+  page: number
+  pages: number
+  total: number
+  from: number
+  to: number
+  setPage: (n: number) => void
+}
 
 /** แปลงซองข้อมูลจาก API เป็นค่าที่ Pager ใช้ */
-export const pagerOf = (p: { page: number; pageSize: number; total: number; pages: number }, setPage: (n: number) => void) => ({
+export const pagerOf = (p: { page: number; pageSize: number; total: number; pages: number }, setPage: (n: number) => void): PagerState => ({
   page: p.page,
   pages: p.pages,
   total: p.total,
@@ -13,7 +21,7 @@ export const pagerOf = (p: { page: number; pageSize: number; total: number; page
 })
 
 /** แถบเปลี่ยนหน้า: "แสดง a–b จาก n" + ก่อนหน้า / เลขหน้า / ถัดไป (ซ่อนเมื่อมีหน้าเดียว แต่ยังบอกจำนวนรวม) */
-export function Pager({ p, unit, className = '' }: { p: Pick<Pagination, 'page' | 'pages' | 'total' | 'from' | 'to'> & { setPage: (n: number) => void }; unit: string; className?: string }) {
+export function Pager({ p, unit, className = '' }: { p: PagerState; unit: string; className?: string }) {
   // แสดงเลขหน้ารอบหน้าปัจจุบัน (สูงสุด 5 ปุ่ม) พร้อมหน้าแรก/สุดท้ายเสมอ
   const nums = Array.from({ length: p.pages }, (_, i) => i + 1).filter((n) => n === 1 || n === p.pages || Math.abs(n - p.page) <= 1)
   return (

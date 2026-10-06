@@ -1,12 +1,12 @@
 'use client'
 
-import { useMemo, useState } from 'react'
-import { usePagination } from '@/hooks/usePagination'
-import { Pager } from '@/components/ui/Pager'
+import { useEffect, useState } from 'react'
+import { Pager, pagerOf } from '@/components/ui/Pager'
 import { PageLoading } from '@/components/ui/PageLoading'
 import Link from 'next/link'
 import { api } from '@/api'
 import { useAsync } from '@/hooks/useAsync'
+import { useDebounced } from '@/hooks/useDebounced'
 import { fmt } from '@/lib/format'
 import { Card, CardHeader } from '@/components/ui/Card'
 import { Icon } from '@/components/ui/Icon'
@@ -19,48 +19,39 @@ import { useToast } from '@/components/ui/Toast'
 import { DriverEventsDonut } from '@/components/charts/DriverEventsDonut'
 import type { Driver, Vehicle } from '@/types'
 
-const scoreClass = (s: number) => (s >= 85 ? 'good' : s >= 70 ? 'mid' : 'bad')
-
-async function load() {
-  const [drivers, vehicles, events] = await Promise.all([api.listDrivers(), api.listVehicles(), api.getDriverEvents()])
-  return { drivers, vehicles, events }
-}
+const scoreClass = (sc: number) => (sc >= 85 ? 'good' : sc >= 70 ? 'mid' : 'bad')
+const PAGE_SIZE = 10
 
 export default function DriversPage() {
-  const { data, error, reload } = useAsync(load, [], { live: true })
   const toast = useToast()
-  const [adding, setAdding] = useState(false)
+  const [adding, setAdding] = useState<{ drivers: Driver[]; vehicles: Vehicle[] } | null>(null)
   const [q, setQ] = useState('')
+  const [page, setPage] = useState(1)
   const [detail, setDetail] = useState<Driver | null>(null)
-  // อันดับ: คนขับที่ยังไม่มีทริปไม่มีคะแนน ไม่นับในอันดับ (แสดงท้ายตาราง) — ลำดับเดิมคงไว้แม้ค้นหา/แบ่งหน้า
-  const term = q.trim()
-  const ranked = useMemo(() => {
-    const D = data?.drivers ?? []
-    return [...D.filter((d) => d.score !== null)].sort((a, b) => (b.score ?? 0) - (a.score ?? 0)).concat(D.filter((d) => d.score === null))
-  }, [data])
-  const matches = useMemo(() => ranked.map((d, i) => ({ d, i })).filter(({ d }) => !term || d.name.includes(term)), [ranked, term])
-  const pg = usePagination(matches, 10, term)
-  if (!data) return <PageLoading error={error} />
+  const dq = useDebounced(q.trim(), 300)
+  useEffect(() => setPage(1), [dq])
 
-  const { drivers: D, vehicles, events } = data
-  const vehOf = (driverId: string): Vehicle | undefined => vehicles.find((v) => v.driverId === driverId)
-  // คนขับที่ยังไม่มีทริปไม่มีคะแนน: ไม่นับในค่าเฉลี่ยและอันดับ (แสดงท้ายตาราง)
-  const scored = D.filter((d) => d.score !== null)
-  const avg = scored.length ? Math.round(scored.reduce((s, d) => s + (d.score ?? 0), 0) / scored.length) : 0
-  const good = scored.filter((d) => (d.score ?? 0) >= 85).length
-  const totalKm = D.reduce((s, d) => s + d.km, 0)
-  const working = D.filter((d) => {
-    const v = vehOf(d.id)
-    return v && v.status !== 'offline'
-  }).length
+  // แบ่งหน้า/ค้นหาที่ API: อันดับและรถประจำมากับแต่ละแถว, KPI มาจาก summary ของคนขับทั้งหมด
+  const { data, error, reload } = useAsync(() => api.listDriversPage({ page, pageSize: PAGE_SIZE, q: dq }), [page, dq], { live: true })
+  const { data: events } = useAsync(() => api.getDriverEvents(), [], { live: true })
+  useEffect(() => {
+    if (data && data.page > data.pages) setPage(data.pages)
+  }, [data])
+
+  if (!data || !events) return <PageLoading error={error} />
+
+  const { items: list, summary: sm } = data
+  const avg = sm.avgScore
+  const good = sm.good
+  const scoredCount = sm.scored
 
   return (
     <>
       <section className="grid g-4 mb kpi-grid-2m">
-        <KpiCard label="คนขับทั้งหมด" value={D.length} unit="คน" note={`ปฏิบัติงานวันนี้ ${working} คน`} icon="users" tone="navy" />
+        <KpiCard label="คนขับทั้งหมด" value={sm.total} unit="คน" note={`ปฏิบัติงานวันนี้ ${sm.working} คน`} icon="users" tone="navy" />
         <KpiCard label="คะแนน Eco เฉลี่ย" value={avg} unit="/100" note="เพิ่มขึ้น 3 คะแนนจากเดือนก่อน" icon="star" tone="green" />
-        <KpiCard label="ระยะทางรวม 30 วัน" value={fmt(totalKm)} unit="กม." note={`เฉลี่ย ${fmt(totalKm / D.length)} กม./คน`} icon="route" tone="blue" />
-        <KpiCard label="เหตุการณ์ไม่ปลอดภัย" value={D.reduce((s, d) => s + d.events, 0)} unit="ครั้ง" note="เบรกแรง ขับเร็ว เร่งแรง" icon="alert" tone="red" />
+        <KpiCard label="ระยะทางรวม 30 วัน" value={fmt(sm.totalKm)} unit="กม." note={`เฉลี่ย ${fmt(sm.total ? sm.totalKm / sm.total : 0)} กม./คน`} icon="route" tone="blue" />
+        <KpiCard label="เหตุการณ์ไม่ปลอดภัย" value={sm.events} unit="ครั้ง" note="เบรกแรง ขับเร็ว เร่งแรง" icon="alert" tone="red" />
       </section>
 
       <section className="grid g-21 mb">
@@ -71,7 +62,7 @@ export default function DriversPage() {
             actions={
               <div className="card-tools">
                 <SearchInput value={q} onChange={setQ} placeholder="ค้นหาคนขับ" minWidth={200} />
-                <button type="button" className="btn btn-primary btn-sm" onClick={() => setAdding(true)}>
+                <button type="button" className="btn btn-primary btn-sm" onClick={async () => setAdding({ drivers: await api.listDrivers(), vehicles: await api.listVehicles() })}>
                   <Icon name="plus" size={15} />
                   เพิ่มคนขับ
                 </button>
@@ -93,12 +84,12 @@ export default function DriversPage() {
                 </tr>
               </thead>
               <tbody>
-                {pg.slice.map(({ d, i }) => {
-                    const v = vehOf(d.id)
+                {list.map((d) => {
+                    const v = d.vehicle
                     return (
                       <tr key={d.id}>
                         <td>
-                          <span className={`pill-num${d.score !== null && i < 3 ? ' gold' : ''}`}>{d.score !== null ? i + 1 : '–'}</span>
+                          <span className={`pill-num${d.rank != null && d.rank <= 3 ? ' gold' : ''}`}>{d.rank ?? '–'}</span>
                         </td>
                         <td>
                           <div className="veh">
@@ -138,7 +129,7 @@ export default function DriversPage() {
               </tbody>
             </table>
           </div>
-          <Pager p={pg} unit="คน" />
+          <Pager p={pagerOf(data, setPage)} unit="คน" />
         </div>
 
         <Card>
@@ -161,11 +152,11 @@ export default function DriversPage() {
               <div className="top">
                 <span>คนขับที่คะแนน ≥ 85</span>
                 <b>
-                  {good}/{scored.length} คน
+                  {good}/{scoredCount} คน
                 </b>
               </div>
               <div className="bar">
-                <div className="bar-fill" style={{ width: `${scored.length ? (good / scored.length) * 100 : 0}%` }} />
+                <div className="bar-fill" style={{ width: `${scoredCount ? (good / scoredCount) * 100 : 0}%` }} />
               </div>
             </div>
           </div>
@@ -178,8 +169,8 @@ export default function DriversPage() {
           <span className="small muted">กดการ์ดเพื่อดูรถที่ขับ</span>
         </div>
         <div className="grid g-4">
-          {ranked.map((d) => {
-            const v = vehOf(d.id)
+          {list.map((d) => {
+            const v = d.vehicle
             return (
               <Link key={d.id} className="card driver-card" href={v ? `/vehicles/${v.id}` : '/vehicles'}>
                 <div className="driver-head">
@@ -210,14 +201,14 @@ export default function DriversPage() {
         </div>
       </section>
 
-      {detail && <DriverDetailModal driver={detail} vehicle={vehOf(detail.id)} onClose={() => setDetail(null)} />}
+      {detail && <DriverDetailModal driver={detail} vehicle={detail.vehicle ?? undefined} onClose={() => setDetail(null)} />}
       {adding && (
         <AddDriverModal
-          drivers={D}
-          vehicles={vehicles}
-          onClose={() => setAdding(false)}
+          drivers={adding.drivers}
+          vehicles={adding.vehicles}
+          onClose={() => setAdding(null)}
           onDone={(d) => {
-            setAdding(false)
+            setAdding(null)
             reload()
             toast(`เพิ่มคนขับ ${d.name} แล้ว`)
           }}

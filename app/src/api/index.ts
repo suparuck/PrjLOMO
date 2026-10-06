@@ -7,7 +7,7 @@ import * as m from './mappers'
 import type * as D from './dto'
 import type {
   AlertRule, Alert, ApiKeyInfo, AppUser, BatteryInsights, ChargingHistory, ChargingLoad, ChargingSession, Driver, DriverEventStat,
-  ElectrificationReport, EnergySummary, EnergyWeek, IceVehicle, Integration, InviteInfo, InviteUserDraft, Paged, VehiclesPage, AlertsPage, VehicleStatus, AlertSeverity, AlertType, ReportSchedule, ReportSchedules, ScheduleDraft, ResetInfo, ResetLinkResult, UserRole, NewDriverDraft, NewVehicleDraft,
+  ElectrificationReport, EnergySummary, EnergyWeek, IceVehicle, Integration, InviteInfo, InviteUserDraft, Paged, VehiclesPage, DriversPage, AlertsPage, VehicleStatus, AlertSeverity, AlertType, ReportSchedule, ReportSchedules, ScheduleDraft, ResetInfo, ResetLinkResult, UserRole, NewDriverDraft, NewVehicleDraft,
   NotificationChannel, Org, PublicOverview, Report, ReportFilters, Result, Settings, Station, Sustainability, Vehicle, VehicleDetail,
 } from '@/types'
 
@@ -62,6 +62,15 @@ export const api = {
   listChargingHistoryPage: async (o: { page: number; pageSize?: number }): Promise<Paged<ChargingHistory>> => {
     const r = await get<Paged<D.SessionDTO>>(`/charging/history?${qs({ hours: 72, ...o, pageSize: o.pageSize ?? 10 })}`)
     return { ...r, items: r.items.map(m.historyItem) }
+  },
+  /** แบ่งหน้าตามอันดับคะแนน (ค้นหา q) พร้อมรถประจำ อันดับ และ summary ของคนขับทั้งหมด */
+  listDriversPage: async (o: { page: number; pageSize?: number; q?: string }): Promise<DriversPage> => {
+    const r = await get<Paged<D.DriverDTO> & Pick<DriversPage, 'summary'>>(`/drivers?${qs({ ...o, pageSize: o.pageSize ?? 10 })}`)
+    return { ...r, items: r.items.map(m.driver) }
+  },
+  listUsersPage: async (o: { page: number; pageSize?: number; q?: string }): Promise<Paged<AppUser>> => {
+    const r = await get<Paged<D.UserDTO>>(`/users?${qs({ ...o, pageSize: o.pageSize ?? 10 })}`)
+    return { ...r, items: r.items.map((u) => m.user(u)) }
   },
   listDrivers: async (): Promise<Driver[]> => (await get<D.DriverDTO[]>('/drivers')).map(m.driver),
   getDriverEvents: () => get<DriverEventStat[]>('/drivers/events'),

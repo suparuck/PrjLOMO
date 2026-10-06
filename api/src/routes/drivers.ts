@@ -7,6 +7,7 @@ import { invalid, notFound } from '../errors'
 import { checkDriverFields } from '../lib/validators'
 import { EVENT_LABELS, EVENT_ORDER } from '../lib/labels'
 import { DRIVER_SELECT } from '../services/queries'
+import { PageQuery, envelope, likeTerm, pageArgs } from '../lib/paging'
 
 import { sec } from '../security'
 
@@ -24,8 +25,44 @@ export const driverRoutes =
   async (app) => {
     const mgr = requireRole(pool, 'manager')
 
-    app.get('/drivers', { preValidation: mgr, schema: { tags: ['drivers'], summary: 'รายชื่อคนขับพร้อมสถิติ 30 วัน', security: sec } }, async () =>
-      rows(pool, `${DRIVER_SELECT} order by d.id`),
+    app.get(
+      '/drivers',
+      {
+        preValidation: mgr,
+        schema: {
+          tags: ['drivers'],
+          summary: 'รายชื่อคนขับพร้อมสถิติ 30 วัน — ไม่ส่ง page = อาร์เรย์ทั้งหมด; ส่ง page = แบ่งหน้าตามอันดับคะแนน (ค้นหา q) พร้อมรถประจำ อันดับ และ summary ทั้งหมด',
+          security: sec,
+          querystring: Type.Object({ ...PageQuery, q: Type.Optional(Type.String({ maxLength: 100 })) }),
+        },
+      },
+      async (req) => {
+        const pg = pageArgs(req.query)
+        if (!pg.paged) return rows(pool, `${DRIVER_SELECT} order by d.id`)
+
+        // อันดับคำนวณจากคนขับทั้งหมดก่อนกรองด้วยคำค้น (คนที่ยังไม่มีคะแนนไม่มีอันดับและอยู่ท้ายตาราง)
+        const ranked = `with ranked as (
+            select d.id, d.name, d.phone, d.score, s.km_30d::float8 as "km30d", s.trips_30d as "trips30d", s.events_30d as "events30d",
+                   v.id as "vehicleId", v.model as "vehicleModel", v.efficiency as "vehicleEfficiency", v.status as "vehicleStatus",
+                   case when d.score is not null then row_number() over (order by d.score desc nulls last, d.id) end::int as rank
+              from drivers d join v_driver_stats s on s.driver_id = d.id left join vehicles v on v.driver_id = d.id)`
+        const args: unknown[] = []
+        const cond = req.query.q?.trim() ? `where name ilike $${args.push(likeTerm(req.query.q))} or phone ilike $1` : ''
+        const [list, total, summary] = await Promise.all([
+          rows(pool, `${ranked} select * from ranked ${cond} order by rank nulls last, id limit ${pg.pageSize} offset ${pg.offset}`, args),
+          one<{ n: number }>(pool, `${ranked} select count(*)::int as n from ranked ${cond}`, args),
+          // ภาพรวมคนขับทั้งหมด (ไม่ขึ้นกับคำค้น/หน้า) สำหรับ KPI
+          one(
+            pool,
+            `${ranked} select count(*)::int as total, count(score)::int as scored,
+                   coalesce(round(avg(score))::int, 0) as "avgScore", (count(*) filter (where score >= 85))::int as good,
+                   coalesce(sum("km30d"), 0)::float8 as "totalKm", coalesce(sum("events30d"), 0)::int as events,
+                   (count(*) filter (where "vehicleId" is not null and "vehicleStatus" <> 'offline'))::int as working
+              from ranked`,
+          ),
+        ])
+        return envelope(list, total!.n, pg.page, pg.pageSize, { summary })
+      },
     )
 
     // เหตุการณ์การขับขี่ 30 วัน แยกตามประเภท (กราฟโดนัท)

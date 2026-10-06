@@ -1,4 +1,6 @@
 /** รูปข้อมูลที่ API ส่งมา (ดู /docs ของ API) — mappers.ts แปลงเป็นรูปที่หน้าเว็บใช้ */
+import type { VehicleStatus } from '@/types'
+
 export interface VehicleDTO {
   id: string
   model: string
@@ -28,6 +30,11 @@ export interface DriverDTO {
   trips30d: number
   events30d: number
   vehicleId: string | null
+  /** มีเฉพาะรายการแบ่งหน้า */
+  rank?: number | null
+  vehicleModel?: string | null
+  vehicleEfficiency?: number | null
+  vehicleStatus?: VehicleStatus | null
 }
 
 export interface StationDTO {

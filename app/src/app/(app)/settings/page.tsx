@@ -7,6 +7,9 @@ import { useAsync } from '@/hooks/useAsync'
 import { Card, CardHeader } from '@/components/ui/Card'
 import { Icon, type IconName } from '@/components/ui/Icon'
 import { RangeField } from '@/components/ui/RangeField'
+import { SearchInput } from '@/components/ui/SearchInput'
+import { Pager, pagerOf } from '@/components/ui/Pager'
+import { useDebounced } from '@/hooks/useDebounced'
 import { Switch } from '@/components/ui/Switch'
 import { InviteUserModal } from '@/components/modals/InviteUserModal'
 import { InviteManageModal } from '@/components/modals/InviteManageModal'
@@ -60,9 +63,19 @@ function SetRow({ title, text, checked, onChange }: { title: string; text: strin
 export default function SettingsPage() {
   const { data, error } = useAsync(load)
   // แยกจาก settings: เชิญผู้ใช้แล้วโหลดเฉพาะรายชื่อ ไม่ทับค่าที่ผู้ใช้กำลังแก้ในฟอร์ม
-  const { data: users, error: usersError, reload: reloadUsers } = useAsync(() => api.listUsers())
+  // รายชื่อผู้ใช้แบ่งหน้า/ค้นหาที่ API (หน้าละ 10)
+  const [userPage, setUserPage] = useState(1)
+  const [userQ, setUserQ] = useState('')
+  const dUserQ = useDebounced(userQ.trim(), 300)
+  useEffect(() => setUserPage(1), [dUserQ])
+  const { data: usersData, error: usersError, reload: reloadUsers } = useAsync(() => api.listUsersPage({ page: userPage, pageSize: 10, q: dUserQ }), [userPage, dUserQ])
+  useEffect(() => {
+    if (usersData && usersData.page > usersData.pages) setUserPage(usersData.pages)
+  }, [usersData])
+  const users = usersData?.items
   const toast = useToast()
-  const [inviting, setInviting] = useState(false)
+  // เชิญผู้ใช้: โหลดรายชื่อทั้งหมดตอนกดเท่านั้น (ใช้ตรวจอีเมลซ้ำในฟอร์ม)
+  const [inviting, setInviting] = useState<AppUser[] | null>(null)
   const [managingInvite, setManagingInvite] = useState<AppUser | null>(null)
   const [resetting, setResetting] = useState<AppUser | null>(null)
   const [managingKeys, setManagingKeys] = useState(false)
@@ -229,10 +242,13 @@ export default function SettingsPage() {
             title="ผู้ใช้และสิทธิ์"
             sub="กำหนดบทบาทการเข้าถึงข้อมูล"
             actions={
-              <button type="button" className="btn btn-primary btn-sm" onClick={() => setInviting(true)}>
+              <div className="card-tools">
+                <SearchInput value={userQ} onChange={setUserQ} placeholder="ค้นหาชื่อหรืออีเมล" minWidth={200} />
+              <button type="button" className="btn btn-primary btn-sm" onClick={async () => setInviting(await api.listUsers())}>
                 <Icon name="plus" size={15} />
                 เชิญผู้ใช้
               </button>
+              </div>
             }
           />
           <div className="table-wrap">
@@ -281,6 +297,8 @@ export default function SettingsPage() {
               </tbody>
             </table>
           </div>
+          {users.length === 0 && <div className="empty">ไม่พบผู้ใช้ที่ตรงกับคำค้น</div>}
+          <Pager p={pagerOf(usersData!, setUserPage)} unit="คน" />
         </section>
 
         <section className="card" id="integrations" style={anchor}>
@@ -364,10 +382,10 @@ export default function SettingsPage() {
       )}
       {inviting && (
         <InviteUserModal
-          users={users}
-          onClose={() => setInviting(false)}
+          users={inviting}
+          onClose={() => setInviting(null)}
           onDone={(u) => {
-            setInviting(false)
+            setInviting(null)
             reloadUsers()
             toast(`สร้างคำเชิญถึง ${u.email} แล้ว — นำลิงก์ไปส่งให้ผู้ถูกเชิญ`)
           }}

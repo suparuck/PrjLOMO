@@ -128,4 +128,67 @@ describe('แบ่งหน้าฝั่ง API', () => {
       assert.equal(new Set(got).size, legacy.length, 'ไม่ซ้ำและไม่ตก')
     })
   })
+
+  describe('คนขับ', () => {
+    it('ไม่ส่ง page = อาร์เรย์เดิม · ส่ง page = ซอง เรียงตามคะแนน มีอันดับ รถประจำ และ summary', async () => {
+      const all = json(await get('/drivers')) as { id: string; score: number | null; km30d: number; events30d: number }[]
+      assert.ok(Array.isArray(all))
+      const p1 = json(await get('/drivers?page=1&pageSize=5'))
+      const p2 = json(await get('/drivers?page=2&pageSize=5'))
+      const p3 = json(await get('/drivers?page=3&pageSize=5'))
+      assert.equal(p1.total, all.length)
+      const items = [...p1.items, ...p2.items, ...p3.items] as { id: string; score: number | null; rank: number | null; vehicleId: string | null; vehicleModel: string | null }[]
+      assert.equal(items.length, all.length)
+      assert.equal(new Set(items.map((d) => d.id)).size, all.length, 'ไม่ซ้ำไม่ตก')
+
+      // คะแนนมาก→น้อย ไม่มีคะแนนอยู่ท้าย; อันดับ 1,2,3… ต่อเนื่องข้ามหน้า
+      const scored = items.filter((d) => d.score !== null)
+      assert.deepEqual(scored.map((d) => d.score), scored.map((d) => d.score).sort((a, b) => b! - a!))
+      assert.deepEqual(scored.map((d) => d.rank), scored.map((_, k) => k + 1))
+      assert.ok(items.slice(scored.length).every((d) => d.score === null && d.rank === null), 'ไม่มีคะแนน = ไม่มีอันดับ อยู่ท้าย')
+      const withVehicle = items.find((d) => d.vehicleId)!
+      assert.ok(withVehicle.vehicleModel)
+
+      const s = p1.summary
+      assert.equal(s.total, all.length)
+      assert.equal(s.scored, all.filter((d) => d.score !== null).length)
+      assert.equal(s.good, all.filter((d) => (d.score ?? 0) >= 85).length)
+      assert.equal(s.events, all.reduce((n, d) => n + d.events30d, 0))
+      assert.ok(Math.abs(s.totalKm - all.reduce((n, d) => n + d.km30d, 0)) < 0.01)
+      assert.ok(s.working >= 0 && s.working <= all.length)
+    })
+
+    it('ค้นหาชื่อ/เบอร์: อันดับยังเป็นอันดับรวม (ไม่นับใหม่ตามผลค้นหา) และ summary ไม่เปลี่ยน', async () => {
+      const full = json(await get('/drivers?page=1&pageSize=100'))
+      const target = full.items.find((d: { rank: number | null }) => d.rank && d.rank > 3)
+      const r = json(await get(`/drivers?page=1&q=${encodeURIComponent(target.name)}`))
+      assert.equal(r.total, 1)
+      assert.equal(r.items[0].rank, target.rank)
+      assert.equal(r.summary.total, full.summary.total)
+      const byPhone = json(await get(`/drivers?page=1&q=${encodeURIComponent(target.phone)}`))
+      assert.equal(byPhone.items[0].id, target.id)
+      assert.equal(json(await get('/drivers?page=1&q=%25')).total, 0)
+      assert.equal((await get('/drivers?page=0')).statusCode, 400)
+    })
+  })
+
+  describe('ผู้ใช้', () => {
+    it('ไม่ส่ง page = อาร์เรย์เดิม · ส่ง page = ซอง; admin อยู่บนสุด; ค้นหาจากชื่อ/อีเมล; ไม่รั่ว hash', async () => {
+      const all = json(await get('/users')) as { id: string; email: string }[]
+      assert.ok(Array.isArray(all))
+      const p1 = json(await get('/users?page=1&pageSize=2'))
+      const p2 = json(await get('/users?page=2&pageSize=2'))
+      assert.equal(p1.total, all.length)
+      assert.deepEqual([...p1.items, ...p2.items].map((u: { id: string }) => u.id), all.map((u) => u.id), 'ลำดับเดียวกับแบบไม่แบ่งหน้า')
+      assert.equal(p1.items[0].role, 'admin')
+      assert.ok(!JSON.stringify(p1).includes('password'))
+      const r = json(await get(`/users?page=1&q=${encodeURIComponent(all[0].email.toUpperCase())}`))
+      assert.equal(r.total, 1)
+      assert.equal(json(await get('/users?page=1&q=%25')).total, 0)
+    })
+
+    it('ต้องเป็น manager ขึ้นไป', async () => {
+      assert.equal((await t.app.inject({ method: 'GET', url: '/api/v1/users?page=1' })).statusCode, 401)
+    })
+  })
 })

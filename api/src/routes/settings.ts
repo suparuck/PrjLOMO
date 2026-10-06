@@ -8,6 +8,7 @@ import { one, rows } from '../db'
 import { AppError, conflict, invalid, notFound } from '../errors'
 import { checkEmail } from '../lib/validators'
 import { newResetToken, type MailContext } from './auth'
+import { PageQuery, envelope, likeTerm, pageArgs } from '../lib/paging'
 
 import { sec } from '../security'
 const Money = Type.String({ pattern: '^\\d{1,4}(\\.\\d{1,2})?$' })
@@ -115,12 +116,29 @@ export const settingsRoutes =
     )
 
     // ---- ผู้ใช้และสิทธิ์ ----
-    app.get('/users', { preValidation: mgr, schema: { tags: ['users'], summary: 'ผู้ใช้และบทบาท', security: sec } }, async () =>
-      rows(
-        pool,
-        `select id, email, name, role, status, last_login_at as "lastLoginAt", invited_at as "invitedAt"
-           from users order by (role = 'admin') desc, created_at, email`,
-      ),
+    app.get(
+      '/users',
+      {
+        preValidation: mgr,
+        schema: {
+          tags: ['users'],
+          summary: 'ผู้ใช้และบทบาท — ไม่ส่ง page = อาร์เรย์ทั้งหมด; ส่ง page = แบ่งหน้า (ค้นหา q จากชื่อ/อีเมล)',
+          security: sec,
+          querystring: Type.Object({ ...PageQuery, q: Type.Optional(Type.String({ maxLength: 100 })) }),
+        },
+      },
+      async (req) => {
+        const pg = pageArgs(req.query)
+        const order = `order by (role = 'admin') desc, created_at, email`
+        if (!pg.paged) return rows(pool, `select ${USER_COLS} from users ${order}`)
+        const args: unknown[] = []
+        const cond = req.query.q?.trim() ? `where name ilike $${args.push(likeTerm(req.query.q))} or email ilike $1` : ''
+        const [list, total] = await Promise.all([
+          rows(pool, `select ${USER_COLS} from users ${cond} ${order} limit ${pg.pageSize} offset ${pg.offset}`, args),
+          one<{ n: number }>(pool, `select count(*)::int as n from users ${cond}`, args),
+        ])
+        return envelope(list, total!.n, pg.page, pg.pageSize)
+      },
     )
 
     // คำเชิญ: สร้างโทเคนใช้ครั้งเดียว (เก็บเฉพาะ sha256) ส่งโทเคนกลับครั้งเดียวให้ผู้ดูแลนำลิงก์ไปส่งต่อ

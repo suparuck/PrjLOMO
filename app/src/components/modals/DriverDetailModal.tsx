@@ -6,10 +6,10 @@ import { Icon } from '@/components/ui/Icon'
 import { ScoreRing } from '@/components/ui/ScoreRing'
 import { fmt } from '@/lib/format'
 import { telHref } from '@/lib/phone'
-import type { Driver, Vehicle } from '@/types'
+import type { Driver, DriverVehicle } from '@/types'
 
 /** รายละเอียดคนขับ: สถิติ 30 วัน รถประจำ และช่องทางติดต่อ (โทรได้จากมือถือ) */
-export function DriverDetailModal({ driver: d, vehicle: v, onClose }: { driver: Driver; vehicle?: Vehicle; onClose: () => void }) {
+export function DriverDetailModal({ driver: d, vehicle: v, onClose }: { driver: Driver; vehicle?: DriverVehicle; onClose: () => void }) {
   return (
     <Modal
       title={d.name}
