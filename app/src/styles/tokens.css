@@ -32,7 +32,7 @@
   --shadow: 0 1px 2px rgba(11, 37, 69, .05), 0 4px 16px rgba(11, 37, 69, .05);
   --shadow-lg: 0 12px 40px rgba(6, 20, 40, .18);
   --side-w: 256px;
-  --font: "IBM Plex Sans Thai", "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font: var(--font-plex), "IBM Plex Sans Thai", "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
 /* Tokens ที่แตกออกจากค่าฝังใน style.css ของต้นแบบ (ค่าเดิมทุกตัว) */
