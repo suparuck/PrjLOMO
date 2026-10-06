@@ -163,6 +163,45 @@ export interface DriverEventStat {
 
 export type ReportPeriod = 'year' | 'q3' | 'sep'
 export type ReportBrand = 'all' | 'BYD' | 'MG'
+export type ScheduleFrequency = 'daily' | 'weekly' | 'monthly'
+
+/** ตารางเวลาส่งรายงานทางอีเมล (เวลาไทย) */
+export interface ReportSchedule {
+  id: string
+  frequency: ScheduleFrequency
+  /** 0 = อาทิตย์ … 6 = เสาร์ (weekly) */
+  weekday: number | null
+  /** 1–28 (monthly) */
+  monthDay: number | null
+  hour: number
+  recipients: string[]
+  period: ReportPeriod
+  brand: ReportBrand
+  enabled: boolean
+  nextRunAt: string
+  lastRunAt: string | null
+  lastStatus: 'sent' | 'failed' | null
+  lastError: string | null
+}
+
+export interface ReportSchedules {
+  /** false = ระบบยังไม่ได้ตั้งค่าอีเมล (SMTP_URL) จึงส่งจริงไม่ได้ */
+  mailEnabled: boolean
+  items: ReportSchedule[]
+}
+
+export interface ScheduleDraft {
+  frequency: ScheduleFrequency
+  weekday: string
+  monthDay: string
+  hour: string
+  /** คั่นด้วยจุลภาค เว้นวรรค หรือขึ้นบรรทัดใหม่ */
+  recipients: string
+  period: ReportPeriod
+  brand: ReportBrand
+  enabled: boolean
+}
+
 export interface ReportFilters {
   period: ReportPeriod
   brand: ReportBrand

@@ -16,6 +16,7 @@ import { reportRoutes } from './routes/reports'
 import { settingsRoutes } from './routes/settings'
 import { publicRoutes } from './routes/public'
 import { ingestRoutes } from './routes/ingest'
+import { reportScheduleRoutes } from './routes/reportSchedules'
 import { streamRoutes } from './routes/stream'
 import { publishChange } from './services/events'
 import { createMailer, type Mailer } from './services/mailer'
@@ -24,6 +25,7 @@ declare module 'fastify' {
   interface FastifyInstance {
     /** รอจนอีเมลที่ค้างส่งอยู่เสร็จ (ใช้ในเทสต์) */
     mailIdle(): Promise<void>
+    mailer: Mailer
   }
 }
 
@@ -44,6 +46,7 @@ export async function buildApp(pool: Pool, opts: { logger?: boolean; rateLimit?:
     pendingMail.add(p)
     void p.finally(() => pendingMail.delete(p))
   }
+  app.decorate('mailer', mailer)
   app.decorate('mailIdle', async () => {
     await Promise.allSettled([...pendingMail])
   })
@@ -129,6 +132,7 @@ export async function buildApp(pool: Pool, opts: { logger?: boolean; rateLimit?:
       await v1.register(settingsRoutes(pool, { mailer, track }))
       await v1.register(publicRoutes(pool))
       await v1.register(ingestRoutes(pool))
+      await v1.register(reportScheduleRoutes(pool, mailer))
       await v1.register(streamRoutes(pool))
     },
     { prefix: '/api/v1' },

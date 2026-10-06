@@ -7,7 +7,7 @@ import * as m from './mappers'
 import type * as D from './dto'
 import type {
   AlertRule, Alert, ApiKeyInfo, AppUser, BatteryInsights, ChargingHistory, ChargingLoad, ChargingSession, Driver, DriverEventStat,
-  ElectrificationReport, EnergySummary, EnergyWeek, IceVehicle, Integration, InviteInfo, InviteUserDraft, ResetInfo, ResetLinkResult, UserRole, NewDriverDraft, NewVehicleDraft,
+  ElectrificationReport, EnergySummary, EnergyWeek, IceVehicle, Integration, InviteInfo, InviteUserDraft, ReportSchedule, ReportSchedules, ScheduleDraft, ResetInfo, ResetLinkResult, UserRole, NewDriverDraft, NewVehicleDraft,
   NotificationChannel, Org, PublicOverview, Report, ReportFilters, Result, Settings, Station, Sustainability, Vehicle, VehicleDetail,
 } from '@/types'
 
@@ -108,6 +108,24 @@ export const api = {
       const d = await post<{ email: string; resetToken: string; expiresAt: string }>(`/users/${userId}/reset-link`)
       return { email: d.email, token: d.resetToken, expiresAt: d.expiresAt }
     }),
+  // ---- ตั้งเวลาส่งรายงาน ----
+  listReportSchedules: () => get<ReportSchedules>('/report-schedules'),
+  /** id = null สร้างใหม่ · มี id แก้ไข */
+  saveReportSchedule: (id: string | null, d: ScheduleDraft) => {
+    const body = {
+      frequency: d.frequency,
+      ...(d.frequency === 'weekly' ? { weekday: Number(d.weekday) } : {}),
+      ...(d.frequency === 'monthly' ? { monthDay: Number(d.monthDay) } : {}),
+      hour: Number(d.hour),
+      recipients: d.recipients.split(/[\s,;]+/).filter(Boolean),
+      period: d.period,
+      brand: d.brand,
+      enabled: d.enabled,
+    }
+    return write(() => (id ? put<ReportSchedule>(`/report-schedules/${id}`, body) : post<ReportSchedule>('/report-schedules', body)))
+  },
+  deleteReportSchedule: (id: string) => write(() => del<{ deleted: boolean }>(`/report-schedules/${id}`)),
+  sendReportNow: (id: string) => write(() => post<{ sent: boolean }>(`/report-schedules/${id}/send-now`)),
   setChargingTarget: (vehicleId: string, targetSoc: number) =>
     write(async () => {
       const s = await patch<D.SessionDTO>(`/charging/sessions/${encodeURIComponent(vehicleId)}/target`, { targetSoc })

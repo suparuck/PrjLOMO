@@ -1,6 +1,8 @@
 import type { Pool } from 'pg'
 import { rows, withTx, one } from '../db'
 import { publishChange } from './events'
+import type { Mailer } from './mailer'
+import { runDueSchedules } from './reportMail'
 import { createAlert, enabledRules, hasOpenAlert, loadThresholds } from './ops'
 
 /** ล็อกระดับฐานข้อมูล: ถ้ามี API หลายอินสแตนซ์ จะมีเพียงหนึ่งตัวที่ตรวจในแต่ละรอบ */
@@ -41,13 +43,17 @@ interface Logger {
 }
 
 /** เริ่ม job ตามเวลา — คืนฟังก์ชันหยุด (intervalSeconds <= 0 = ปิด) */
-export function startJobs(pool: Pool, log: Logger, intervalSeconds: number): () => void {
+export function startJobs(pool: Pool, log: Logger, intervalSeconds: number, mailer?: Mailer): () => void {
   if (intervalSeconds <= 0) {
     log.info({}, 'background jobs disabled (OFFLINE_CHECK_INTERVAL_SECONDS=0)')
     return () => undefined
   }
   const tick = async () => {
     try {
+      if (mailer) {
+        const s = await runDueSchedules(pool, mailer)
+        if (s.sent.length || s.failed.length) log.info(s, 'report schedules: ran due schedules')
+      }
       const r = await runOfflineCheck(pool)
       if (r.marked.length) {
         log.info({ marked: r.marked }, 'offline check: vehicles marked offline')

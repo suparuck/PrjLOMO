@@ -11,6 +11,7 @@ import { KpiCard } from '@/components/ui/KpiCard'
 import { SocBar } from '@/components/ui/SocBar'
 import { Tabs } from '@/components/ui/Tabs'
 import { useToast } from '@/components/ui/Toast'
+import { ReportScheduleModal } from '@/components/modals/ReportScheduleModal'
 import { PERIOD_LABEL, brandLabel, exportEsgXlsx, exportReportXlsx } from '@/lib/exportReport'
 import {
   Co2Chart,
@@ -40,6 +41,9 @@ export default function ReportsPage() {
   const [period, setPeriod] = useState<ReportPeriod>('year')
   const [brand, setBrand] = useState<ReportBrand>('all')
   const toast = useToast()
+  const [scheduling, setScheduling] = useState(false)
+  // ผู้ดูรายงาน (viewer) ดูรายงานได้แต่จัดการตารางส่งอีเมลไม่ได้ (ต้องเป็น manager ขึ้นไป)
+  const { data: me } = useAsync(() => api.getMe())
   const [exporting, setExporting] = useState<'report' | 'esg' | null>(null)
 
   // เปิดแท็บจาก hash เช่น /reports#electrify และซิงก์ hash เมื่อสลับแท็บ
@@ -103,10 +107,12 @@ export default function ReportsPage() {
             <Icon name="download" size={16} />
             {exporting === 'report' ? 'กำลังสร้าง…' : 'Excel'}
           </button>
-          <button className="btn btn-navy">
-            <Icon name="clock" size={16} />
-            ตั้งเวลาส่งรายงาน
-          </button>
+          {me && me.role !== 'viewer' && (
+            <button type="button" className="btn btn-navy" onClick={() => setScheduling(true)}>
+              <Icon name="clock" size={16} />
+              ตั้งเวลาส่งรายงาน
+            </button>
+          )}
         </div>
       </div>
 
@@ -123,6 +129,8 @@ export default function ReportsPage() {
       ) : (
         <PageLoading error={reportError} />
       )}
+
+      {scheduling && <ReportScheduleModal onClose={() => setScheduling(false)} />}
     </>
   )
 }
