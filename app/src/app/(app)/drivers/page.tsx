@@ -25,7 +25,7 @@ async function load() {
 }
 
 export default function DriversPage() {
-  const { data, error, reload } = useAsync(load)
+  const { data, error, reload } = useAsync(load, [], { live: true })
   const toast = useToast()
   const [adding, setAdding] = useState(false)
   const [q, setQ] = useState('')

@@ -1,16 +1,21 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import { StationPopup, VehiclePopup, stationIcon, vehicleIcon } from './markers'
 import { TILE_ATTRIBUTION, TILE_URL } from '@/lib/mapConfig'
 import type { Driver, Station, Vehicle } from '@/types'
 
+/** จัดมุมมองครั้งเดียวตอนมีข้อมูล — ข้อมูลที่อัปเดตเรียลไทม์ต้องไม่ดึงแผนที่กลับมาที่เดิม */
 function FitBounds({ points }: { points: [number, number][] }) {
   const map = useMap()
+  const done = useRef(false)
   useEffect(() => {
-    if (points.length) map.fitBounds(points, { padding: [30, 30] })
+    if (!done.current && points.length) {
+      map.fitBounds(points, { padding: [30, 30] })
+      done.current = true
+    }
   }, [map, points])
   return null
 }

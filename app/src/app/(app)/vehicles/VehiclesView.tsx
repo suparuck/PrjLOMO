@@ -47,7 +47,7 @@ function exportCsv(list: Vehicle[], driverName: (id: string) => string) {
 }
 
 export function VehiclesView() {
-  const { data, error, reload } = useAsync(load)
+  const { data, error, reload } = useAsync(load, [], { live: true })
   const toast = useToast()
   const [adding, setAdding] = useState(false)
   const [filter, setFilter] = useState<Filter>('all')

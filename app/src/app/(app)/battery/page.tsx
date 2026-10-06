@@ -22,7 +22,7 @@ async function load() {
 }
 
 export default function BatteryPage() {
-  const { data, error } = useAsync(load)
+  const { data, error } = useAsync(load, [], { live: true })
   const [metric, setMetric] = useState<'soc' | 'range'>('soc')
   if (!data) return <PageLoading error={error} />
 

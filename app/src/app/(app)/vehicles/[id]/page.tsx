@@ -25,7 +25,7 @@ async function load(id: string) {
 
 export default function VehicleDetailPage({ params }: { params: { id: string } }) {
   const id = decodeURIComponent(params.id)
-  const { data, error } = useAsync(() => load(id), [id])
+  const { data, error } = useAsync(() => load(id), [id], { live: true })
   const v = data?.detail?.vehicle
   usePageHeader(
     v

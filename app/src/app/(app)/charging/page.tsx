@@ -32,7 +32,7 @@ async function load() {
 type StationFilter = 'all' | 'depot' | 'public'
 
 export default function ChargingPage() {
-  const { data, error, reload } = useAsync(load)
+  const { data, error, reload } = useAsync(load, [], { live: true })
   const toast = useToast()
   const [adjusting, setAdjusting] = useState<ChargingSession | null>(null)
   const [stopping, setStopping] = useState<ChargingSession | null>(null)

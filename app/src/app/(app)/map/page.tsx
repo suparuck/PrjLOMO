@@ -37,7 +37,7 @@ async function load() {
 }
 
 export default function MapPage() {
-  const { data, error } = useAsync(load)
+  const { data, error } = useAsync(load, [], { live: true })
   const [filter, setFilter] = useState<Filter>('all')
   const [q, setQ] = useState('')
   const [layers, setLayers] = useState<MapLayers>({ vehicles: true, depot: true, public: true, range: false })

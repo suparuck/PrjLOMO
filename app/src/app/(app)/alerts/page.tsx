@@ -38,7 +38,7 @@ const TYPE_TH: Record<AlertType, string> = {
 
 export default function AlertsPage() {
   const { alerts: A, error, acknowledge, acknowledgeAll } = useAlerts()
-  const { data: stats } = useAsync(() => api.getAlertStats())
+  const { data: stats } = useAsync(() => api.getAlertStats(), [], { live: true })
   const [sev, setSev] = useState<SevFilter>('all')
   const [type, setType] = useState<'all' | AlertType>('all')
   const toast = useToast()

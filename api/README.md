@@ -23,6 +23,7 @@ REST API (Node.js 22 · Fastify 5 · TypeScript · PostgreSQL) — container แ
 
 | กลุ่ม | Endpoint |
 |---|---|
+| realtime | `GET /stream` (SSE: เหตุการณ์ `change` เมื่อข้อมูลเปลี่ยน — ต้องล็อกอิน; ตัดสตรีมเมื่อ session ถูกเพิกถอน) |
 | auth | `POST /auth/login` · `POST /auth/logout` · `GET /auth/me` · `POST /auth/invite/lookup` · `POST /auth/invite/accept` (ผู้ถูกเชิญ ไม่ต้องล็อกอิน) · `POST /auth/change-password` (ล็อกอินอยู่) · `POST /auth/forgot-password` · `POST /auth/reset/lookup` · `POST /auth/reset/accept` (ไม่ต้องล็อกอิน) |
 | สาธารณะ | `GET /public/overview` (ตัวเลขรวม ไม่มีข้อมูลรายคัน — ใช้กับ Landing/Login) |
 | รถ | `GET /vehicles` · `GET /vehicles/:id` (คนขับ กราฟ SoC 24 ชม. ทริป บำรุงรักษา) · `POST /vehicles` · `PATCH /vehicles/:id` · `POST /vehicles/:id/maintenance` · `POST /maintenance/:id/complete` |

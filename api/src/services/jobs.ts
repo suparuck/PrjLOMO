@@ -1,5 +1,6 @@
 import type { Pool } from 'pg'
 import { rows, withTx, one } from '../db'
+import { publishChange } from './events'
 import { createAlert, enabledRules, hasOpenAlert, loadThresholds } from './ops'
 
 /** ล็อกระดับฐานข้อมูล: ถ้ามี API หลายอินสแตนซ์ จะมีเพียงหนึ่งตัวที่ตรวจในแต่ละรอบ */
@@ -48,7 +49,10 @@ export function startJobs(pool: Pool, log: Logger, intervalSeconds: number): () 
   const tick = async () => {
     try {
       const r = await runOfflineCheck(pool)
-      if (r.marked.length) log.info({ marked: r.marked }, 'offline check: vehicles marked offline')
+      if (r.marked.length) {
+        log.info({ marked: r.marked }, 'offline check: vehicles marked offline')
+        publishChange()
+      }
     } catch (err) {
       log.error({ err }, 'offline check failed')
     }

@@ -16,6 +16,8 @@ import { reportRoutes } from './routes/reports'
 import { settingsRoutes } from './routes/settings'
 import { publicRoutes } from './routes/public'
 import { ingestRoutes } from './routes/ingest'
+import { streamRoutes } from './routes/stream'
+import { publishChange } from './services/events'
 import { createMailer, type Mailer } from './services/mailer'
 
 declare module 'fastify' {
@@ -47,6 +49,12 @@ export async function buildApp(pool: Pool, opts: { logger?: boolean; rateLimit?:
   })
   app.addHook('onClose', async () => {
     await Promise.allSettled([...pendingMail])
+  })
+
+  // ทุกคำขอที่แก้ข้อมูลสำเร็จ (ไม่นับ /auth) → แจ้งเบราว์เซอร์ที่เปิดสตรีมอยู่ให้โหลดข้อมูลใหม่
+  app.addHook('onResponse', async (req, reply) => {
+    if (['GET', 'HEAD', 'OPTIONS'].includes(req.method) || reply.statusCode >= 400 || req.url.includes('/auth/')) return
+    publishChange()
   })
 
   await app.register(cookie)
@@ -121,6 +129,7 @@ export async function buildApp(pool: Pool, opts: { logger?: boolean; rateLimit?:
       await v1.register(settingsRoutes(pool, { mailer, track }))
       await v1.register(publicRoutes(pool))
       await v1.register(ingestRoutes(pool))
+      await v1.register(streamRoutes(pool))
     },
     { prefix: '/api/v1' },
   )

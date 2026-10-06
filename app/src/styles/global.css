@@ -577,6 +577,10 @@ html { scroll-behavior: smooth; }
 .toast { background: var(--ink); color: var(--white); padding: 12px 14px; border-radius: var(--r); box-shadow: var(--shadow-lg); font-size: var(--fs-13); display: flex; gap: 10px; align-items: flex-start; }
 .toast.error { background: var(--danger); }
 
+/* จุดสถานะการเชื่อมต่อเรียลไทม์ */
+.live-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--faint); margin-right: 6px; }
+.live-dot.on { background: var(--green); }
+
 /* ---------- พิมพ์ / บันทึกเป็น PDF ---------- */
 .print-only { display: none; }
 @media print {

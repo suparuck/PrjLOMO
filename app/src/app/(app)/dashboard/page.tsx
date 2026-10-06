@@ -43,7 +43,7 @@ const LEGEND = [
 ] as const
 
 export default function DashboardPage() {
-  const { data, error } = useAsync(loadDashboard)
+  const { data, error } = useAsync(loadDashboard, [], { live: true })
   const [metric, setMetric] = useState<'kwh' | 'cost'>('kwh')
 
   if (!data) return <PageLoading error={error} />
