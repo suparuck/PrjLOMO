@@ -128,3 +128,63 @@ export function checkStationFields(
   if (Object.keys(errors).length) throw invalid(errors)
   return out
 }
+
+const cleanText = (s: string) => s.trim().replace(/\s+/g, ' ')
+
+/** ตรวจรถสันดาป (กฎเดียวกับ validateIceVehicle ใน app/src/lib/validators.ts) — partial=true สำหรับแก้ไข */
+export function checkIceFields(
+  input: { id?: string; model?: string; recommendedEv?: string; kmPerDay?: number; maxKmPerDay?: number },
+  partial = false,
+  current?: { kmPerDay: number; maxKmPerDay: number },
+) {
+  const errors: Record<string, string> = {}
+  const out: { id?: string; model?: string; recommendedEv?: string } = {}
+  if (input.id !== undefined) {
+    out.id = cleanText(input.id)
+    if (!out.id) errors.id = 'กรุณากรอกรหัสรถ'
+    else if (out.id.length < 2 || out.id.length > 20) errors.id = 'รหัสรถต้องยาว 2–20 ตัวอักษร'
+    else if (/\s/.test(out.id)) errors.id = 'รหัสรถห้ามมีช่องว่าง (เช่น ICE-21 หรือทะเบียนติดกัน)'
+  }
+  if (input.model !== undefined || !partial) {
+    out.model = cleanText(input.model ?? '')
+    if (!out.model) errors.model = 'กรุณากรอกรุ่นรถ'
+    else if (out.model.length < 2 || out.model.length > 60) errors.model = 'รุ่นรถต้องยาว 2–60 ตัวอักษร'
+  }
+  if (input.recommendedEv !== undefined || !partial) {
+    out.recommendedEv = cleanText(input.recommendedEv ?? '')
+    if (!out.recommendedEv) errors.recommendedEv = 'กรุณากรอกรุ่น EV ที่แนะนำ (หรือ "รอรุ่นที่เหมาะสม")'
+    else if (out.recommendedEv.length > 80) errors.recommendedEv = 'รุ่น EV ที่แนะนำต้องไม่เกิน 80 ตัวอักษร'
+  }
+  // ระยะสูงสุด/วันต้องไม่ต่ำกว่าระยะเฉลี่ย/วัน (ใช้ค่าที่ส่งมา หรือค่าปัจจุบันเมื่อแก้ไขบางฟิลด์)
+  const km = input.kmPerDay ?? current?.kmPerDay
+  const max = input.maxKmPerDay ?? current?.maxKmPerDay
+  if (km !== undefined && max !== undefined && max < km) errors.maxKmPerDay = 'ระยะสูงสุดต่อวันต้องไม่น้อยกว่าระยะเฉลี่ยต่อวัน'
+  if (Object.keys(errors).length) throw invalid(errors)
+  return out
+}
+
+/** ตรวจรายการ TCO (ชื่อรายการไม่ซ้ำ, 1–12 รายการ) และชื่อรถที่เปรียบเทียบ */
+export function checkTco(input: { items: { label: string; iceCost: number; evCost: number }[]; iceName: string; evName: string }) {
+  const errors: Record<string, string> = {}
+  const iceName = cleanText(input.iceName)
+  const evName = cleanText(input.evName)
+  if (!iceName) errors.iceName = 'กรุณากรอกชื่อรถสันดาปที่ใช้เปรียบเทียบ'
+  else if (iceName.length > 60) errors.iceName = 'ชื่อต้องไม่เกิน 60 ตัวอักษร'
+  if (!evName) errors.evName = 'กรุณากรอกชื่อ EV ที่ใช้เปรียบเทียบ'
+  else if (evName.length > 60) errors.evName = 'ชื่อต้องไม่เกิน 60 ตัวอักษร'
+
+  const seen = new Set<string>()
+  const items = input.items.map((it, i) => {
+    const label = cleanText(it.label)
+    if (!label) errors[`items.${i}.label`] = 'กรุณากรอกชื่อรายการ'
+    else if (label.length > 60) errors[`items.${i}.label`] = 'ชื่อรายการต้องไม่เกิน 60 ตัวอักษร'
+    else if (seen.has(label.toLowerCase())) errors[`items.${i}.label`] = 'ชื่อรายการซ้ำกับรายการอื่น'
+    seen.add(label.toLowerCase())
+    for (const k of ['iceCost', 'evCost'] as const) {
+      if (Math.round(it[k] * 100) / 100 !== it[k]) errors[`items.${i}.${k}`] = 'ใส่ทศนิยมได้ไม่เกิน 2 ตำแหน่ง'
+    }
+    return { label, iceCost: it.iceCost, evCost: it.evCost }
+  })
+  if (Object.keys(errors).length) throw invalid(errors)
+  return { items, iceName, evName }
+}

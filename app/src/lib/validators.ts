@@ -2,7 +2,7 @@
  * ตรวจสอบข้อมูลฟอร์ม — ใช้ทั้งฝั่งฟอร์ม (แจ้งผิดทันที) และฝั่ง API (ตัดสินจริง)
  * ทุกฟังก์ชันคืน { errors, value } โดย value เป็นข้อมูลที่ปรับรูปแบบแล้ว (ว่างถ้ามี error)
  */
-import type { InviteUserDraft, NewDriverDraft, NewStationDraft, NewVehicleDraft, UserRole } from '@/types'
+import type { InviteUserDraft, IceDraft, NewDriverDraft, NewStationDraft, TcoDraft, NewVehicleDraft, UserRole } from '@/types'
 
 export type Errors = Record<string, string>
 
@@ -191,4 +191,57 @@ export function validateStation(
   else if (Number.isNaN(lng) || lng < -180 || lng > 180) errors.lng = 'ลองจิจูดต้องอยู่ระหว่าง −180 ถึง 180'
 
   return Object.keys(errors).length ? { errors } : { errors, value: { name, type: d.type, network, power, ports, pricePerKwh: price, lat, lng } }
+}
+
+const cleanText = (s: string) => s.trim().replace(/\s+/g, ' ')
+const intIn = (s: string, lo: number, hi: number) => /^\d+$/.test(s.trim()) && Number(s) >= lo && Number(s) <= hi
+
+/** ตรวจฟอร์มรถสันดาป (กฎเดียวกับ checkIceFields ใน api) — ids = รหัสรถสันดาปทั้งหมดที่มีอยู่ (ตอนเพิ่มใหม่ตรวจซ้ำ) */
+export function validateIceVehicle(d: IceDraft, ctx: { ids?: string[] }): { errors: Errors; ok: boolean } {
+  const errors: Errors = {}
+  if (ctx.ids) {
+    const id = cleanText(d.id)
+    if (!id) errors.id = 'กรุณากรอกรหัสรถ'
+    else if (id.length < 2 || id.length > 20) errors.id = 'รหัสรถต้องยาว 2–20 ตัวอักษร'
+    else if (/\s/.test(id)) errors.id = 'รหัสรถห้ามมีช่องว่าง (เช่น ICE-21 หรือทะเบียนติดกัน)'
+    else if (ctx.ids.some((x) => x.toLowerCase() === id.toLowerCase())) errors.id = 'รหัสรถนี้มีอยู่แล้ว'
+  }
+  const model = cleanText(d.model)
+  if (!model) errors.model = 'กรุณากรอกรุ่นรถ'
+  else if (model.length < 2 || model.length > 60) errors.model = 'รุ่นรถต้องยาว 2–60 ตัวอักษร'
+  if (!intIn(d.kmPerDay, 1, 2000)) errors.kmPerDay = 'ระยะเฉลี่ยต่อวันต้องเป็นจำนวนเต็ม 1–2,000 กม.'
+  if (!intIn(d.maxKmPerDay, 1, 3000)) errors.maxKmPerDay = 'ระยะสูงสุดต่อวันต้องเป็นจำนวนเต็ม 1–3,000 กม.'
+  else if (!errors.kmPerDay && Number(d.maxKmPerDay) < Number(d.kmPerDay)) errors.maxKmPerDay = 'ระยะสูงสุดต่อวันต้องไม่น้อยกว่าระยะเฉลี่ยต่อวัน'
+  if (!intIn(d.fuelPerMonth, 0, 10_000_000)) errors.fuelPerMonth = 'ค่าน้ำมันต่อเดือนต้องเป็นจำนวนเต็มบาท (0 ขึ้นไป)'
+  if (!intIn(d.readinessScore, 0, 100)) errors.readinessScore = 'คะแนนความพร้อมต้องเป็นจำนวนเต็ม 0–100'
+  const ev = cleanText(d.recommendedEv)
+  if (!ev) errors.recommendedEv = 'กรุณากรอกรุ่น EV ที่แนะนำ (หรือ "รอรุ่นที่เหมาะสม")'
+  else if (ev.length > 80) errors.recommendedEv = 'รุ่น EV ที่แนะนำต้องไม่เกิน 80 ตัวอักษร'
+  return { errors, ok: Object.keys(errors).length === 0 }
+}
+
+/** ตรวจฟอร์ม TCO — errors คีย์ "items.<ลำดับ>.<ฟิลด์>" เหมือนที่ API ตอบ */
+export function validateTco(d: TcoDraft): { errors: Errors; ok: boolean } {
+  const errors: Errors = {}
+  if (!cleanText(d.iceName)) errors.iceName = 'กรุณากรอกชื่อรถสันดาปที่ใช้เปรียบเทียบ'
+  else if (cleanText(d.iceName).length > 60) errors.iceName = 'ชื่อต้องไม่เกิน 60 ตัวอักษร'
+  if (!cleanText(d.evName)) errors.evName = 'กรุณากรอกชื่อ EV ที่ใช้เปรียบเทียบ'
+  else if (cleanText(d.evName).length > 60) errors.evName = 'ชื่อต้องไม่เกิน 60 ตัวอักษร'
+  if (d.items.length < 1) errors.items = 'ต้องมีอย่างน้อย 1 รายการ'
+  if (d.items.length > 12) errors.items = 'มีได้ไม่เกิน 12 รายการ'
+  const seen = new Set<string>()
+  d.items.forEach((it, i) => {
+    const label = cleanText(it.label)
+    if (!label) errors[`items.${i}.label`] = 'กรุณากรอกชื่อรายการ'
+    else if (label.length > 60) errors[`items.${i}.label`] = 'ชื่อรายการต้องไม่เกิน 60 ตัวอักษร'
+    else if (seen.has(label.toLowerCase())) errors[`items.${i}.label`] = 'ชื่อรายการซ้ำกับรายการอื่น'
+    seen.add(label.toLowerCase())
+    for (const k of ['iceCost', 'evCost'] as const) {
+      const raw = it[k].trim().replace(/,/g, '')
+      const n = Number(raw)
+      if (!raw || Number.isNaN(n) || n < 0 || n > 1_000_000_000) errors[`items.${i}.${k}`] = 'ใส่ตัวเลข 0 ขึ้นไป (บาท)'
+      else if (Math.round(n * 100) / 100 !== n) errors[`items.${i}.${k}`] = 'ทศนิยมไม่เกิน 2 ตำแหน่ง'
+    }
+  })
+  return { errors, ok: Object.keys(errors).length === 0 }
 }

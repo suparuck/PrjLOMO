@@ -117,6 +117,28 @@ export interface IceVehicle {
   recommendedEv: string
 }
 
+export interface IceDraft {
+  id: string
+  model: string
+  kmPerDay: string
+  maxKmPerDay: string
+  fuelPerMonth: string
+  readinessScore: string
+  recommendedEv: string
+}
+
+export interface TcoDraftItem {
+  label: string
+  iceCost: string
+  evCost: string
+}
+
+export interface TcoDraft {
+  iceName: string
+  evName: string
+  items: TcoDraftItem[]
+}
+
 export interface EnergyWeek {
   labels: string[]
   kwh: number[]

@@ -7,7 +7,7 @@ import * as m from './mappers'
 import type * as D from './dto'
 import type {
   AlertRule, Alert, ApiKeyInfo, AppUser, BatteryInsights, ChargingHistory, ChargingLoad, ChargingSession, Driver, DriverEventStat,
-  ElectrificationReport, EnergySummary, EnergyWeek, IceVehicle, Integration, InviteInfo, InviteUserDraft, Paged, VehiclesPage, DriversPage, AlertsPage, VehicleStatus, AlertSeverity, AlertType, ReportSchedule, ReportSchedules, ScheduleDraft, ResetInfo, ResetLinkResult, UserRole, NewDriverDraft, NewStationDraft, NewVehicleDraft,
+  ElectrificationReport, EnergySummary, EnergyWeek, IceVehicle, Integration, InviteInfo, InviteUserDraft, Paged, VehiclesPage, DriversPage, AlertsPage, VehicleStatus, AlertSeverity, AlertType, ReportSchedule, ReportSchedules, ScheduleDraft, ResetInfo, ResetLinkResult, UserRole, NewDriverDraft, NewStationDraft, IceDraft, TcoDraft, NewVehicleDraft,
   NotificationChannel, Org, PublicOverview, Report, ReportFilters, Result, Settings, Station, Sustainability, Vehicle, VehicleDetail,
 } from '@/types'
 
@@ -33,6 +33,15 @@ const qs = (o: Record<string, string | number | undefined>) =>
     .filter(([, v]) => v !== undefined && v !== '')
     .map(([k, v]) => `${k}=${encodeURIComponent(String(v))}`)
     .join('&')
+
+const iceBody = (d: IceDraft) => ({
+  model: d.model,
+  kmPerDay: Number(d.kmPerDay),
+  maxKmPerDay: Number(d.maxKmPerDay),
+  fuelPerMonth: Number(d.fuelPerMonth),
+  readinessScore: Number(d.readinessScore),
+  recommendedEv: d.recommendedEv,
+})
 
 const stationBody = (d: NewStationDraft) => ({
   name: d.name,
@@ -127,6 +136,22 @@ export const api = {
         }),
       ),
       { odometerKm: 'odometer' },
+    ),
+  // ---- รถสันดาปและ TCO (รายงานความพร้อมเปลี่ยนเป็น EV) ----
+  addIceVehicle: (d: IceDraft) => write(() => post<IceVehicle>('/ice-vehicles', { id: d.id, ...iceBody(d) })),
+  updateIceVehicle: (id: string, d: IceDraft) => write(() => patch<IceVehicle>(`/ice-vehicles/${encodeURIComponent(id)}`, iceBody(d))),
+  deleteIceVehicle: (id: string) => write(() => del<{ deleted: boolean }>(`/ice-vehicles/${encodeURIComponent(id)}`)),
+  getTco: async (): Promise<TcoDraft> => {
+    const r = await get<{ iceName: string; evName: string; items: { label: string; iceCost: number; evCost: number }[] }>('/tco')
+    return { iceName: r.iceName, evName: r.evName, items: r.items.map((i) => ({ label: i.label, iceCost: String(i.iceCost), evCost: String(i.evCost) })) }
+  },
+  saveTco: (d: TcoDraft) =>
+    write(() =>
+      put<{ saved: boolean }>('/tco', {
+        iceName: d.iceName,
+        evName: d.evName,
+        items: d.items.map((i) => ({ label: i.label, iceCost: num(i.iceCost), evCost: num(i.evCost) })),
+      }),
     ),
   addStation: (d: NewStationDraft) => write(async () => m.station(await post<D.StationDTO>('/stations', stationBody(d)))),
   updateStation: (id: string, d: NewStationDraft) => write(async () => m.station(await patch<D.StationDTO>(`/stations/${encodeURIComponent(id)}`, stationBody(d)))),

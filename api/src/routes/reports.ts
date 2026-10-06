@@ -2,8 +2,10 @@ import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox'
 import { Type } from '@sinclair/typebox'
 import type { Pool } from 'pg'
 import { requireRole } from '../auth'
-import { one, rows } from '../db'
+import { one, rows, withTx } from '../db'
 import { monthLabel, weekdayLabel } from '../lib/labels'
+import { invalid, notFound } from '../errors'
+import { checkIceFields, checkTco } from '../lib/validators'
 import { computeElectrification, computeReport, loadConfig } from '../services/report'
 
 import { sec } from '../security'
@@ -133,5 +135,120 @@ export const reportRoutes =
         `select id, model, km_per_day as "kmPerDay", max_km_per_day as "maxKmPerDay", fuel_per_month as "fuelPerMonth",
                 readiness_score as "readinessScore", recommended_ev as "recommendedEv" from ice_vehicles order by id`,
       ),
+    )
+
+    // ---- จัดการรถสันดาปที่ยังเหลือ (manager ขึ้นไป) — ใช้ในรายงานความพร้อมเปลี่ยนเป็น EV ----
+    const ICE_COLS = `id, model, km_per_day as "kmPerDay", max_km_per_day as "maxKmPerDay", fuel_per_month as "fuelPerMonth",
+                      readiness_score as "readinessScore", recommended_ev as "recommendedEv"`
+    const IceFields = {
+      model: Type.String({ maxLength: 200 }),
+      kmPerDay: Type.Integer({ minimum: 1, maximum: 2000 }),
+      maxKmPerDay: Type.Integer({ minimum: 1, maximum: 3000 }),
+      fuelPerMonth: Type.Integer({ minimum: 0, maximum: 10_000_000 }),
+      readinessScore: Type.Integer({ minimum: 0, maximum: 100 }),
+      recommendedEv: Type.String({ maxLength: 200 }),
+    }
+
+    app.post(
+      '/ice-vehicles',
+      {
+        preValidation: mgr,
+        schema: { tags: ['reports'], summary: 'เพิ่มรถสันดาป (รหัสห้ามซ้ำ ไม่สนตัวพิมพ์)', body: Type.Object({ id: Type.String({ maxLength: 100 }), ...IceFields }), security: sec },
+      },
+      async (req, reply) => {
+        const b = req.body
+        const f = checkIceFields({ id: b.id, model: b.model, recommendedEv: b.recommendedEv, kmPerDay: b.kmPerDay, maxKmPerDay: b.maxKmPerDay })
+        const row = await one(
+          pool,
+          `insert into ice_vehicles (id, model, km_per_day, max_km_per_day, fuel_per_month, readiness_score, recommended_ev)
+           select $1, $2, $3, $4, $5, $6, $7 where not exists (select 1 from ice_vehicles where lower(id) = lower($1))
+           returning ${ICE_COLS}`,
+          [f.id, f.model, b.kmPerDay, b.maxKmPerDay, b.fuelPerMonth, b.readinessScore, f.recommendedEv],
+        )
+        if (!row) throw invalid({ id: 'รหัสรถนี้มีอยู่แล้ว' })
+        return reply.status(201).send(row)
+      },
+    )
+
+    app.patch(
+      '/ice-vehicles/:id',
+      {
+        preValidation: mgr,
+        schema: { tags: ['reports'], summary: 'แก้ไขรถสันดาป', params: Type.Object({ id: Type.String() }), body: Type.Partial(Type.Object(IceFields), { minProperties: 1 }), security: sec },
+      },
+      async (req) => {
+        const b = req.body
+        return withTx(pool, async (c) => {
+          const cur = await one<{ kmPerDay: number; maxKmPerDay: number }>(c, 'select km_per_day as "kmPerDay", max_km_per_day as "maxKmPerDay" from ice_vehicles where id = $1 for update', [req.params.id])
+          if (!cur) throw notFound('รถสันดาป')
+          const f = checkIceFields({ model: b.model, recommendedEv: b.recommendedEv, kmPerDay: b.kmPerDay, maxKmPerDay: b.maxKmPerDay }, true, cur)
+          return one(
+            c,
+            `update ice_vehicles set model = coalesce($2, model), km_per_day = coalesce($3, km_per_day), max_km_per_day = coalesce($4, max_km_per_day),
+                    fuel_per_month = coalesce($5, fuel_per_month), readiness_score = coalesce($6, readiness_score), recommended_ev = coalesce($7, recommended_ev)
+              where id = $1 returning ${ICE_COLS}`,
+            [req.params.id, f.model ?? null, b.kmPerDay ?? null, b.maxKmPerDay ?? null, b.fuelPerMonth ?? null, b.readinessScore ?? null, f.recommendedEv ?? null],
+          )
+        })
+      },
+    )
+
+    app.delete(
+      '/ice-vehicles/:id',
+      { preValidation: mgr, schema: { tags: ['reports'], summary: 'ลบรถสันดาป (เช่น เมื่อขายหรือเปลี่ยนเป็น EV แล้ว)', params: Type.Object({ id: Type.String() }), security: sec } },
+      async (req) => {
+        const r = await one(pool, 'delete from ice_vehicles where id = $1 returning id', [req.params.id])
+        if (!r) throw notFound('รถสันดาป')
+        return { deleted: true }
+      },
+    )
+
+    // ---- ต้นทุนรวมตลอดอายุ (TCO) 5 ปี: รายการต้นทุนของรถสันดาปเทียบ EV ต่อคัน ----
+    const tcoNames = async (c: Pick<Pool, 'query'>) => {
+      const v = await one<{ value: { ice?: string; ev?: string } }>(c, "select value from report_config where key = 'tco_names'")
+      return { iceName: v?.value.ice ?? 'รถสันดาป', evName: v?.value.ev ?? 'EV' }
+    }
+
+    app.get(
+      '/tco',
+      { preValidation: mgr, schema: { tags: ['reports'], summary: 'รายการต้นทุน TCO 5 ปี และชื่อรถที่ใช้เปรียบเทียบ', security: sec } },
+      async () => ({
+        ...(await tcoNames(pool)),
+        items: await rows(pool, 'select label, ice_cost::float8 as "iceCost", ev_cost::float8 as "evCost" from tco_items order by sort'),
+      }),
+    )
+
+    app.put(
+      '/tco',
+      {
+        preValidation: mgr,
+        schema: {
+          tags: ['reports'],
+          summary: 'บันทึกรายการ TCO ทั้งชุด (แทนที่ของเดิม) และชื่อรถที่เปรียบเทียบ',
+          body: Type.Object({
+            iceName: Type.String({ maxLength: 200 }),
+            evName: Type.String({ maxLength: 200 }),
+            items: Type.Array(
+              Type.Object({ label: Type.String({ maxLength: 200 }), iceCost: Type.Number({ minimum: 0, maximum: 1_000_000_000 }), evCost: Type.Number({ minimum: 0, maximum: 1_000_000_000 }) }),
+              { minItems: 1, maxItems: 12 },
+            ),
+          }),
+          security: sec,
+        },
+      },
+      async (req) => {
+        const t = checkTco(req.body)
+        await withTx(pool, async (c) => {
+          await c.query('delete from tco_items')
+          for (const [i, it] of t.items.entries()) {
+            await c.query('insert into tco_items (sort, label, ice_cost, ev_cost) values ($1, $2, $3, $4)', [i + 1, it.label, it.iceCost, it.evCost])
+          }
+          await c.query(
+            "insert into report_config (key, value, description) values ('tco_names', $1::jsonb, 'ชื่อรถที่ใช้เปรียบเทียบ TCO') on conflict (key) do update set value = excluded.value",
+            [JSON.stringify({ ice: t.iceName, ev: t.evName })],
+          )
+        })
+        return { saved: true, count: t.items.length }
+      },
     )
   }

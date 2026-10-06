@@ -12,6 +12,8 @@ import { SocBar } from '@/components/ui/SocBar'
 import { Tabs } from '@/components/ui/Tabs'
 import { useToast } from '@/components/ui/Toast'
 import { ReportScheduleModal } from '@/components/modals/ReportScheduleModal'
+import { IceVehicleModal } from '@/components/modals/IceVehicleModal'
+import { TcoModal } from '@/components/modals/TcoModal'
 import { PERIOD_LABEL, brandLabel, downloadReportXlsx } from '@/lib/exportReport'
 import {
   Co2Chart,
@@ -22,7 +24,7 @@ import {
   TcoChart,
   UtilizationChart,
 } from '@/components/charts/ReportCharts'
-import type { ElectrificationReport, Report, ReportBrand, ReportPeriod } from '@/types'
+import type { ElectrificationReport, IceVehicle, Report, ReportBrand, ReportPeriod, TcoDraft } from '@/types'
 
 type Tab = 'energy' | 'co2' | 'electrify' | 'usage'
 const TABS: { key: Tab; label: string }[] = [
@@ -62,7 +64,7 @@ export default function ReportsPage() {
   }
 
   const { data: report, error: reportError } = useAsync(() => api.getReport({ period, brand }), [period, brand])
-  const { data: electrify, error: electrifyError } = useAsync(() => api.getElectrification())
+  const { data: electrify, error: electrifyError, reload: reloadElectrify } = useAsync(() => api.getElectrification())
 
   async function doExport(kind: 'report' | 'esg') {
     if (!report) return
@@ -119,7 +121,7 @@ export default function ReportsPage() {
       <Tabs tabs={TABS} value={tab} onChange={selectTab} />
 
       {tab === 'electrify' ? (
-        electrify ? <ElectrifyPanel data={electrify} /> : <PageLoading error={electrifyError} />
+        electrify ? <ElectrifyPanel data={electrify} canEdit={!!me && me.role !== 'viewer'} onChanged={reloadElectrify} /> : <PageLoading error={electrifyError} />
       ) : report ? (
         <>
           {tab === 'energy' && <EnergyPanel r={report} />}
@@ -208,7 +210,22 @@ function CarbonPanel({ r, onExportEsg, exporting }: { r: Report; onExportEsg: ()
   )
 }
 
-function ElectrifyPanel({ data }: { data: ElectrificationReport }) {
+function ElectrifyPanel({ data, canEdit, onChanged }: { data: ElectrificationReport; canEdit: boolean; onChanged: () => void }) {
+  const toast = useToast()
+  // รถสันดาป: undefined = ปิด, null = เพิ่มใหม่, IceVehicle = แก้ไขคันนั้น
+  const [iceForm, setIceForm] = useState<IceVehicle | null | undefined>(undefined)
+  const [tcoForm, setTcoForm] = useState<TcoDraft | null>(null)
+  const [loadingTco, setLoadingTco] = useState(false)
+  async function openTco() {
+    setLoadingTco(true)
+    try {
+      setTcoForm(await api.getTco())
+    } catch {
+      toast('โหลดรายการ TCO ไม่สำเร็จ', 'error')
+    } finally {
+      setLoadingTco(false)
+    }
+  }
   return (
     <>
       <section className="grid g-3 mb">
@@ -224,7 +241,18 @@ function ElectrifyPanel({ data }: { data: ElectrificationReport }) {
         />
       </section>
       <section className="card flush mb">
-        <CardHeader title="รายงานความพร้อมเปลี่ยนเป็น EV (Fleet Electrification)" sub="วิเคราะห์จากข้อมูลการใช้งานจริง 90 วันของรถสันดาป" />
+        <CardHeader
+          title="รายงานความพร้อมเปลี่ยนเป็น EV (Fleet Electrification)"
+          sub="จากข้อมูลรถสันดาปที่กรอกไว้ (ระยะวิ่ง ค่าน้ำมัน คะแนนความพร้อม) — ค่าไฟ EV คำนวณจากสมมติฐานของรายงาน"
+          actions={
+            canEdit && (
+              <button type="button" className="btn btn-primary btn-sm" onClick={() => setIceForm(null)}>
+                <Icon name="plus" size={15} />
+                เพิ่มรถสันดาป
+              </button>
+            )
+          }
+        />
         <div className="table-wrap">
           <table className="tbl">
             <thead>
@@ -236,6 +264,7 @@ function ElectrifyPanel({ data }: { data: ElectrificationReport }) {
                 <th className="r">ค่าไฟ EV (คาดการณ์)</th>
                 <th>คะแนนความพร้อม</th>
                 <th>รุ่น EV ที่แนะนำ</th>
+                {canEdit && <th />}
               </tr>
             </thead>
             <tbody>
@@ -268,18 +297,62 @@ function ElectrifyPanel({ data }: { data: ElectrificationReport }) {
                     </div>
                   </td>
                   <td>{c.recommendedEv}</td>
+                  {canEdit && (
+                    <td>
+                      <button type="button" className="btn btn-ghost btn-sm" onClick={() => setIceForm(c)} aria-label={`แก้ไขรถสันดาป ${c.id}`}>
+                        แก้ไข
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+        {data.rows.length === 0 && (
+          <div className="empty">{canEdit ? 'ยังไม่มีรถสันดาป — กด "เพิ่มรถสันดาป" เพื่อกรอกข้อมูลรถที่ต้องการประเมินการเปลี่ยนเป็น EV' : 'ยังไม่มีข้อมูลรถสันดาป — ให้ผู้จัดการกองยานเพิ่มข้อมูล'}</div>
+        )}
       </section>
       <Card>
-        <CardHeader title="ต้นทุนรวมตลอดอายุ (TCO) 5 ปี" sub="เปรียบเทียบรถสันดาปกับ EV ต่อคัน (บาท)" />
+        <CardHeader
+          title="ต้นทุนรวมตลอดอายุ (TCO) 5 ปี"
+          sub={`เปรียบเทียบ ${data.tco.iceName} กับ ${data.tco.evName} ต่อคัน (บาท)`}
+          actions={
+            canEdit && (
+              <button type="button" className="btn btn-outline btn-sm" onClick={openTco} disabled={loadingTco}>
+                {loadingTco ? 'กำลังโหลด…' : 'ตั้งค่า TCO'}
+              </button>
+            )
+          }
+        />
         <div className="chart">
           <TcoChart tco={data.tco} />
         </div>
       </Card>
+
+      {iceForm !== undefined && (
+        <IceVehicleModal
+          vehicle={iceForm ?? undefined}
+          allIds={data.rows.map((x) => x.ice.id)}
+          onClose={() => setIceForm(undefined)}
+          onDone={(action, id) => {
+            setIceForm(undefined)
+            onChanged()
+            toast(action === 'added' ? `เพิ่มรถสันดาป ${id} แล้ว` : action === 'deleted' ? `ลบรถสันดาป ${id} แล้ว` : `บันทึกรถสันดาป ${id} แล้ว`)
+          }}
+        />
+      )}
+      {tcoForm && (
+        <TcoModal
+          initial={tcoForm}
+          onClose={() => setTcoForm(null)}
+          onDone={() => {
+            setTcoForm(null)
+            onChanged()
+            toast('บันทึกรายการ TCO แล้ว')
+          }}
+        />
+      )}
     </>
   )
 }

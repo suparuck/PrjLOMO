@@ -28,6 +28,7 @@ REST API (Node.js 22 · Fastify 5 · TypeScript · PostgreSQL) — container แ
 | LINE | `POST /integrations/line/test` (admin) ส่งข้อความทดสอบ; `GET /integrations` แสดงสถานะ LINE ตามการตั้งค่า token จริง |
 | ส่งออก | `GET /reports/export?kind=report|esg&period=year|q3|sep&brand=all|BYD|MG` ไฟล์ .xlsx (viewer ขึ้นไป) — ชุดเดียวกับที่แนบในอีเมลรายงานตามเวลา |
 | สถานีชาร์จ | `POST /stations` · `PATCH /stations/:id` · `DELETE /stations/:id` (manager ขึ้นไป; รหัส `S<ลำดับ>` สร้างให้, ชื่อไม่ซ้ำไม่สนตัวพิมพ์, ลดช่องต่ำกว่าช่องที่ใช้งานอยู่ไม่ได้ → 422, ลบสถานีที่มีประวัติการชาร์จไม่ได้ → 409) · ปรับจำนวนช่องที่ใช้งานโดยอุปกรณ์: `PUT /ingest/stations/:id/occupancy` |
+| รถสันดาป/TCO | `POST /ice-vehicles` · `PATCH /ice-vehicles/:id` · `DELETE /ice-vehicles/:id` · `GET/PUT /tco` (manager ขึ้นไป; รหัสรถห้ามซ้ำไม่สนตัวพิมพ์, ระยะสูงสุด/วัน ≥ เฉลี่ย/วัน, `PUT /tco` แทนที่รายการทั้งชุด 1–12 รายการพร้อมชื่อรถที่เปรียบเทียบ) — ใช้ใน `GET /reports/electrification` |
 | realtime | `GET /stream` (SSE: เหตุการณ์ `change` เมื่อข้อมูลเปลี่ยน — ต้องล็อกอิน; ตัดสตรีมเมื่อ session ถูกเพิกถอน) |
 | auth | `POST /auth/login` · `POST /auth/logout` · `GET /auth/me` · `POST /auth/invite/lookup` · `POST /auth/invite/accept` (ผู้ถูกเชิญ ไม่ต้องล็อกอิน) · `POST /auth/change-password` (ล็อกอินอยู่) · `POST /auth/forgot-password` · `POST /auth/reset/lookup` · `POST /auth/reset/accept` (ไม่ต้องล็อกอิน) |
 | สาธารณะ | `GET /public/overview` (ตัวเลขรวม ไม่มีข้อมูลรายคัน — ใช้กับ Landing/Login) |
