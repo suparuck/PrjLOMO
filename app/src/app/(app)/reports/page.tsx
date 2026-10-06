@@ -10,6 +10,8 @@ import { Icon } from '@/components/ui/Icon'
 import { KpiCard } from '@/components/ui/KpiCard'
 import { SocBar } from '@/components/ui/SocBar'
 import { Tabs } from '@/components/ui/Tabs'
+import { useToast } from '@/components/ui/Toast'
+import { PERIOD_LABEL, brandLabel, exportEsgXlsx, exportReportXlsx } from '@/lib/exportReport'
 import {
   Co2Chart,
   CostMixDonut,
@@ -37,6 +39,8 @@ export default function ReportsPage() {
   const [tab, setTab] = useState<Tab>('energy')
   const [period, setPeriod] = useState<ReportPeriod>('year')
   const [brand, setBrand] = useState<ReportBrand>('all')
+  const toast = useToast()
+  const [exporting, setExporting] = useState<'report' | 'esg' | null>(null)
 
   // เปิดแท็บจาก hash เช่น /reports#electrify และซิงก์ hash เมื่อสลับแท็บ
   useEffect(() => {
@@ -56,9 +60,28 @@ export default function ReportsPage() {
   const { data: report, error: reportError } = useAsync(() => api.getReport({ period, brand }), [period, brand])
   const { data: electrify, error: electrifyError } = useAsync(() => api.getElectrification())
 
+  async function doExport(kind: 'report' | 'esg') {
+    if (!report) return
+    setExporting(kind)
+    try {
+      await (kind === 'esg' ? exportEsgXlsx : exportReportXlsx)({ report, electrify: electrify ?? null, period, brand })
+      toast(kind === 'esg' ? 'ส่งออกข้อมูล ESG แล้ว' : 'ส่งออกรายงานเป็น Excel แล้ว')
+    } catch {
+      toast('ส่งออกไม่สำเร็จ กรุณาลองใหม่', 'error')
+    } finally {
+      setExporting(null)
+    }
+  }
+
   return (
     <>
-      <div className="toolbar">
+      <div className="print-only print-head">
+        <h1>รายงานกองยาน EV — {TABS.find((t) => t.key === tab)?.label}</h1>
+        <p>
+          {PERIOD_LABEL[period]} · {brandLabel(brand)} · พิมพ์เมื่อ {new Date().toLocaleString('th-TH')}
+        </p>
+      </div>
+      <div className="toolbar no-print">
         <div className="flex wrap">
           <select className="select" style={{ width: 'auto' }} value={period} onChange={(e) => setPeriod(e.target.value as ReportPeriod)}>
             <option value="year">ปี 2026 (ม.ค. – ต.ค.)</option>
@@ -72,13 +95,13 @@ export default function ReportsPage() {
           </select>
         </div>
         <div className="flex wrap">
-          <button className="btn btn-outline" onClick={() => window.print()}>
+          <button type="button" className="btn btn-outline" onClick={() => window.print()} title="เปิดหน้าต่างพิมพ์ แล้วเลือก 'บันทึกเป็น PDF'">
             <Icon name="download" size={16} />
             PDF
           </button>
-          <button className="btn btn-outline">
+          <button type="button" className="btn btn-outline" onClick={() => doExport('report')} disabled={!report || exporting !== null}>
             <Icon name="download" size={16} />
-            Excel
+            {exporting === 'report' ? 'กำลังสร้าง…' : 'Excel'}
           </button>
           <button className="btn btn-navy">
             <Icon name="clock" size={16} />
@@ -94,7 +117,7 @@ export default function ReportsPage() {
       ) : report ? (
         <>
           {tab === 'energy' && <EnergyPanel r={report} />}
-          {tab === 'co2' && <CarbonPanel r={report} />}
+          {tab === 'co2' && <CarbonPanel r={report} onExportEsg={() => doExport('esg')} exporting={exporting === 'esg'} />}
           {tab === 'usage' && <UsagePanel r={report} />}
         </>
       ) : (
@@ -140,7 +163,7 @@ function EnergyPanel({ r }: { r: Report }) {
   )
 }
 
-function CarbonPanel({ r }: { r: Report }) {
+function CarbonPanel({ r, onExportEsg, exporting }: { r: Report; onExportEsg: () => void; exporting: boolean }) {
   const c = r.carbon
   return (
     <>
@@ -164,12 +187,14 @@ function CarbonPanel({ r }: { r: Report }) {
           </div>
         </Card>
       </section>
-      <div className="banner">
+      <div className="banner no-print">
         <Icon name="leaf" size={22} />
         <div className="small">
-          <strong>พร้อมสำหรับรายงาน ESG</strong> — ส่งออกข้อมูล Scope 1 และ Scope 2 ของกองยานเป็น Excel เพื่อใช้ในรายงานความยั่งยืนประจำปี
+          <strong>พร้อมสำหรับรายงาน ESG</strong> — ส่งออกการปล่อยจากไฟฟ้า (Scope 2) และ CO₂ ที่หลีกเลี่ยงได้เป็น Excel เพื่อใช้ในรายงานความยั่งยืนประจำปี
         </div>
-        <button className="btn btn-primary btn-sm">ส่งออกข้อมูล ESG</button>
+        <button type="button" className="btn btn-primary btn-sm" onClick={onExportEsg} disabled={exporting}>
+          {exporting ? 'กำลังสร้าง…' : 'ส่งออกข้อมูล ESG'}
+        </button>
       </div>
     </>
   )

@@ -576,3 +576,18 @@ html { scroll-behavior: smooth; }
 .toast-stack { position: fixed; right: 16px; bottom: 16px; z-index: 110; display: flex; flex-direction: column; gap: 8px; max-width: calc(100vw - 32px); }
 .toast { background: var(--ink); color: var(--white); padding: 12px 14px; border-radius: var(--r); box-shadow: var(--shadow-lg); font-size: var(--fs-13); display: flex; gap: 10px; align-items: flex-start; }
 .toast.error { background: var(--danger); }
+
+/* ---------- พิมพ์ / บันทึกเป็น PDF ---------- */
+.print-only { display: none; }
+@media print {
+  @page { margin: 12mm; }
+  body { background: var(--card); }
+  .sidebar, .topbar, .no-print, .tabs, .toast-stack, .scrim, .app-footer { display: none !important; }
+  .main { margin-left: 0; }
+  .print-only { display: block; }
+  .print-head { margin-bottom: 16px; }
+  .print-head h1 { font-size: var(--fs-22); }
+  .print-head p { color: var(--muted); }
+  .card, .banner, .kpi { break-inside: avoid; box-shadow: none; }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
