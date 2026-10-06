@@ -1,6 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
+import { usePagination } from '@/hooks/usePagination'
+import { Pager } from '@/components/ui/Pager'
 import { PageLoading } from '@/components/ui/PageLoading'
 import Link from 'next/link'
 import { api } from '@/api'
@@ -56,10 +58,12 @@ export default function AlertsPage() {
     }
   }
 
+  const list = useMemo(() => (A ?? []).filter((a) => (sev === 'all' || a.severity === sev) && (type === 'all' || a.type === type)), [A, sev, type])
+  const pg = usePagination(list, 10, `${sev}|${type}`)
+
   if (!A) return <PageLoading error={error} />
 
   const open = A.filter((a) => !a.acknowledged)
-  const list = A.filter((a) => (sev === 'all' || a.severity === sev) && (type === 'all' || a.type === type))
   const chipOptions: { key: SevFilter; label: string; count: number }[] = [
     { key: 'all', label: 'ทั้งหมด', count: A.length },
     ...(['critical', 'warning', 'info'] as const).map((k) => ({ key: k, label: SEV_TH[k], count: A.filter((a) => a.severity === k).length })),
@@ -94,7 +98,7 @@ export default function AlertsPage() {
             </div>
           </div>
           <div>
-            {list.map((a) => (
+            {pg.slice.map((a) => (
               <div key={a.id} className={`alert-row${a.acknowledged ? ' acked' : ''}`}>
                 <span className={`sev ${a.severity}`} />
                 <div className={`li-ico ${SEV_TONE[a.severity]}`}>
@@ -123,6 +127,7 @@ export default function AlertsPage() {
             ))}
             {list.length === 0 && <div className="empty">ไม่มีการแจ้งเตือน</div>}
           </div>
+          <Pager p={pg} unit="รายการ" />
         </div>
 
         <div>

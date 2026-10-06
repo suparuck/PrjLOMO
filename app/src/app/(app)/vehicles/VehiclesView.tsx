@@ -1,6 +1,8 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import { usePagination } from '@/hooks/usePagination'
+import { Pager } from '@/components/ui/Pager'
 import { PageLoading } from '@/components/ui/PageLoading'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
@@ -70,6 +72,8 @@ export function VehiclesView() {
       .sort(SORTERS[sort])
   }, [vehicles, drivers, filter, q, sort])
 
+  const pg = usePagination(list, 10, `${filter}|${q}|${sort}`)
+
   if (!vehicles) return <PageLoading error={error} />
 
   const avgSoh = (vehicles.reduce((s, v) => s + v.soh, 0) / vehicles.length).toFixed(1)
@@ -133,7 +137,7 @@ export function VehiclesView() {
               </tr>
             </thead>
             <tbody>
-              {list.map((v) => (
+              {pg.slice.map((v) => (
                 <tr key={v.id}>
                   <td>
                     <Link className="veh" href={`/vehicles/${v.id}`}>
@@ -171,19 +175,7 @@ export function VehiclesView() {
           </table>
         </div>
         {list.length === 0 && <div className="empty">ไม่พบรถที่ตรงกับเงื่อนไข</div>}
-        <div className="flex between" style={{ padding: '14px 22px', borderTop: '1px solid var(--line-2)' }}>
-          <span className="small muted">
-            แสดง {list.length} จาก {vehicles.length} คัน
-          </span>
-          <div className="flex">
-            <button className="btn btn-outline btn-sm" disabled>
-              ก่อนหน้า
-            </button>
-            <button className="btn btn-outline btn-sm" disabled>
-              ถัดไป
-            </button>
-          </div>
-        </div>
+        <Pager p={pg} unit="คัน" />
       </section>
 
       {adding && (

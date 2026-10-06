@@ -1,6 +1,8 @@
 'use client'
 
 import { useState } from 'react'
+import { usePagination } from '@/hooks/usePagination'
+import { Pager } from '@/components/ui/Pager'
 import { PageLoading } from '@/components/ui/PageLoading'
 import Link from 'next/link'
 import { api } from '@/api'
@@ -37,6 +39,7 @@ export default function ChargingPage() {
   const [adjusting, setAdjusting] = useState<ChargingSession | null>(null)
   const [stopping, setStopping] = useState<ChargingSession | null>(null)
   const [stFilter, setStFilter] = useState<StationFilter>('all')
+  const hist = usePagination(data?.history ?? [], 10)
   if (!data) return <PageLoading error={error} />
 
   const { vehicles, stations, sessions: S, history: H, loadKw } = data
@@ -153,7 +156,7 @@ export default function ChargingPage() {
               </tr>
             </thead>
             <tbody>
-              {H.map((h) => (
+              {hist.slice.map((h) => (
                 <tr key={h.vehicleId + h.date}>
                   <td>
                     <Link className="veh" href={`/vehicles/${h.vehicleId}`}>
@@ -181,6 +184,7 @@ export default function ChargingPage() {
             </tbody>
           </table>
         </div>
+        <Pager p={hist} unit="รายการ" />
       </section>
 
       {adjusting && (

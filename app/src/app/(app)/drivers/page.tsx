@@ -1,6 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
+import { usePagination } from '@/hooks/usePagination'
+import { Pager } from '@/components/ui/Pager'
 import { PageLoading } from '@/components/ui/PageLoading'
 import Link from 'next/link'
 import { api } from '@/api'
@@ -30,14 +32,20 @@ export default function DriversPage() {
   const [adding, setAdding] = useState(false)
   const [q, setQ] = useState('')
   const [detail, setDetail] = useState<Driver | null>(null)
+  // อันดับ: คนขับที่ยังไม่มีทริปไม่มีคะแนน ไม่นับในอันดับ (แสดงท้ายตาราง) — ลำดับเดิมคงไว้แม้ค้นหา/แบ่งหน้า
+  const term = q.trim()
+  const ranked = useMemo(() => {
+    const D = data?.drivers ?? []
+    return [...D.filter((d) => d.score !== null)].sort((a, b) => (b.score ?? 0) - (a.score ?? 0)).concat(D.filter((d) => d.score === null))
+  }, [data])
+  const matches = useMemo(() => ranked.map((d, i) => ({ d, i })).filter(({ d }) => !term || d.name.includes(term)), [ranked, term])
+  const pg = usePagination(matches, 10, term)
   if (!data) return <PageLoading error={error} />
 
   const { drivers: D, vehicles, events } = data
   const vehOf = (driverId: string): Vehicle | undefined => vehicles.find((v) => v.driverId === driverId)
   // คนขับที่ยังไม่มีทริปไม่มีคะแนน: ไม่นับในค่าเฉลี่ยและอันดับ (แสดงท้ายตาราง)
   const scored = D.filter((d) => d.score !== null)
-  const byScore = (a: Driver, b: Driver) => (b.score ?? 0) - (a.score ?? 0)
-  const ranked = [...scored].sort(byScore).concat(D.filter((d) => d.score === null))
   const avg = scored.length ? Math.round(scored.reduce((s, d) => s + (d.score ?? 0), 0) / scored.length) : 0
   const good = scored.filter((d) => (d.score ?? 0) >= 85).length
   const totalKm = D.reduce((s, d) => s + d.km, 0)
@@ -45,7 +53,6 @@ export default function DriversPage() {
     const v = vehOf(d.id)
     return v && v.status !== 'offline'
   }).length
-  const term = q.trim()
 
   return (
     <>
@@ -86,9 +93,7 @@ export default function DriversPage() {
                 </tr>
               </thead>
               <tbody>
-                {ranked.map((d, i) => ({ d, i }))
-                  .filter(({ d }) => !term || d.name.includes(term))
-                  .map(({ d, i }) => {
+                {pg.slice.map(({ d, i }) => {
                     const v = vehOf(d.id)
                     return (
                       <tr key={d.id}>
@@ -133,6 +138,7 @@ export default function DriversPage() {
               </tbody>
             </table>
           </div>
+          <Pager p={pg} unit="คน" />
         </div>
 
         <Card>
