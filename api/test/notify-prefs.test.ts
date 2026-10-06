@@ -20,14 +20,14 @@ describe('เปิด/ปิดอีเมลแจ้งเตือนรา
   after(async () => { await t.stop() })
 
   it('ค่าเริ่มต้นเปิดทั้งหมด และต้องล็อกอิน', async () => {
-    assert.deepEqual((await me()).notify, { alertEmail: true, loginFailed: true, newNetwork: true })
+    assert.deepEqual((await me()).notify, { alertEmail: true, loginFailed: true, newNetwork: true, dailyDigest: true })
     assert.equal((await call('PUT', '/auth/notifications', {}, { alertEmail: false })).statusCode, 401)
   })
 
   it('ปิดอีเมลแจ้งเตือนกองยาน (ไม่ใช่เรื่องความปลอดภัย) ได้โดยไม่ต้องใช้รหัสผ่าน และเปิดกลับได้', async () => {
     const r = await call('PUT', '/auth/notifications', mgr, { alertEmail: false })
     assert.equal(r.statusCode, 200)
-    assert.deepEqual(json(r), { alertEmail: false, loginFailed: true, newNetwork: true })
+    assert.deepEqual(json(r), { alertEmail: false, loginFailed: true, newNetwork: true, dailyDigest: true })
     assert.equal((await me()).notify.alertEmail, false)
     assert.equal((await call('PUT', '/auth/notifications', mgr, { alertEmail: true })).statusCode, 200)
   })
@@ -40,7 +40,7 @@ describe('เปิด/ปิดอีเมลแจ้งเตือนรา
     assert.equal((await me()).notify.newNetwork, true)
     const ok = await call('PUT', '/auth/notifications', mgr, { loginFailed: false, newNetwork: false, password: 'demo1234' })
     assert.equal(ok.statusCode, 200)
-    assert.deepEqual(json(ok), { alertEmail: true, loginFailed: false, newNetwork: false })
+    assert.deepEqual(json(ok), { alertEmail: true, loginFailed: false, newNetwork: false, dailyDigest: true })
     assert.equal((await call('PUT', '/auth/notifications', mgr, { loginFailed: true, newNetwork: true })).statusCode, 200)
   })
 

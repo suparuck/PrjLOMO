@@ -363,6 +363,7 @@ export interface NotifyPrefs {
   alertEmail: boolean
   loginFailed: boolean
   newNetwork: boolean
+  dailyDigest: boolean
 }
 
 export type AuditCategory = 'security' | 'users' | 'config' | 'data'

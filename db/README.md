@@ -53,6 +53,7 @@ docker compose exec -T db psql -U evm -d evmonitor -v ON_ERROR_STOP=1 < db/migra
 | `007_two_factor.sql` | 2FA: คอลัมน์ `totp_*` ใน `users` + ตาราง `user_recovery_codes` |
 | `008_require_admin_2fa.sql` | `app_settings.require_admin_2fa` — นโยบายบังคับ 2FA สำหรับผู้ดูแล |
 | `009_audit_log.sql` | ตาราง `audit_log` (บันทึกกิจกรรม แก้ไขไม่ได้ด้วย trigger) |
+| `012_daily_digest.sql` | `app_settings.digest_last_date` — จองสิทธิ์ส่งสรุปรายวันวันละครั้ง |
 | `011_notify_prefs.sql` | `users.notify_prefs` — การรับอีเมลแจ้งเตือนรายบุคคล |
 | `010_login_alert.sql` | `users.login_alert_at` — เวลาที่แจ้งเตือนล็อกอินผิดล่าสุด (ช่วงพักกันสแปม) |
 | `005_alert_email_notified.sql` | แจ้งเตือนทางอีเมล: เพิ่ม `alerts.email_notified_at` |

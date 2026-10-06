@@ -394,3 +394,5 @@ create trigger trg_audit_log_immutable before update on audit_log for each row e
 alter table users add column if not exists login_alert_at timestamptz;
 
 alter table users add column if not exists notify_prefs jsonb not null default '{}'::jsonb;
+
+alter table app_settings add column if not exists digest_last_date date;

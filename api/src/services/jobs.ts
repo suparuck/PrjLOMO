@@ -7,6 +7,7 @@ import type { LineClient } from './line'
 import { currentAlertFloor, runLineNotify } from './lineNotify'
 import { runEmailNotify } from './emailNotify'
 import { purgeAudit } from './audit'
+import { runDailyDigest } from './dailyDigest'
 import { config } from '../config'
 import { createAlert, enabledRules, hasOpenAlert, loadThresholds } from './ops'
 
@@ -62,6 +63,8 @@ export function startJobs(pool: Pool, log: Logger, intervalSeconds: number, mail
         if (n) log.info({ deleted: n }, 'audit log: purged old entries')
       }
       if (mailer) {
+        const dg = await runDailyDigest(pool, mailer)
+        if (dg.sent || dg.skipped === 'failed') log.info(dg, 'daily digest')
         const s = await runDueSchedules(pool, mailer)
         if (s.sent.length || s.failed.length) log.info(s, 'report schedules: ran due schedules')
       }

@@ -23,6 +23,8 @@ export const config = {
   /** ตรวจรถออฟไลน์ทุกกี่วินาที (0 = ปิด job) */
   // เก็บบันทึกกิจกรรม (audit log) กี่วัน (ค่าเริ่มต้น 365; ต่ำกว่า 30 ไม่รับ)
   auditKeepDays: Math.max(30, Number(process.env.AUDIT_KEEP_DAYS ?? 365) || 365),
+  // ชั่วโมง (เวลาไทย 0–19) ที่ส่งสรุปรายวันทางอีเมล
+  digestHourTh: Math.min(19, Math.max(0, Number(process.env.DIGEST_HOUR_TH ?? 8) || 8)),
   offlineCheckIntervalSeconds: Number(process.env.OFFLINE_CHECK_INTERVAL_SECONDS ?? 60),
   inviteTtlDays: 7,
   resetTtlMinutes: 60,

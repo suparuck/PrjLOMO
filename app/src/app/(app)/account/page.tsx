@@ -75,7 +75,7 @@ export default function AccountPage() {
 
       <TwoFactorCard enabled={!!me.twoFactorEnabled} recoveryLeft={me.recoveryCodesLeft ?? 0} onChanged={reload} />
 
-      <NotifyCard prefs={me.notify ?? { alertEmail: true, loginFailed: true, newNetwork: true }} role={me.role} onChanged={reload} />
+      <NotifyCard prefs={me.notify ?? { alertEmail: true, loginFailed: true, newNetwork: true, dailyDigest: true }} role={me.role} onChanged={reload} />
 
       <Card>
         <CardHeader title="เปลี่ยนรหัสผ่าน" sub="เมื่อเปลี่ยนแล้ว อุปกรณ์อื่นที่ล็อกอินอยู่จะถูกออกจากระบบ" />

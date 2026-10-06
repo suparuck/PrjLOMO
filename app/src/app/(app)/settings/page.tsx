@@ -231,7 +231,7 @@ export default function SettingsPage() {
           <SetRow title="แจ้งเตือนทางอีเมล" text="ส่งสรุปเหตุการณ์วิกฤตทันที" checked={notify.email} onChange={(v) => patch('notify', { email: v })} />
           <SetRow title="แจ้งเตือนผ่าน LINE Official Account" text="ส่งเข้ากลุ่มผู้จัดการกองยาน" checked={notify.line} onChange={(v) => patch('notify', { line: v })} />
           <SetRow title="SMS ถึงคนขับ" text="เมื่อแบตต่ำมากระหว่างการเดินทาง" checked={notify.sms} onChange={(v) => patch('notify', { sms: v })} />
-          <SetRow title="สรุปรายวันทางอีเมล" text="ทุกวันเวลา 08:00 น." checked={notify.dailyDigest} onChange={(v) => patch('notify', { dailyDigest: v })} />
+          <SetRow title="สรุปรายวันทางอีเมล" text="ทุกเช้า 08:00 น. ถึงผู้ดูแลและผู้จัดการ (ปรับเวลาด้วย DIGEST_HOUR_TH)" checked={notify.dailyDigest} onChange={(v) => patch('notify', { dailyDigest: v })} />
         </section>
 
         <section className="card" id="charging" style={anchor}>

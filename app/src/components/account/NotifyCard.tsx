@@ -52,6 +52,7 @@ export function NotifyCard({ prefs, role, onChanged }: { prefs: NotifyPrefs; rol
 
   const rows: { key: keyof NotifyPrefs; title: string; text: string; show: boolean }[] = [
     { key: 'alertEmail', title: 'แจ้งเตือนเหตุการณ์กองยานทางอีเมล', text: 'แบตต่ำ/วิกฤต และเหตุการณ์ระดับเตือนขึ้นไป (ต้องเปิดสวิตช์อีเมลที่ตั้งค่า > เกณฑ์การแจ้งเตือนด้วย)', show: role !== 'viewer' },
+    { key: 'dailyDigest', title: 'สรุปกองยานประจำวันทางอีเมล', text: 'ทุกเช้า (ค่าเริ่มต้น 08:00 น.) สถานะรถ แจ้งเตือนและการชาร์จของเมื่อวาน (ต้องเปิดสวิตช์สรุปรายวันที่ ตั้งค่า > เกณฑ์การแจ้งเตือนด้วย)', show: role !== 'viewer' },
     { key: 'loginFailed', title: 'เตือนเมื่อมีคนพยายามเข้าบัญชีของฉันด้วยรหัสผ่านผิดซ้ำ', text: 'ส่งเมื่อรหัสผ่านผิด 5 ครั้ง หรือรหัส 2FA ผิด 3 ครั้งใน 15 นาที (ไม่เกิน 1 ฉบับ/ชั่วโมง)', show: true },
     { key: 'newNetwork', title: 'เตือนเมื่อเข้าสู่ระบบจากเครือข่ายใหม่', text: 'ส่งเมื่อบัญชีเข้าจากเครือข่ายที่ไม่เคยใช้ใน 90 วัน', show: true },
   ]
