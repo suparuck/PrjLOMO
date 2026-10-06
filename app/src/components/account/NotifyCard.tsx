@@ -34,7 +34,8 @@ export function NotifyCard({ prefs, role, onChanged }: { prefs: NotifyPrefs; rol
   }
 
   function toggle(key: keyof NotifyPrefs, value: boolean) {
-    const security = key !== 'alertEmail'
+    // เฉพาะเตือนด้านความปลอดภัยที่ต้องยืนยันรหัสผ่านตอนปิด (ต้องตรงกับ SECURITY_PREFS ใน api/src/services/notifyPrefs.ts)
+    const security = key === 'loginFailed' || key === 'newNetwork'
     if (security && !value) {
       setPending({ [key]: false })
       setError('')
