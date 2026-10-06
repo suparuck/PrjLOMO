@@ -156,6 +156,8 @@ services:
       API_URL: http://api:4000
       INGEST_API_KEY: ${INGEST_API_KEY:?ต้องตั้ง INGEST_API_KEY ใน .env เพื่อใช้ตัวจำลอง}
       SIM_INTERVAL_SECONDS: ${SIM_INTERVAL_SECONDS:-30}
+      # true = ส่งข้อมูลของรถทุกคัน รวมที่ออฟไลน์อยู่ (ปลุกรถเดโมให้กลับมา) — ค่าเริ่มต้นไม่ปลุก
+      SIM_REVIVE: ${SIM_REVIVE:-false}
     depends_on:
       api:
         condition: service_healthy

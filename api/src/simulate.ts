@@ -3,7 +3,8 @@
  * เพื่อให้รถเดโมไม่กลายเป็นออฟไลน์เมื่อ job ตรวจออฟไลน์ทำงาน และเห็นการอัปเดตสด (ระดับแบต ตำแหน่ง แจ้งเตือนอัตโนมัติ)
  *
  * ไม่ใช่ส่วนหนึ่งของระบบจริง: รันเฉพาะเมื่อต้องการ (docker compose --profile demo up -d simulator)
- * รถที่ออฟไลน์อยู่แล้วจะไม่ถูกจำลอง (ยังคงเป็นออฟไลน์) ส่งผ่าน API จริงด้วย X-API-Key เหมือนอุปกรณ์จริง
+ * ค่าเริ่มต้น: รถที่ออฟไลน์อยู่แล้วจะไม่ถูกจำลอง (ยังคงเป็นออฟไลน์) — ตั้ง SIM_REVIVE=true เพื่อให้ส่งข้อมูลของรถทุกคัน (ปลุกรถออฟไลน์ให้กลับมา; สถานะคำนวณใหม่ตามข้อมูลที่ส่ง)
+ * ส่งผ่าน API จริงด้วย X-API-Key เหมือนอุปกรณ์จริง
  */
 import { Pool } from 'pg'
 
@@ -11,6 +12,7 @@ const databaseUrl = process.env.DATABASE_URL
 const apiUrl = (process.env.API_URL ?? 'http://localhost:4000').replace(/\/$/, '')
 const apiKey = process.env.INGEST_API_KEY
 const everySeconds = Number(process.env.SIM_INTERVAL_SECONDS ?? 30)
+const revive = process.env.SIM_REVIVE === 'true'
 
 if (!databaseUrl || !apiKey) {
   console.error('ต้องตั้งค่า DATABASE_URL และ INGEST_API_KEY')
@@ -57,7 +59,7 @@ function step(v: V) {
 
 async function tick() {
   const { rows } = await pool.query<V>(
-    `select id, soc, speed_kmh, lat, lng, status, odometer_km from vehicles where status <> 'offline' order by id`,
+    `select id, soc, speed_kmh, lat, lng, status, odometer_km from vehicles ${revive ? '' : "where status <> 'offline'"} order by id`,
   )
   if (rows.length === 0) return console.log(JSON.stringify({ msg: 'ไม่มีรถออนไลน์ให้จำลอง' }))
   const res = await fetch(`${apiUrl}/api/v1/ingest/telemetry`, {
@@ -70,7 +72,7 @@ async function tick() {
 }
 
 async function main() {
-  console.log(JSON.stringify({ msg: 'simulator started', apiUrl, everySeconds }))
+  console.log(JSON.stringify({ msg: 'simulator started', apiUrl, everySeconds, revive }))
   for (;;) {
     try {
       await tick()
