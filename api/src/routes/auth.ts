@@ -3,13 +3,14 @@ import { Type } from '@sinclair/typebox'
 import type { FastifyReply } from 'fastify'
 import { randomBytes } from 'node:crypto'
 import type { Pool } from 'pg'
-import { hashKey, requireRole, signToken } from '../auth'
+import { hashKey, requireRole, signChallenge, signToken, verifyChallenge } from '../auth'
 import { config } from '../config'
 import { one, withTx } from '../db'
 import { AppError, invalid } from '../errors'
 import { checkDisplayName, checkPassword, type UserRole } from '../lib/validators'
 import type { Mailer } from '../services/mailer'
 import { createLoginGuard } from '../lib/loginGuard'
+import * as tf from '../services/twofactor'
 
 const BAD_LINK = 'ลิงก์คำเชิญไม่ถูกต้องหรือถูกใช้ไปแล้ว'
 const EXPIRED_LINK = 'ลิงก์คำเชิญหมดอายุแล้ว กรุณาขอลิงก์ใหม่จากผู้ดูแลระบบ'
@@ -17,7 +18,7 @@ const BAD_RESET = 'ลิงก์รีเซ็ตรหัสผ่านไ�
 const EXPIRED_RESET = 'ลิงก์รีเซ็ตรหัสผ่านหมดอายุแล้ว กรุณาขอลิงก์ใหม่'
 
 type InviteRow = { id: string; email: string; name: string; role: UserRole; expired: boolean }
-type SessionRow = { id: string; email: string; name: string; role: UserRole; sv: number }
+type SessionRow = { id: string; email: string; name: string; role: UserRole; sv: number; tfa?: boolean }
 type ResetRow = { user_id: string; email: string; name: string; expired: boolean; used: boolean }
 
 const RESET_SELECT = `select r.user_id, u.email, u.name, r.expires_at < now() as expired, r.used_at is not null as used
@@ -58,6 +59,10 @@ export const authRoutes =
   (pool: Pool, mail: MailContext): FastifyPluginAsyncTypebox =>
   async (app) => {
     const loginGuard = createLoginGuard()
+    // ตรวจรหัส 2FA/รหัสผ่านซ้ำของบัญชีเดียว: ผิดเกิน 10 ครั้งใน 15 นาที → ปฏิเสธชั่วคราว (รหัส 6 หลัก มีแค่ 1 ล้านแบบ จึงต้องจำกัดเข้มกว่ารหัสผ่าน)
+    const twoFaGuard = createLoginGuard({ max: 10 })
+    const invalidCode = () => new AppError(401, 'invalid_code', 'รหัสไม่ถูกต้องหรือหมดอายุ')
+    const tooMany = () => new AppError(429, 'rate_limited', 'กรอกรหัสผิดหลายครั้งเกินไป กรุณารอสักครู่แล้วลองใหม่')
 
     app.post(
       '/auth/login',
@@ -82,9 +87,10 @@ export const authRoutes =
         // ตรวจรหัสผ่านด้วย bcrypt ในฐานข้อมูล (pgcrypto) และบันทึกเวลาเข้าใช้ในคำสั่งเดียว
         const row = await one<SessionRow>(
           pool,
-          `update users set last_login_at = now()
+          // บัญชีที่เปิด 2FA: ยังไม่บันทึกเวลาเข้าใช้จนกว่าจะผ่านขั้นที่สอง
+          `update users set last_login_at = case when totp_enabled_at is null then now() else last_login_at end
             where lower(email) = lower($1) and status = 'active' and password_hash = crypt($2, password_hash)
-            returning id, email, name, role, session_version as sv`,
+            returning id, email, name, role, session_version as sv, totp_enabled_at is not null as tfa`,
           [email.trim(), password],
         )
         if (!row) {
@@ -97,9 +103,135 @@ export const authRoutes =
         }
         loginGuard.success(email)
 
+        // เปิด 2FA: ยังไม่ออก session — ส่งโทเคนชั่วคราวให้ไปกรอกรหัสที่ /auth/login/2fa
+        if (row.tfa) return { twoFactorRequired: true, challenge: signChallenge(row.id, !!remember) }
+
         const ttl = remember ? config.rememberTtlSeconds : config.sessionTtlSeconds
         setSession(reply, row, ttl, remember)
         return { user: publicUser(row) }
+      },
+    )
+
+    app.post(
+      '/auth/login/2fa',
+      {
+        config: { rateLimit: { max: 20, timeWindow: '1 minute' } },
+        schema: {
+          tags: ['auth'],
+          summary: 'เข้าสู่ระบบขั้นที่สอง: รหัส 6 หลักจากแอป Authenticator หรือรหัสสำรอง (ใช้ได้ครั้งเดียว)',
+          body: Type.Object({ challenge: Type.String({ maxLength: 2000 }), code: Type.String({ minLength: 1, maxLength: 40 }) }),
+        },
+      },
+      async (req, reply) => {
+        const ch = verifyChallenge(req.body.challenge)
+        if (!ch) throw new AppError(401, 'invalid_challenge', 'หมดเวลายืนยัน กรุณาเข้าสู่ระบบใหม่')
+        if (twoFaGuard.blocked(ch.userId)) throw tooMany()
+        const ok = await tf.verifyCode(pool, ch.userId, req.body.code)
+        if (!ok) {
+          twoFaGuard.fail(ch.userId)
+          throw invalidCode()
+        }
+        twoFaGuard.success(ch.userId)
+        const row = await one<SessionRow>(
+          pool,
+          `update users set last_login_at = now() where id = $1 and status = 'active' returning id, email, name, role, session_version as sv`,
+          [ch.userId],
+        )
+        if (!row) throw invalidCode()
+        const ttl = ch.remember ? config.rememberTtlSeconds : config.sessionTtlSeconds
+        setSession(reply, row, ttl, ch.remember)
+        return { user: publicUser(row) }
+      },
+    )
+
+    // ---- ตั้งค่า/ปิด 2FA ของตัวเอง (ต้องล็อกอินอยู่ และยืนยันรหัสผ่านซ้ำ — session ที่ถูกขโมยจะตั้ง 2FA ล็อกเจ้าของไม่ได้) ----
+    const me = requireRole(pool, 'viewer')
+    const reauth = async (userId: string, password: string, code?: string) => {
+      if (twoFaGuard.blocked(userId)) throw tooMany()
+      const ok = (await tf.passwordMatches(pool, userId, password)) && (code === undefined || (await tf.verifyCode(pool, userId, code)))
+      if (!ok) {
+        twoFaGuard.fail(userId)
+        throw invalid(code === undefined ? { password: 'รหัสผ่านไม่ถูกต้อง' } : { password: 'รหัสผ่านหรือรหัสยืนยันไม่ถูกต้อง' })
+      }
+      twoFaGuard.success(userId)
+    }
+    const reissue = (reply: FastifyReply, userId: string, sv: number, u: { email: string; name: string; role: UserRole }) =>
+      setSession(reply, { id: userId, email: u.email, name: u.name, role: u.role, sv }, config.sessionTtlSeconds)
+
+    app.post(
+      '/auth/2fa/setup',
+      {
+        preValidation: me,
+        config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
+        schema: { tags: ['auth'], summary: 'เริ่มเปิด 2FA: ยืนยันรหัสผ่านแล้วรับความลับ/ลิงก์สำหรับสแกน QR (ยังไม่เปิดใช้จนกว่าจะยืนยันรหัสแรก)', security: [{ cookieAuth: [] }, { bearerAuth: [] }], body: Type.Object({ password: Type.String({ maxLength: 200 }) }) },
+      },
+      async (req) => {
+        await reauth(req.user!.id, req.body.password)
+        return tf.beginSetup(pool, req.user!)
+      },
+    )
+
+    app.post(
+      '/auth/2fa/enable',
+      {
+        preValidation: me,
+        config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
+        schema: {
+          tags: ['auth'],
+          summary: 'ยืนยันรหัสแรกจากแอปเพื่อเปิด 2FA — ได้รหัสสำรอง 8 ชุด (แสดงครั้งเดียว); session อื่นทั้งหมดหลุด',
+          security: [{ cookieAuth: [] }, { bearerAuth: [] }],
+          body: Type.Object({ pending: Type.String({ maxLength: 2000 }), code: Type.String({ maxLength: 20 }) }),
+        },
+      },
+      async (req, reply) => {
+        if (twoFaGuard.blocked(req.user!.id)) throw tooMany()
+        try {
+          const r = await tf.enable(pool, req.user!.id, req.body.pending, req.body.code)
+          twoFaGuard.success(req.user!.id)
+          reissue(reply, req.user!.id, r.sv, req.user!)
+          return { recoveryCodes: r.recoveryCodes }
+        } catch (e) {
+          if (e instanceof AppError && e.status === 422) twoFaGuard.fail(req.user!.id)
+          throw e
+        }
+      },
+    )
+
+    app.post(
+      '/auth/2fa/disable',
+      {
+        preValidation: me,
+        config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
+        schema: {
+          tags: ['auth'],
+          summary: 'ปิด 2FA ของตัวเอง — ต้องยืนยันรหัสผ่านและรหัสจากแอป (หรือรหัสสำรอง); session อื่นทั้งหมดหลุด',
+          security: [{ cookieAuth: [] }, { bearerAuth: [] }],
+          body: Type.Object({ password: Type.String({ maxLength: 200 }), code: Type.String({ maxLength: 40 }) }),
+        },
+      },
+      async (req, reply) => {
+        await reauth(req.user!.id, req.body.password, req.body.code)
+        const r = await tf.disable(pool, req.user!.id)
+        if (r) reissue(reply, req.user!.id, r.sv, req.user!)
+        return { disabled: true }
+      },
+    )
+
+    app.post(
+      '/auth/2fa/recovery-codes',
+      {
+        preValidation: me,
+        config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
+        schema: {
+          tags: ['auth'],
+          summary: 'สร้างรหัสสำรองชุดใหม่ (ชุดเก่าใช้ไม่ได้ทันที) — ต้องยืนยันรหัสผ่านและรหัสจากแอป',
+          security: [{ cookieAuth: [] }, { bearerAuth: [] }],
+          body: Type.Object({ password: Type.String({ maxLength: 200 }), code: Type.String({ maxLength: 40 }) }),
+        },
+      },
+      async (req) => {
+        await reauth(req.user!.id, req.body.password, req.body.code)
+        return { recoveryCodes: await tf.regenerateRecoveryCodes(pool, req.user!.id) }
       },
     )
 
@@ -313,6 +445,10 @@ export const authRoutes =
     app.get(
       '/auth/me',
       { preValidation: requireRole(pool, 'viewer'), schema: { tags: ['auth'], summary: 'ผู้ใช้ปัจจุบัน', security: [{ cookieAuth: [] }, { bearerAuth: [] }] } },
-      async (req) => ({ user: req.user }),
+      async (req) => {
+        // บอกว่าเปิด 2FA หรือยัง และเหลือรหัสสำรองกี่ชุด (หน้าบัญชีของฉันใช้แสดงสถานะ)
+        const s = await one<{ on: boolean }>(pool, 'select totp_enabled_at is not null as "on" from users where id = $1', [req.user!.id])
+        return { user: { ...req.user, twoFactorEnabled: !!s?.on, recoveryCodesLeft: s?.on ? await tf.remainingRecoveryCodes(pool, req.user!.id) : 0 } }
+      },
     )
   }

@@ -5,6 +5,7 @@ import { api } from '@/api'
 import { Modal } from '@/components/ui/Modal'
 import { FormField, focusFirstError } from '@/components/ui/FormField'
 import { Switch } from '@/components/ui/Switch'
+import { useToast } from '@/components/ui/Toast'
 import { USER_ROLES } from '@/lib/validators'
 import type { AppUser, UserRole } from '@/types'
 
@@ -17,6 +18,20 @@ export function UserEditModal({ user, isSelf, onClose, onSaved }: { user: AppUse
   const [active, setActive] = useState(user.status === 'active')
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState(false)
+  const toast = useToast()
+  const [confirmReset, setConfirmReset] = useState(false)
+  const [tfa, setTfa] = useState(user.twoFactorEnabled)
+
+  async function resetTfa() {
+    setBusy(true)
+    const res = await api.resetTwoFactor(user.id)
+    setBusy(false)
+    if (!res.ok) return setErrors(res.errors)
+    setTfa(false)
+    setConfirmReset(false)
+    toast(`รีเซ็ต 2FA ของ ${user.name} แล้ว — ผู้ใช้เข้าสู่ระบบด้วยรหัสผ่านและตั้ง 2FA ใหม่เองได้`)
+    onSaved({ ...user, twoFactorEnabled: false })
+  }
 
   async function submit(e: FormEvent) {
     e.preventDefault()
@@ -93,6 +108,28 @@ export function UserEditModal({ user, isSelf, onClose, onSaved }: { user: AppUse
             </span>
           )}
         </div>
+        {tfa && !isSelf && (
+          <div className="field">
+            <div className="flex between" style={{ gap: 12 }}>
+              <span>การยืนยันตัวตนสองขั้นตอน</span>
+              {confirmReset ? (
+                <span className="flex" style={{ gap: 6 }}>
+                  <button type="button" className="btn btn-danger btn-sm" onClick={resetTfa} disabled={busy}>
+                    ยืนยันรีเซ็ต
+                  </button>
+                  <button type="button" className="btn btn-ghost btn-sm" onClick={() => setConfirmReset(false)} disabled={busy}>
+                    ยกเลิก
+                  </button>
+                </span>
+              ) : (
+                <button type="button" className="btn btn-outline btn-sm" onClick={() => setConfirmReset(true)}>
+                  รีเซ็ต 2FA
+                </button>
+              )}
+            </div>
+            <span className="hint">ใช้เมื่อผู้ใช้ทำมือถือ/รหัสสำรองหายและเข้าสู่ระบบไม่ได้ — ทุกอุปกรณ์ของผู้ใช้จะถูกออกจากระบบ</span>
+          </div>
+        )}
         {errors._ && (
           <p className="field-error" role="alert">
             {errors._}

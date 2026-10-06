@@ -7,7 +7,7 @@ import * as m from './mappers'
 import type * as D from './dto'
 import type {
   AlertRule, Alert, ApiKeyInfo, AppUser, BatteryInsights, ChargingHistory, ChargingLoad, ChargingSession, Driver, DriverEventStat,
-  ElectrificationReport, EnergySummary, EnergyWeek, IceVehicle, Integration, InviteInfo, InviteUserDraft, Paged, VehiclesPage, DriversPage, AlertsPage, VehicleStatus, AlertSeverity, AlertType, ReportSchedule, ReportSchedules, ScheduleDraft, ResetInfo, ResetLinkResult, UserRole, NewDriverDraft, NewStationDraft, IceDraft, TcoDraft, AssumptionValues, AssumptionLimits, NewVehicleDraft,
+  ElectrificationReport, EnergySummary, EnergyWeek, IceVehicle, Integration, InviteInfo, InviteUserDraft, Paged, VehiclesPage, DriversPage, AlertsPage, VehicleStatus, AlertSeverity, AlertType, ReportSchedule, ReportSchedules, ScheduleDraft, ResetInfo, ResetLinkResult, TwoFactorSetup, UserRole, NewDriverDraft, NewStationDraft, IceDraft, TcoDraft, AssumptionValues, AssumptionLimits, NewVehicleDraft,
   NotificationChannel, Org, PublicOverview, Report, ReportFilters, Result, Settings, Station, Sustainability, Vehicle, VehicleDetail,
 } from '@/types'
 
@@ -60,7 +60,8 @@ export const api = {
   // ---- อ่านข้อมูล ----
   getOrg: () => get<Org>('/org'),
   /** ผู้ใช้ที่ล็อกอินอยู่ (จาก session cookie) */
-  getMe: async () => (await get<{ user: { id: string; email: string; name: string; role: UserRole } }>('/auth/me')).user,
+  getMe: async () =>
+    (await get<{ user: { id: string; email: string; name: string; role: UserRole; twoFactorEnabled?: boolean; recoveryCodesLeft?: number } }>('/auth/me')).user,
   listVehicles: async (): Promise<Vehicle[]> => (await get<D.VehicleDTO[]>('/vehicles')).map(m.vehicle),
   getVehicleDetail: async (id: string): Promise<VehicleDetail | null> => {
     try {
@@ -186,6 +187,14 @@ export const api = {
       const d = await post<{ email: string; resetToken: string; expiresAt: string }>(`/users/${userId}/reset-link`)
       return { email: d.email, token: d.resetToken, expiresAt: d.expiresAt }
     }),
+  // ---- การยืนยันตัวตนสองขั้นตอน (2FA) ----
+  twoFactorSetup: (password: string) => write(() => post<TwoFactorSetup>('/auth/2fa/setup', { password })),
+  twoFactorEnable: (pending: string, code: string) => write(async () => (await post<{ recoveryCodes: string[] }>('/auth/2fa/enable', { pending, code })).recoveryCodes),
+  twoFactorDisable: (password: string, code: string) => write(() => post<{ disabled: boolean }>('/auth/2fa/disable', { password, code })),
+  twoFactorNewRecoveryCodes: (password: string, code: string) =>
+    write(async () => (await post<{ recoveryCodes: string[] }>('/auth/2fa/recovery-codes', { password, code })).recoveryCodes),
+  /** ผู้ดูแลรีเซ็ต 2FA ของผู้ใช้ที่ทำอุปกรณ์/รหัสสำรองหาย */
+  resetTwoFactor: (userId: string) => write(() => post<{ reset: boolean }>(`/users/${userId}/2fa-reset`)),
   // ---- ตั้งเวลาส่งรายงาน ----
   listReportSchedules: () => get<ReportSchedules>('/report-schedules'),
   /** id = null สร้างใหม่ · มี id แก้ไข */

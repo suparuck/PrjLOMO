@@ -19,19 +19,35 @@ export function LoginForm() {
   const [remember, setRemember] = useState(true)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  // เปิด 2FA: หลังรหัสผ่านถูก API ส่งโทเคนชั่วคราวมา แล้วขอรหัสจากแอป (หรือรหัสสำรอง) อีกขั้น
+  const [challenge, setChallenge] = useState('')
+  const [code, setCode] = useState('')
+
+  function backToPassword() {
+    setChallenge('')
+    setCode('')
+  }
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
     setBusy(true)
     setError('')
     try {
-      const res = await fetch('/api/v1/auth/login', {
+      const res = await fetch(challenge ? '/api/v1/auth/login/2fa' : '/api/v1/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, remember }),
+        body: JSON.stringify(challenge ? { challenge, code } : { email, password, remember }),
       })
       if (!res.ok) {
-        setError(((await res.json().catch(() => null)) as { error?: { message?: string } } | null)?.error?.message ?? 'เข้าสู่ระบบไม่สำเร็จ')
+        const err = ((await res.json().catch(() => null)) as { error?: { message?: string; code?: string } } | null)?.error
+        setError(err?.message ?? 'เข้าสู่ระบบไม่สำเร็จ')
+        if (err?.code === 'invalid_challenge') backToPassword()
+        return
+      }
+      const body = (await res.json().catch(() => null)) as { twoFactorRequired?: boolean; challenge?: string } | null
+      if (body?.twoFactorRequired && body.challenge) {
+        setChallenge(body.challenge)
+        setPassword('')
         return
       }
       router.replace(next)
@@ -41,6 +57,32 @@ export function LoginForm() {
     } finally {
       setBusy(false)
     }
+  }
+
+  if (challenge) {
+    return (
+      <form className="auth-box" onSubmit={onSubmit}>
+        <h1>ยืนยันตัวตนสองขั้นตอน</h1>
+        <p>กรอกรหัส 6 หลักจากแอป Authenticator ของคุณ หรือใช้รหัสสำรองหนึ่งชุด</p>
+        <div className="field">
+          <label htmlFor="otp">รหัสยืนยัน</label>
+          <input className="input" id="otp" inputMode="text" autoComplete="one-time-code" autoFocus required maxLength={20} placeholder="123456" value={code} onChange={(e) => setCode(e.target.value)} />
+        </div>
+        {error && (
+          <p role="alert" className="small" style={{ color: 'var(--danger)', margin: '-8px 0 14px' }}>
+            {error}
+          </p>
+        )}
+        <button className="btn btn-primary btn-lg" style={{ width: '100%' }} type="submit" disabled={busy || !code.trim()}>
+          {busy ? 'กำลังตรวจสอบ…' : 'ยืนยันและเข้าสู่ระบบ'}
+        </button>
+        <p className="small muted" style={{ textAlign: 'center', marginTop: 20 }}>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => { backToPassword(); setError('') }}>
+            กลับไปหน้าเข้าสู่ระบบ
+          </button>
+        </p>
+      </form>
+    )
   }
 
   return (

@@ -10,6 +10,7 @@ import { checkDisplayName, checkEmail } from '../lib/validators'
 import { newResetToken, type MailContext } from './auth'
 import type { LineClient } from '../services/line'
 import { findDefaultPasswordUsers } from '../services/accounts'
+import { disable as disableTwoFactor } from '../services/twofactor'
 import { PageQuery, envelope, likeTerm, pageArgs } from '../lib/paging'
 
 import { sec } from '../security'
@@ -41,7 +42,7 @@ const SettingsBody = Type.Object({
   }),
 })
 
-const USER_COLS = `id, email, name, role, status, last_login_at as "lastLoginAt", invited_at as "invitedAt"`
+const USER_COLS = `id, email, name, role, status, last_login_at as "lastLoginAt", invited_at as "invitedAt", totp_enabled_at is not null as "twoFactorEnabled"`
 
 function newInvite() {
   const token = randomBytes(32).toString('base64url')
@@ -251,6 +252,21 @@ export const settingsRoutes =
           if (disabling) await c.query('update password_resets set used_at = now() where user_id = $1 and used_at is null', [req.params.id])
           return row
         })
+      },
+    )
+
+    // ผู้ใช้ทำเครื่องที่ใช้ยืนยันตัวตนหาย/ไม่มีรหัสสำรอง: ผู้ดูแลรีเซ็ต 2FA ให้ (ทุก session ของผู้ใช้นั้นหลุด และต้องตั้ง 2FA ใหม่เอง)
+    app.post(
+      '/users/:id/2fa-reset',
+      {
+        preValidation: adm,
+        schema: { tags: ['users'], summary: 'รีเซ็ต 2FA ของผู้ใช้ (admin) — ใช้เมื่อผู้ใช้เข้าไม่ได้เพราะทำอุปกรณ์/รหัสสำรองหาย', params: Type.Object({ id: Type.String({ format: 'uuid' }) }), security: sec },
+      },
+      async (req) => {
+        const r = await disableTwoFactor(pool, req.params.id)
+        if (!r) throw notFound('ผู้ใช้')
+        if (!r.wasEnabled) throw conflict('ผู้ใช้นี้ไม่ได้เปิดใช้การยืนยันตัวตนสองขั้นตอน')
+        return { reset: true }
       },
     )
 

@@ -352,3 +352,15 @@ create table if not exists report_schedules (
   check ((frequency = 'monthly') = (month_day is not null))
 );
 create index if not exists report_schedules_due_idx on report_schedules (next_run_at) where enabled;
+alter table users add column if not exists totp_secret_enc text;
+alter table users add column if not exists totp_enabled_at timestamptz;
+alter table users add column if not exists totp_last_step bigint not null default 0;
+
+create table if not exists user_recovery_codes (
+  id         bigint generated always as identity primary key,
+  user_id    uuid not null references users(id) on delete cascade,
+  code_hash  text not null,
+  used_at    timestamptz,
+  created_at timestamptz not null default now(),
+  unique (user_id, code_hash)
+);

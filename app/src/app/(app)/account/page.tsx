@@ -7,6 +7,7 @@ import { PageLoading } from '@/components/ui/PageLoading'
 import { Card, CardHeader } from '@/components/ui/Card'
 import { FormField, focusFirstError } from '@/components/ui/FormField'
 import { useToast } from '@/components/ui/Toast'
+import { TwoFactorCard } from '@/components/account/TwoFactorCard'
 import { USER_ROLES, validatePasswordChange } from '@/lib/validators'
 
 const ORDER = ['current', 'next', 'confirm']
@@ -15,7 +16,7 @@ const EMPTY = { current: '', next: '', confirm: '' }
 /** บัญชีของฉัน — ทุกบทบาทเข้าได้ (ผู้ดูรายงานไม่มีสิทธิ์เข้าหน้าตั้งค่า จึงเปลี่ยนรหัสผ่านที่นี่) */
 export default function AccountPage() {
   const toast = useToast()
-  const { data: me, error } = useAsync(() => api.getMe())
+  const { data: me, error, reload } = useAsync(() => api.getMe())
   const [form, setForm] = useState(EMPTY)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [submitted, setSubmitted] = useState(false)
@@ -70,6 +71,8 @@ export default function AccountPage() {
           </dd>
         </dl>
       </Card>
+
+      <TwoFactorCard enabled={!!me.twoFactorEnabled} recoveryLeft={me.recoveryCodesLeft ?? 0} onChanged={reload} />
 
       <Card>
         <CardHeader title="เปลี่ยนรหัสผ่าน" sub="เมื่อเปลี่ยนแล้ว อุปกรณ์อื่นที่ล็อกอินอยู่จะถูกออกจากระบบ" />

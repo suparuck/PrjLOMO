@@ -4,6 +4,7 @@
  *
  *   create-admin --email <อีเมล> --name <ชื่อ>   สร้างผู้ดูแลระบบ (ถามรหัสผ่านแบบซ่อนตัวอักษร)
  *   set-password --email <อีเมล>                 ตั้งรหัสผ่านใหม่ (ทุกอุปกรณ์ถูกออกจากระบบ)
+ *   reset-2fa --email <อีเมล>                    ปิดการยืนยันตัวตนสองขั้นตอนของผู้ใช้ (เครื่อง/รหัสสำรองหาย; ทุกอุปกรณ์ถูกออกจากระบบ)
  *   list-users                                    แสดงผู้ใช้ทั้งหมด (ไม่แสดงรหัสผ่าน)
  *   check-defaults                                แสดงบัญชีที่ยังใช้รหัสผ่านตั้งต้น
  *   retire-defaults                               ปิดบัญชีที่ยังใช้รหัสผ่านตั้งต้นทั้งหมด (ต้องมี admin อื่นที่ใช้งานอยู่)
@@ -12,6 +13,7 @@
  */
 import { createPool } from './db'
 import { AppError } from './errors'
+import { disable as disableTwoFactor } from './services/twofactor'
 import { askHidden } from './lib/prompt'
 import { createAdmin, findDefaultPasswordUsers, retireDefaultPasswordUsers, setPassword } from './services/accounts'
 
@@ -57,9 +59,18 @@ async function main() {
         console.log(`ตั้งรหัสผ่านใหม่ให้ ${u.email} แล้ว — ทุกอุปกรณ์ที่ล็อกอินอยู่ถูกออกจากระบบ`)
         break
       }
+      case 'reset-2fa': {
+        const email = arg('email')
+        if (!email) throw new Error('ต้องระบุ --email')
+        const u = await pool.query('select id from users where lower(email) = lower($1)', [email])
+        if (!u.rows[0]) throw new Error('ไม่พบผู้ใช้')
+        const r = await disableTwoFactor(pool, u.rows[0].id)
+        console.log(r?.wasEnabled ? `ปิด 2FA ของ ${email} แล้ว — ทุกอุปกรณ์ที่ล็อกอินอยู่ถูกออกจากระบบ ผู้ใช้ตั้ง 2FA ใหม่เองได้ที่หน้าบัญชีของฉัน` : `${email} ไม่ได้เปิดใช้ 2FA`)
+        break
+      }
       case 'list-users': {
-        const { rows } = await pool.query(`select email, name, role::text as role, status::text as status, last_login_at from users order by (role = 'admin') desc, email`)
-        for (const r of rows) console.log(`${r.status.padEnd(8)} ${r.role.padEnd(8)} ${r.email}  (${r.name})${r.last_login_at ? '' : '  · ยังไม่เคยเข้าใช้'}`)
+        const { rows } = await pool.query(`select email, name, role::text as role, status::text as status, last_login_at, totp_enabled_at is not null as tfa from users order by (role = 'admin') desc, email`)
+        for (const r of rows) console.log(`${r.status.padEnd(8)} ${r.role.padEnd(8)} ${r.email}  (${r.name})${r.tfa ? '  · 2FA' : ''}${r.last_login_at ? '' : '  · ยังไม่เคยเข้าใช้'}`)
         break
       }
       case 'check-defaults': {
@@ -83,7 +94,7 @@ async function main() {
         break
       }
       default:
-        console.log('คำสั่ง: create-admin | set-password | list-users | check-defaults | retire-defaults\nดูรายละเอียดที่หัวไฟล์ api/src/cli.ts')
+        console.log('คำสั่ง: create-admin | set-password | reset-2fa | list-users | check-defaults | retire-defaults\nดูรายละเอียดที่หัวไฟล์ api/src/cli.ts')
         process.exitCode = cmd ? 1 : 0
     }
   } finally {

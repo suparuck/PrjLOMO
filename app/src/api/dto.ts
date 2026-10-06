@@ -87,6 +87,7 @@ export interface UserDTO {
   status: 'active' | 'invited' | 'disabled'
   lastLoginAt: string | null
   invitedAt: string | null
+  twoFactorEnabled?: boolean
 }
 
 /** ผลของ POST /users/invite และ POST /users/:id/invite-link */

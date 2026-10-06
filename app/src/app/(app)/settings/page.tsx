@@ -286,6 +286,11 @@ export default function SettingsPage() {
                         <span>
                           <strong>
                             {u.name}
+                            {u.twoFactorEnabled && (
+                              <span className="badge s-charging" style={{ marginLeft: 8 }} title="เปิดการยืนยันตัวตนสองขั้นตอน">
+                                2FA
+                              </span>
+                            )}
                             {weakIds.has(u.id) && (
                               <span className="badge s-low" style={{ marginLeft: 8 }} title="ยังใช้รหัสผ่านตั้งต้นของระบบ — ควรเปลี่ยนหรือปิดบัญชี">
                                 รหัสตั้งต้น

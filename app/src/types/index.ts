@@ -386,6 +386,13 @@ export interface ResetInfo {
 }
 
 /** ผลของการสร้างลิงก์รีเซ็ตรหัสผ่านโดยผู้ดูแล: โทเคนแสดงได้ครั้งเดียว */
+/** ผลของ POST /auth/2fa/setup: ความลับสำหรับกรอกเอง + ลิงก์ otpauth สำหรับ QR + โทเคนที่ส่งกลับตอนยืนยันรหัสแรก */
+export interface TwoFactorSetup {
+  secret: string
+  uri: string
+  pending: string
+}
+
 export interface ResetLinkResult {
   email: string
   token: string
@@ -410,6 +417,7 @@ export interface AppUser {
   roleBadge: string
   permissions: string
   lastSeen: string
+  twoFactorEnabled: boolean
   color?: string
 }
 

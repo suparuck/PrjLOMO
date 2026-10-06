@@ -103,6 +103,7 @@ export function user(u: D.UserDTO, now = new Date()): AppUser {
     roleBadge: r.badge,
     permissions: r.permissions,
     lastSeen: u.status === 'invited' ? 'รอตอบรับคำเชิญ' : u.status === 'disabled' ? 'ปิดใช้งาน' : online ? 'ออนไลน์' : u.lastLoginAt ? formatRelative(u.lastLoginAt, now) : '–',
+    twoFactorEnabled: !!u.twoFactorEnabled,
     color: ROLE_COLOR[u.role],
   }
 }
