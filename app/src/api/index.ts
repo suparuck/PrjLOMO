@@ -97,6 +97,8 @@ export const api = {
   listIntegrations: async (): Promise<Integration[]> => (await get<D.IntegrationDTO[]>('/integrations')).map(m.integration),
   /** ส่งข้อความทดสอบเข้า LINE (admin) */
   testLine: () => write(() => post<{ sent: boolean }>('/integrations/line/test')),
+  /** บัญชีที่ยังใช้รหัสผ่านตั้งต้นของข้อมูลเดโม (admin เท่านั้น) */
+  getSecurityStatus: () => get<{ defaultPasswordUsers: { id: string; email: string; name: string; role: string }[] }>('/security/status'),
   listApiKeys: () => get<ApiKeyInfo[]>('/api-keys'),
 
   // ---- เขียนข้อมูล (คืน Result ให้ฟอร์มแสดงข้อผิดพลาดรายฟิลด์) ----

@@ -9,6 +9,7 @@ import { AppError, conflict, invalid, notFound } from '../errors'
 import { checkDisplayName, checkEmail } from '../lib/validators'
 import { newResetToken, type MailContext } from './auth'
 import type { LineClient } from '../services/line'
+import { findDefaultPasswordUsers } from '../services/accounts'
 import { PageQuery, envelope, likeTerm, pageArgs } from '../lib/paging'
 
 import { sec } from '../security'
@@ -132,6 +133,13 @@ export const settingsRoutes =
         if (!r.ok) throw invalid({ _: r.error })
         return { sent: true }
       },
+    )
+
+    // บัญชีที่ยังใช้รหัสผ่านตั้งต้นของข้อมูลเดโม — หน้าเว็บแสดงแบนเนอร์เตือนผู้ดูแล (ไม่คืนรหัสผ่าน/hash)
+    app.get(
+      '/security/status',
+      { preValidation: adm, schema: { tags: ['users'], summary: 'บัญชีที่ยังใช้รหัสผ่านตั้งต้น (admin)', security: sec } },
+      async () => ({ defaultPasswordUsers: await findDefaultPasswordUsers(pool) }),
     )
 
     // ---- ผู้ใช้และสิทธิ์ ----

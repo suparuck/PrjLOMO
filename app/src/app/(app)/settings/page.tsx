@@ -81,6 +81,9 @@ export default function SettingsPage() {
   const [resetting, setResetting] = useState<AppUser | null>(null)
   const [editing, setEditing] = useState<AppUser | null>(null)
   const { data: me } = useAsync(() => api.getMe())
+  // บัญชีที่ยังใช้รหัสผ่านตั้งต้น (admin เท่านั้นที่เรียกได้ — บทบาทอื่นได้ 403 ก็แค่ไม่แสดงป้าย)
+  const { data: sec } = useAsync(() => api.getSecurityStatus().catch(() => ({ defaultPasswordUsers: [] })), [], { live: true })
+  const weakIds = new Set((sec?.defaultPasswordUsers ?? []).map((u) => u.id))
   const [managingKeys, setManagingKeys] = useState(false)
   const [testingLine, setTestingLine] = useState(false)
   const [saved, setSaved] = useState<Settings | null>(null)
@@ -281,7 +284,14 @@ export default function SettingsPage() {
                           {u.initials}
                         </span>
                         <span>
-                          <strong>{u.name}</strong>
+                          <strong>
+                            {u.name}
+                            {weakIds.has(u.id) && (
+                              <span className="badge s-low" style={{ marginLeft: 8 }} title="ยังใช้รหัสผ่านตั้งต้นของระบบ — ควรเปลี่ยนหรือปิดบัญชี">
+                                รหัสตั้งต้น
+                              </span>
+                            )}
+                          </strong>
                           <small>{u.email}</small>
                         </span>
                       </div>

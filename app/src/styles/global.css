@@ -263,6 +263,10 @@ table.tbl { width: 100%; border-collapse: collapse; min-width: 760px; }
 .banner { display: flex; gap: 14px; align-items: center; padding: 16px 18px; border-radius: var(--r); background: var(--navy-900); color: var(--c-dce5f1); }
 .banner strong { color: var(--card); }
 .banner .btn { margin-left: auto; }
+/* คำเตือนด้านความปลอดภัย (เช่น ยังใช้รหัสผ่านตั้งต้น) */
+.banner.warn { background: var(--danger-50); color: var(--danger); border: 1px solid var(--danger); margin: 0 0 16px; }
+.banner.warn strong { color: var(--danger); }
+@media print { .banner.warn { display: none; } }
 
 /* Charging session card */
 .session { border: 1px solid var(--line); border-radius: var(--r); padding: 16px; }

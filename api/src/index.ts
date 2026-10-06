@@ -3,6 +3,7 @@ import { config } from './config'
 import { createPool, one } from './db'
 import { hashKey } from './auth'
 import { startJobs } from './services/jobs'
+import { findDefaultPasswordUsers } from './services/accounts'
 
 async function main() {
   const pool = createPool()
@@ -23,6 +24,17 @@ async function main() {
   }
 
   const app = await buildApp(pool)
+  // เตือนเมื่อมีบัญชีที่ยังใช้รหัสผ่านตั้งต้น (ข้อมูลเดโม) — production ควรเปลี่ยน/ปิดก่อนเปิดให้ผู้ใช้จริง
+  try {
+    const weak = await findDefaultPasswordUsers(pool)
+    if (weak.length) {
+      const msg = `มี ${weak.length} บัญชีที่ยังใช้รหัสผ่านตั้งต้น (${weak.map((u) => u.email).join(', ')}) — สร้างผู้ดูแลจริงด้วย "node dist/cli.js create-admin" แล้วปิดด้วย "node dist/cli.js retire-defaults"`
+      if (config.env === 'production') app.log.warn({ count: weak.length }, msg)
+      else app.log.info({ count: weak.length }, msg)
+    }
+  } catch (err) {
+    app.log.error({ err }, 'ตรวจบัญชีรหัสผ่านตั้งต้นไม่สำเร็จ')
+  }
   await app.listen({ port: config.port, host: config.host })
   const stopJobs = startJobs(pool, app.log, config.offlineCheckIntervalSeconds, app.mailer, app.line)
 

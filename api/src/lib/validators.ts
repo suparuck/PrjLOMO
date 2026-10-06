@@ -75,11 +75,14 @@ export function checkEmail(raw: string) {
 export const USER_ROLE_RANK: Record<UserRole, number> = { viewer: 1, manager: 2, admin: 3 }
 
 /** รหัสผ่านตอนตอบรับคำเชิญ: 8–128 ตัวอักษร ต้องมีทั้งตัวอักษรและตัวเลข (กฎเดียวกับ app/src/lib/validators.ts) */
+import { DEFAULT_PASSWORDS } from './defaults'
+
 export function checkPassword(pw: string, field = 'password') {
   const errors: Record<string, string> = {}
   if (pw.length < 8) errors[field] = 'รหัสผ่านต้องยาวอย่างน้อย 8 ตัวอักษร'
   else if (pw.length > 128) errors[field] = 'รหัสผ่านต้องไม่เกิน 128 ตัวอักษร'
   else if (!/[A-Za-z]/.test(pw) || !/\d/.test(pw)) errors[field] = 'รหัสผ่านต้องมีทั้งตัวอักษรและตัวเลข'
+  else if (DEFAULT_PASSWORDS.includes(pw)) errors[field] = 'รหัสผ่านนี้เป็นรหัสตั้งต้นของระบบ ห้ามใช้ กรุณาตั้งรหัสอื่น'
   if (Object.keys(errors).length) throw invalid(errors)
   return pw
 }

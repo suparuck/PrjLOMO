@@ -121,10 +121,14 @@ export function formatDuration(mins: number): string {
 }
 
 /** รหัสผ่านตอนตอบรับคำเชิญ: 8–128 ตัวอักษร ต้องมีทั้งตัวอักษรและตัวเลข (กฎเดียวกับ api/src/lib/validators.ts) */
+/** รหัสผ่านตั้งต้นของข้อมูลเดโม — ห้ามใช้ (ต้องตรงกับ api/src/lib/defaults.ts) */
+export const DEFAULT_PASSWORDS = ['demo1234']
+
 export function validatePassword(pw: string): string | null {
   if (pw.length < 8) return 'รหัสผ่านต้องยาวอย่างน้อย 8 ตัวอักษร'
   if (pw.length > 128) return 'รหัสผ่านต้องไม่เกิน 128 ตัวอักษร'
   if (!/[A-Za-z]/.test(pw) || !/\d/.test(pw)) return 'รหัสผ่านต้องมีทั้งตัวอักษรและตัวเลข'
+  if (DEFAULT_PASSWORDS.includes(pw)) return 'รหัสผ่านนี้เป็นรหัสตั้งต้นของระบบ ห้ามใช้ กรุณาตั้งรหัสอื่น'
   return null
 }
 
