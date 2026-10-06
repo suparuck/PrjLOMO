@@ -49,7 +49,7 @@ export default function DriversPage() {
     <>
       <section className="grid g-4 mb kpi-grid-2m">
         <KpiCard label="คนขับทั้งหมด" value={sm.total} unit="คน" note={`ปฏิบัติงานวันนี้ ${sm.working} คน`} icon="users" tone="navy" />
-        <KpiCard label="คะแนน Eco เฉลี่ย" value={avg} unit="/100" note="เพิ่มขึ้น 3 คะแนนจากเดือนก่อน" icon="star" tone="green" />
+        <KpiCard label="คะแนน Eco เฉลี่ย" value={avg} unit="/100" note={`จากคนขับที่มีทริป ${scoredCount} คน`} icon="star" tone="green" />
         <KpiCard label="ระยะทางรวม 30 วัน" value={fmt(sm.totalKm)} unit="กม." note={`เฉลี่ย ${fmt(sm.total ? sm.totalKm / sm.total : 0)} กม./คน`} icon="route" tone="blue" />
         <KpiCard label="เหตุการณ์ไม่ปลอดภัย" value={sm.events} unit="ครั้ง" note="เบรกแรง ขับเร็ว เร่งแรง" icon="alert" tone="red" />
       </section>
@@ -129,6 +129,7 @@ export default function DriversPage() {
               </tbody>
             </table>
           </div>
+          {data.total === 0 && <div className="empty">{dq ? 'ไม่พบคนขับที่ตรงกับคำค้น' : 'ยังไม่มีคนขับ — กด "เพิ่มคนขับ" เพื่อเริ่ม'}</div>}
           <Pager p={pagerOf(data, setPage)} unit="คน" />
         </div>
 

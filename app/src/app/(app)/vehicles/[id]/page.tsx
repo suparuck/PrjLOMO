@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { PageLoading } from '@/components/ui/PageLoading'
 import { api } from '@/api'
+import { use } from 'react'
 import { useAsync } from '@/hooks/useAsync'
 import { fmt } from '@/lib/format'
 import { formatRelative } from '@/lib/time'
@@ -23,8 +24,9 @@ async function load(id: string) {
   return { detail, stations, org }
 }
 
-export default function VehicleDetailPage({ params }: { params: { id: string } }) {
-  const id = decodeURIComponent(params.id)
+export default function VehicleDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  // Next 15+: params เป็น Promise — หน้า client component ใช้ use() เปิดค่า
+  const id = decodeURIComponent(use(params).id)
   const { data, error } = useAsync(() => load(id), [id], { live: true })
   const v = data?.detail?.vehicle
   usePageHeader(

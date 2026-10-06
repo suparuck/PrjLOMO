@@ -159,7 +159,11 @@ export function VehiclesView() {
             </tbody>
           </table>
         </div>
-        {list.length === 0 && <div className="empty">ไม่พบรถที่ตรงกับเงื่อนไข</div>}
+        {list.length === 0 && (
+          <div className="empty">
+            {s.total === 0 ? 'ยังไม่มีรถในระบบ — กด "เพิ่มรถ" หรือให้อุปกรณ์ส่งข้อมูลเข้ามาทาง API (ตั้งค่า > การเชื่อมต่อ > สร้างคีย์)' : 'ไม่พบรถที่ตรงกับเงื่อนไข'}
+          </div>
+        )}
         <Pager p={pagerOf(data, setPage)} unit="คัน" />
       </section>
 

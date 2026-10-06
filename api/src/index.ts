@@ -24,6 +24,15 @@ async function main() {
   }
 
   const app = await buildApp(pool)
+  // ติดตั้งแบบกองยานว่างเปล่า (SEED_DEMO=false) ยังไม่มีผู้ใช้เลย — บอกวิธีสร้างผู้ดูแลคนแรก
+  try {
+    const active = await one<{ n: number }>(pool, "select count(*)::int as n from users where status = 'active' and role = 'admin'")
+    if (!active || active.n === 0) {
+      app.log.warn('ยังไม่มีผู้ดูแลระบบที่ใช้งานอยู่ — สร้างคนแรกด้วย: docker compose exec api node dist/cli.js create-admin --email <อีเมล> --name <ชื่อ>')
+    }
+  } catch (err) {
+    app.log.error({ err }, 'ตรวจผู้ดูแลระบบไม่สำเร็จ')
+  }
   // เตือนเมื่อมีบัญชีที่ยังใช้รหัสผ่านตั้งต้น (ข้อมูลเดโม) — production ควรเปลี่ยน/ปิดก่อนเปิดให้ผู้ใช้จริง
   try {
     const weak = await findDefaultPasswordUsers(pool)

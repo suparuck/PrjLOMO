@@ -57,13 +57,13 @@ export default function DashboardPage() {
   const hi = V.filter((v) => v.soc >= 70).length
   const mid = V.filter((v) => v.soc >= 30 && v.soc < 70).length
   const lo = V.filter((v) => v.soc < 30).length
-  const avg = Math.round(V.reduce((s, v) => s + v.soc, 0) / V.length)
+  const avg = V.length ? Math.round(V.reduce((s, v) => s + v.soc, 0) / V.length) : null // ไม่มีรถ = ไม่มีค่าเฉลี่ย (แสดง –)
   const driverName = (id: string) => drivers.find((d) => d.id === id)?.name ?? '-'
 
   return (
     <>
       <section className="grid g-5 mb kpi-grid-2m">
-        <KpiCard label="รถทั้งหมด" value={V.length} unit="คัน" note={`ออนไลน์ ${online} คัน (${Math.round((online / V.length) * 100)}%)`} icon="car" tone="navy" />
+        <KpiCard label="รถทั้งหมด" value={V.length} unit="คัน" note={`ออนไลน์ ${online} คัน (${V.length ? Math.round((online / V.length) * 100) : 0}%)`} icon="car" tone="navy" />
         <KpiCard label="กำลังขับ" value={count('driving')} unit="คัน" note="กำลังปฏิบัติงาน" icon="route" tone="blue" />
         <KpiCard label="กำลังชาร์จ" value={count('charging')} unit="คัน" note={`Depot ${chargingDepot} · สาธารณะ ${sessions.length - chargingDepot}`} icon="bolt" tone="green" />
         <KpiCard label="แบตต่ำ" value={count('low')} unit="คัน" note="ต่ำกว่า 30%" icon="battery" tone="red" />
@@ -106,7 +106,7 @@ export default function DashboardPage() {
                     <b>{n} คัน</b>
                   </div>
                   <div className="bar">
-                    <div className={`bar-fill ${cls}`} style={{ width: `${(n / V.length) * 100}%` }} />
+                    <div className={`bar-fill ${cls}`} style={{ width: `${V.length ? (n / V.length) * 100 : 0}%` }} />
                   </div>
                   <small>{range}</small>
                 </div>

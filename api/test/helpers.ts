@@ -6,8 +6,11 @@ import { buildApp } from '../src/app'
 import { createPool } from '../src/db'
 import { generateApiKey } from '../src/auth'
 
-/** สร้างฐานข้อมูลทดสอบใหม่จากสคริปต์ใน db/init (ตรวจ schema และ seed ไปพร้อมกัน) */
-export async function resetTestDb() {
+/**
+ * สร้างฐานข้อมูลทดสอบใหม่จากสคริปต์ใน db/init (ตรวจ schema และข้อมูลอ้างอิงไปพร้อมกัน)
+ * demo=true (ค่าเริ่มต้น) เติมข้อมูลเดโมจาก db/demo ด้วย · demo=false = กองยานว่างเปล่าเหมือนติดตั้งจริง (ไม่มีผู้ใช้)
+ */
+export async function resetTestDb(demo = true) {
   const admin = new Client({ connectionString: ADMIN_URL })
   await admin.connect()
   await admin.query(`select pg_terminate_backend(pid) from pg_stat_activity where datname = '${TEST_DB}' and pid <> pg_backend_pid()`)
@@ -22,6 +25,7 @@ export async function resetTestDb() {
   for (const f of readdirSync(dir).filter((x) => x.endsWith('.sql')).sort()) {
     await c.query(readFileSync(join(dir, f), 'utf8'))
   }
+  if (demo) await c.query(readFileSync(join(__dirname, '..', '..', 'db', 'demo', 'demo_seed.sql'), 'utf8'))
   await c.end()
 }
 
@@ -31,8 +35,8 @@ export function memoryMailer() {
   return { sent, mailer: { mode: 'log' as const, async send(m: { to: string; subject: string; text: string }) { sent.push(m) } } }
 }
 
-export async function startApp() {
-  await resetTestDb()
+export async function startApp(opts: { demo?: boolean } = {}) {
+  await resetTestDb(opts.demo ?? true)
   const pool = createPool(TEST_URL)
   await pool.query(`alter database ${TEST_DB} set timezone = 'Asia/Bangkok'`)
   const mail = memoryMailer()

@@ -10,6 +10,13 @@ services:
       POSTGRES_USER: evm
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?กำหนด POSTGRES_PASSWORD ในไฟล์ .env (ดู .env.example)}
       POSTGRES_DB: evmonitor
+      # ใช้ตอนสร้างฐานข้อมูลครั้งแรกเท่านั้น (volume ว่าง) — SEED_DEMO=false = กองยานว่างเปล่าสำหรับใช้งานจริง (ดู db/init/03_demo.sh)
+      SEED_DEMO: ${SEED_DEMO:-true}
+      ORG_NAME: ${ORG_NAME:-}
+      FLEET_NAME: ${FLEET_NAME:-}
+      ORG_CITY: ${ORG_CITY:-}
+      ORG_LAT: ${ORG_LAT:-}
+      ORG_LNG: ${ORG_LNG:-}
     volumes:
       - pgdata:/var/lib/postgresql/data
     ports:

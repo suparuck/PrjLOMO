@@ -56,17 +56,20 @@ export default function ChargingPage() {
   const depotKwh = all.filter((x) => typeOf(x.name) === 'depot').reduce((s, x) => s + x.kwh, 0)
   const avgPrice = (type: 'depot' | 'public') => {
     const l = stations.filter((s) => s.type === type)
-    return l.reduce((s, x) => s + x.pricePerKwh, 0) / l.length
+    return l.length ? l.reduce((s, x) => s + x.pricePerKwh, 0) / l.length : null
   }
-  const cheaperPct = Math.round((1 - avgPrice('depot') / avgPrice('public')) * 100)
+  // เทียบราคาได้เมื่อมีสถานีทั้งสองประเภท
+  const dp = avgPrice('depot')
+  const pp = avgPrice('public')
+  const cheaperPct = dp !== null && pp !== null && pp > 0 ? Math.round((1 - dp / pp) * 100) : null
 
   return (
     <>
       <section className="grid g-4 mb kpi-grid-2m">
         <KpiCard label="เซสชัน 24 ชม." value={all.length} unit="ครั้ง" note={`กำลังชาร์จ ${S.length} คัน`} icon="bolt" tone="green" />
         <KpiCard label="พลังงานที่ชาร์จ" value={fmt(kwh, 1)} unit="kWh" note="24 ชั่วโมงล่าสุด" icon="battery" tone="blue" />
-        <KpiCard label="ค่าใช้จ่าย" value={`฿${fmt(cost)}`} unit="" note={`เฉลี่ย ฿${(cost / kwh).toFixed(2)}/kWh`} icon="coin" tone="amber" />
-        <KpiCard label="สัดส่วนชาร์จที่ Depot" value={Math.round((depotKwh / kwh) * 100)} unit="%" note={`ราคาถูกกว่าสาธารณะ ~${cheaperPct}%`} icon="plug" tone="navy" />
+        <KpiCard label="ค่าใช้จ่าย" value={`฿${fmt(cost)}`} unit="" note={kwh > 0 ? `เฉลี่ย ฿${(cost / kwh).toFixed(2)}/kWh` : 'ยังไม่มีการชาร์จ'} icon="coin" tone="amber" />
+        <KpiCard label="สัดส่วนชาร์จที่ Depot" value={kwh > 0 ? Math.round((depotKwh / kwh) * 100) : '–'} unit={kwh > 0 ? '%' : ''} note={cheaperPct !== null ? `ราคาถูกกว่าสาธารณะ ~${cheaperPct}%` : 'ยังไม่มีสถานีให้เทียบราคา'} icon="plug" tone="navy" />
       </section>
 
       <section className="grid g-2 mb">

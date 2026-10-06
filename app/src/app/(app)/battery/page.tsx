@@ -29,8 +29,8 @@ export default function BatteryPage() {
   const { vehicles: V, stations, insights } = data
   const sorted = [...V].sort((a, b) => a.soc - b.soc)
   const low = sorted.filter((v) => v.soc < 30)
-  const avgSoc = Math.round(V.reduce((s, v) => s + v.soc, 0) / V.length)
-  const avgSoh = (V.reduce((s, v) => s + v.soh, 0) / V.length).toFixed(1)
+  const avgSoc = V.length ? Math.round(V.reduce((s, v) => s + v.soc, 0) / V.length) : null
+  const avgSoh = V.length ? (V.reduce((s, v) => s + v.soh, 0) / V.length).toFixed(1) : null
   const kwhLeft = V.reduce((s, v) => s + (v.batteryKwh * v.soc) / 100, 0)
   const capacity = V.reduce((s, v) => s + v.batteryKwh, 0)
   const nearest = stations.find((s) => s.ports > s.busy)
@@ -38,8 +38,8 @@ export default function BatteryPage() {
   return (
     <>
       <section className="grid g-4 mb kpi-grid-2m">
-        <KpiCard label="แบตเฉลี่ย (SoC)" value={avgSoc} unit="%" note="ทั้งกองยาน" icon="battery" tone="green" />
-        <KpiCard label="สุขภาพแบตเฉลี่ย (SoH)" value={avgSoh} unit="%" note={`ลดลง ${insights.sohChange3m}% ใน 3 เดือน`} icon="shield" tone="blue" />
+        <KpiCard label="แบตเฉลี่ย (SoC)" value={avgSoc ?? '–'} unit={avgSoc === null ? '' : '%'} note="ทั้งกองยาน" icon="battery" tone="green" />
+        <KpiCard label="สุขภาพแบตเฉลี่ย (SoH)" value={avgSoh ?? '–'} unit={avgSoh === null ? '' : '%'} note={avgSoh === null ? 'ยังไม่มีรถในระบบ' : `ลดลง ${insights.sohChange3m}% ใน 3 เดือน`} icon="shield" tone="blue" />
         <KpiCard label="พลังงานคงเหลือรวม" value={fmt(kwhLeft)} unit="kWh" note={`จากความจุ ${fmt(capacity)} kWh`} icon="bolt" tone="amber" />
         <KpiCard label="แบตต่ำกว่า 30%" value={low.length} unit="คัน" note="ต้องวางแผนชาร์จ" icon="alert" tone="red" />
       </section>

@@ -1,8 +1,52 @@
 -- ============================================================
--- ข้อมูลเดโม (ย้ายมาจาก mockup data เดิม)
--- เวลาทั้งหมดสร้างแบบสัมพันธ์กับ now() ตอน init เพื่อให้ "เมื่อกี้/วันนี้/เมื่อวาน" สมเหตุสมผล
--- ลบหรือไม่รันไฟล์นี้เมื่อใช้งานจริง
+-- ข้อมูลเดโม — รันเฉพาะเมื่อ SEED_DEMO=true (ค่าเริ่มต้น; production ตั้ง SEED_DEMO=false)
+-- ดู db/init/03_demo.sh · ทับ/เติมข้อมูลอ้างอิงจาก 02_reference.sql ให้เป็นกองยานเดโมที่เชียงใหม่
+-- ผู้ใช้เดโมใช้รหัสผ่าน demo1234 (ระบบเตือนผู้ดูแลและมี CLI ปิดบัญชีเหล่านี้ — ดู README)
 -- ============================================================
+
+-- องค์กรและแผนที่เดโม
+update app_settings set city = 'เชียงใหม่', center_lat = 18.7883, center_lng = 98.9853,
+  org = jsonb_set(jsonb_set(org, '{name}', '"บริษัท ตัวอย่าง จำกัด"'), '{fleetName}', '"EV Fleet เชียงใหม่"')
+ where id = 1;
+
+-- ผู้ใช้เดโม (รหัสผ่านเดโม demo1234 — ต้องลบ/เปลี่ยนก่อนใช้งานจริง)
+insert into users (email, name, role, status, password_hash, last_login_at) values
+  ('admin@evmonitor.co.th', 'Admin EV',          'admin',   'active', crypt('demo1234', gen_salt('bf', 10)), now()),
+  ('prasit@company.co.th',  'ประสิทธิ์ สายทอง',   'manager', 'active', crypt('demo1234', gen_salt('bf', 10)), now() - interval '2 hours'),
+  ('wanna@company.co.th',   'วรรณา รักดี',        'viewer',  'active', crypt('demo1234', gen_salt('bf', 10)), now() - interval '1 day');
+
+-- การเชื่อมต่อ/ช่องทางแจ้งเตือน/สมมติฐานรายงานของเดโม
+update integrations set connected = true, action_label = null, description = '12 อุปกรณ์ · ออนไลน์ 11' where key = 'obd';
+update integrations set connected = true, action_label = null where key = 'pea';
+update integrations set connected = true, action_label = null where key = 'line';
+update alert_rules set text = 'เขตเมืองเชียงใหม่' where key = 'geo';
+update notification_channels set detail = 'fleet@company.co.th' where key = 'email';
+update notification_channels set detail = 'กลุ่มผู้จัดการกองยาน' where key = 'line';
+update report_config set value = '12'  where key = 'kwh_change_vs_last_year_pct';
+update report_config set value = '2.1' where key = 'efficiency_change_pct';
+update report_config set value = '{"ice":"รถสันดาป (Yaris Ativ)","ev":"EV (BYD Dolphin)"}' where key = 'tco_names';
+
+-- สถานีชาร์จ รถสันดาปที่เหลือ และต้นทุน TCO ตัวอย่าง
+insert into stations (id, name, type, network, lat, lng, ports, busy_ports, power_label, price_per_kwh) values
+  ('S1', 'Depot A (สำนักงานใหญ่)', 'depot',  'ภายในองค์กร', 18.7672, 98.9630, 6, 2, 'AC 22 kW / DC 60 kW', 4.20),
+  ('S2', 'Depot B (สันกำแพง)',     'depot',  'ภายในองค์กร', 18.7480, 99.1050, 4, 0, 'AC 22 kW',            4.20),
+  ('S3', 'PEA VOLTA สารภี',        'public', 'PEA VOLTA',   18.7100, 99.0400, 4, 3, 'DC 120 kW',           7.50),
+  ('S4', 'EleXA แม่ริม',            'public', 'EleXA',       18.9050, 98.9500, 2, 1, 'DC 100 kW',           7.00),
+  ('S5', 'EA Anywhere นิมมาน',      'public', 'EA Anywhere', 18.7965, 98.9690, 3, 1, 'DC 50 kW',            7.90),
+  ('S6', 'PTT EV Station สันทราย',  'public', 'PTT EV',      18.8550, 99.0300, 4, 2, 'DC 120 kW',           7.50);
+
+insert into ice_vehicles (id, model, km_per_day, max_km_per_day, fuel_per_month, readiness_score, recommended_ev) values
+  ('ICE-21', 'Toyota Hilux Revo', 96,  180, 9800,  92, 'BYD Shark 6 / Isuzu D-Max EV'),
+  ('ICE-22', 'Toyota Yaris Ativ', 74,  140, 6100,  95, 'BYD Dolphin'),
+  ('ICE-23', 'Honda City',        120, 260, 7900,  81, 'MG4 Electric'),
+  ('ICE-24', 'Toyota Commuter',   210, 420, 16800, 48, 'รอรุ่นรถตู้ EV ระยะไกล'),
+  ('ICE-25', 'Isuzu D-Max',       160, 380, 12500, 63, 'BYD Shark 6 (PHEV)');
+
+insert into tco_items (sort, label, ice_cost, ev_cost) values
+  (1, 'ราคารถ',             559000, 569900),
+  (2, 'พลังงาน 5 ปี',       372000, 104000),
+  (3, 'บำรุงรักษา 5 ปี',     68000,  30000),
+  (4, 'ภาษี/ประกัน 5 ปี',    95000,  72000);
 
 -- ---------- คนขับ ----------
 insert into drivers (id, name, phone, score) values
