@@ -4,9 +4,9 @@ import type { Pool } from 'pg'
 import { randomBytes } from 'node:crypto'
 import { generateApiKey, hashKey, requireRole } from '../auth'
 import { config } from '../config'
-import { one, rows } from '../db'
+import { one, rows, withTx } from '../db'
 import { AppError, conflict, invalid, notFound } from '../errors'
-import { checkEmail } from '../lib/validators'
+import { checkDisplayName, checkEmail } from '../lib/validators'
 import { newResetToken, type MailContext } from './auth'
 import type { LineClient } from '../services/line'
 import { PageQuery, envelope, likeTerm, pageArgs } from '../lib/paging'
@@ -191,6 +191,61 @@ export const settingsRoutes =
       },
     )
 
+    // แก้ไขผู้ใช้ที่ใช้งานอยู่/ถูกปิด: ชื่อ บทบาท เปิด-ปิดบัญชี (admin)
+    // ป้องกัน: ห้ามเปลี่ยนบทบาท/ปิดบัญชีตัวเอง และห้ามทำให้ไม่เหลือผู้ดูแลที่ใช้งานอยู่เลย
+    app.patch(
+      '/users/:id',
+      {
+        preValidation: adm,
+        schema: {
+          tags: ['users'],
+          summary: 'แก้ไขผู้ใช้: ชื่อ บทบาท เปิด/ปิดใช้งานบัญชี (admin; ผู้ที่ยังไม่ตอบรับคำเชิญแก้ไม่ได้)',
+          security: sec,
+          params: Type.Object({ id: Type.String({ format: 'uuid' }) }),
+          body: Type.Object({
+            name: Type.Optional(Type.String({ maxLength: 100 })),
+            role: Type.Optional(Type.Union([Type.Literal('admin'), Type.Literal('manager'), Type.Literal('viewer')])),
+            status: Type.Optional(Type.Union([Type.Literal('active'), Type.Literal('disabled')])),
+          }),
+        },
+      },
+      async (req) => {
+        const b = req.body
+        const name = b.name !== undefined ? checkDisplayName(b.name) : undefined
+        const self = req.params.id === req.user!.id
+        if (self && b.role !== undefined) throw invalid({ role: 'เปลี่ยนบทบาทของตัวเองไม่ได้' })
+        if (self && b.status === 'disabled') throw invalid({ status: 'ปิดบัญชีของตัวเองไม่ได้' })
+
+        return withTx(pool, async (c) => {
+          // ล็อกผู้ดูแลที่ใช้งานอยู่ทุกคนก่อน — สองคนลดสิทธิ์/ปิดบัญชีกันพร้อมกันแล้วไม่เหลือผู้ดูแลเลยไม่ได้
+          const admins = await rows<{ id: string }>(c, "select id from users where role = 'admin' and status = 'active' order by id for update")
+          const u = await one<{ role: string; status: string }>(c, 'select role::text as role, status::text as status from users where id = $1 for update', [req.params.id])
+          if (!u) throw notFound('ผู้ใช้')
+          if (u.status === 'invited') throw conflict('ผู้ใช้นี้ยังไม่ได้ตอบรับคำเชิญ จึงแก้ไขไม่ได้ — ใช้ลิงก์คำเชิญหรือยกเลิกคำเชิญแทน')
+
+          const role = b.role ?? u.role
+          const status = b.status ?? u.status
+          const wasActiveAdmin = u.role === 'admin' && u.status === 'active'
+          const stillActiveAdmin = role === 'admin' && status === 'active'
+          if (wasActiveAdmin && !stillActiveAdmin && admins.filter((a) => a.id !== req.params.id).length === 0) {
+            throw invalid({ _: 'ต้องมีผู้ดูแลระบบที่ใช้งานอยู่อย่างน้อย 1 คน' })
+          }
+
+          const disabling = u.status === 'active' && status === 'disabled'
+          const row = await one(
+            c,
+            `update users set name = coalesce($2, name), role = $3, status = $4,
+                    session_version = session_version + (case when $5 then 1 else 0 end)
+              where id = $1 returning ${USER_COLS}`,
+            [req.params.id, name ?? null, role, status, disabling],
+          )
+          // ปิดบัญชี: ลิงก์รีเซ็ตรหัสผ่านที่ค้างอยู่ใช้ไม่ได้ด้วย (session เดิมหลุดจาก session_version + guard ที่ตรวจ status)
+          if (disabling) await c.query('update password_resets set used_at = now() where user_id = $1 and used_at is null', [req.params.id])
+          return row
+        })
+      },
+    )
+
     app.post(
       '/users/:id/invite-link',
       {
@@ -228,8 +283,9 @@ export const settingsRoutes =
       async (req) => {
         const u = await one<{ id: string; email: string; name: string }>(pool, `select id, email, name from users where id = $1 and status = 'active'`, [req.params.id])
         if (!u) {
-          const exists = await one(pool, 'select 1 from users where id = $1', [req.params.id])
-          throw exists ? conflict('ผู้ใช้นี้ยังไม่ได้ตอบรับคำเชิญ — ใช้ลิงก์คำเชิญแทน') : notFound('ผู้ใช้')
+          const exists = await one<{ status: string }>(pool, 'select status::text as status from users where id = $1', [req.params.id])
+          if (!exists) throw notFound('ผู้ใช้')
+          throw conflict(exists.status === 'disabled' ? 'บัญชีนี้ถูกปิดใช้งาน — เปิดใช้งานก่อนจึงจะรีเซ็ตรหัสผ่านได้' : 'ผู้ใช้นี้ยังไม่ได้ตอบรับคำเชิญ — ใช้ลิงก์คำเชิญแทน')
         }
         const r = newResetToken()
         await pool.query(`update password_resets set used_at = now() where user_id = $1 and used_at is null`, [u.id])

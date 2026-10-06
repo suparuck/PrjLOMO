@@ -15,6 +15,7 @@ import { InviteUserModal } from '@/components/modals/InviteUserModal'
 import { InviteManageModal } from '@/components/modals/InviteManageModal'
 import { ApiKeyModal } from '@/components/modals/ApiKeyModal'
 import { ResetLinkModal } from '@/components/modals/ResetLinkModal'
+import { UserEditModal } from '@/components/modals/UserEditModal'
 import { useToast } from '@/components/ui/Toast'
 import type { AppUser, Settings } from '@/types'
 
@@ -78,6 +79,8 @@ export default function SettingsPage() {
   const [inviting, setInviting] = useState<AppUser[] | null>(null)
   const [managingInvite, setManagingInvite] = useState<AppUser | null>(null)
   const [resetting, setResetting] = useState<AppUser | null>(null)
+  const [editing, setEditing] = useState<AppUser | null>(null)
+  const { data: me } = useAsync(() => api.getMe())
   const [managingKeys, setManagingKeys] = useState(false)
   const [testingLine, setTestingLine] = useState(false)
   const [saved, setSaved] = useState<Settings | null>(null)
@@ -294,9 +297,16 @@ export default function SettingsPage() {
                           ลิงก์คำเชิญ
                         </button>
                       ) : (
-                        <button type="button" className="btn btn-ghost btn-sm" onClick={() => setResetting(u)}>
-                          รีเซ็ตรหัสผ่าน
-                        </button>
+                        <div className="flex" style={{ gap: 4 }}>
+                          <button type="button" className="btn btn-ghost btn-sm" onClick={() => setEditing(u)}>
+                            แก้ไข
+                          </button>
+                          {u.status === 'active' && (
+                            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setResetting(u)}>
+                              รีเซ็ตรหัสผ่าน
+                            </button>
+                          )}
+                        </div>
                       )}
                     </td>
                   </tr>
@@ -385,6 +395,18 @@ export default function SettingsPage() {
 
       {managingKeys && <ApiKeyModal onClose={() => setManagingKeys(false)} />}
       {resetting && <ResetLinkModal user={resetting} onClose={() => setResetting(null)} />}
+      {editing && (
+        <UserEditModal
+          user={editing}
+          isSelf={editing.id === me?.id}
+          onClose={() => setEditing(null)}
+          onSaved={(u) => {
+            setEditing(null)
+            reloadUsers()
+            toast(u.status === 'disabled' ? `ปิดใช้งานบัญชี ${u.email} แล้ว` : `บันทึกข้อมูลของ ${u.email} แล้ว`)
+          }}
+        />
+      )}
       {managingInvite && (
         <InviteManageModal
           user={managingInvite}

@@ -98,10 +98,11 @@ export function user(u: D.UserDTO, now = new Date()): AppUser {
     name: u.name,
     email: u.email,
     initials: u.name.slice(0, 2).toUpperCase(),
+    roleKey: u.role,
     role: r.label,
     roleBadge: r.badge,
     permissions: r.permissions,
-    lastSeen: u.status === 'invited' ? 'รอตอบรับคำเชิญ' : online ? 'ออนไลน์' : u.lastLoginAt ? formatRelative(u.lastLoginAt, now) : '–',
+    lastSeen: u.status === 'invited' ? 'รอตอบรับคำเชิญ' : u.status === 'disabled' ? 'ปิดใช้งาน' : online ? 'ออนไลน์' : u.lastLoginAt ? formatRelative(u.lastLoginAt, now) : '–',
     color: ROLE_COLOR[u.role],
   }
 }

@@ -84,7 +84,7 @@ export interface UserDTO {
   email: string
   name: string
   role: 'admin' | 'manager' | 'viewer'
-  status: 'active' | 'invited'
+  status: 'active' | 'invited' | 'disabled'
   lastLoginAt: string | null
   invitedAt: string | null
 }

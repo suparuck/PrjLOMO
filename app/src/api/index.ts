@@ -121,6 +121,9 @@ export const api = {
     write(async () => m.invite(await post<D.InviteDTO>('/users/invite', { email: d.email, role: d.role }))),
   /** สร้างลิงก์คำเชิญใหม่ (ลิงก์เดิมใช้ไม่ได้ทันที) */
   resendInvite: (userId: string) => write(async () => m.invite(await post<D.InviteDTO>(`/users/${userId}/invite-link`))),
+  /** แก้ไขผู้ใช้ (admin): ชื่อ บทบาท เปิด/ปิดบัญชี */
+  updateUser: (userId: string, d: { name: string; role: UserRole; status: 'active' | 'disabled' }) =>
+    write(async () => m.user(await patch<D.UserDTO>(`/users/${userId}`, d))),
   cancelInvite: (userId: string) => write(() => del<{ cancelled: boolean }>(`/users/${userId}`)),
   // ---- ผู้ถูกเชิญ (ยังไม่ล็อกอิน) ----
   lookupInvite: (token: string) => write(() => post<InviteInfo>('/auth/invite/lookup', { token })),

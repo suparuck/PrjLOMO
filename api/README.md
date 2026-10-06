@@ -34,7 +34,7 @@ REST API (Node.js 22 · Fastify 5 · TypeScript · PostgreSQL) — container แ
 | การชาร์จ | `GET /stations` · `GET /charging/sessions` · `GET /charging/history` · `GET /charging/load` · `PATCH /charging/sessions/:vehicleId/target` · `POST /charging/sessions/:vehicleId/stop` |
 | แจ้งเตือน | `GET /alerts` · `GET /alerts/stats` · `POST /alerts/:id/ack` · `POST /alerts/ack-all` · `GET/PATCH /alert-rules` · `GET /notification-channels` |
 | รายงาน/แดชบอร์ด | `GET /reports?period=year\|q3\|sep&brand=all\|BYD\|MG` · `GET /reports/electrification` · `GET /ice-vehicles` · `GET /energy/week` · `GET /energy/summary` · `GET /sustainability` · `GET /battery/insights` |
-| ตั้งค่า | `GET /org` · `GET/PUT /settings` · `GET /integrations` · `GET /users` · `POST /users/invite` · `POST /users/:id/invite-link` · `POST /users/:id/reset-link` · `DELETE /users/:id` (ยกเลิกคำเชิญ) · `GET/POST /api-keys` · `DELETE /api-keys/:id` |
+| ตั้งค่า | `GET /org` · `GET/PUT /settings` · `GET /integrations` · `GET /users` · `POST /users/invite` · `PATCH /users/:id` (แก้ชื่อ/บทบาท/เปิด-ปิดบัญชี) · `POST /users/:id/invite-link` · `POST /users/:id/reset-link` · `DELETE /users/:id` (ยกเลิกคำเชิญ) · `GET/POST /api-keys` · `DELETE /api-keys/:id` |
 
 **ส่งข้อมูลเข้า** (`X-API-Key`) — แต่ละอันอัปเดตตารางหลัก *และ* ผลต่อเนื่อง
 

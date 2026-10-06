@@ -48,6 +48,7 @@ docker compose exec -T db psql -U evm -d evmonitor -v ON_ERROR_STOP=1 < db/migra
 |---|---|
 | `001_invite_tokens.sql` | ตอบรับคำเชิญ: เพิ่ม `users.invite_token_hash`, `users.invite_expires_at` |
 | `002_password_reset.sql` | ลืม/เปลี่ยนรหัสผ่าน: เพิ่ม `users.session_version` และตาราง `password_resets` |
+| `006_user_disabled.sql` | ปิดใช้งานบัญชีผู้ใช้: เพิ่มค่า `disabled` ให้ enum `user_status` |
 | `005_alert_email_notified.sql` | แจ้งเตือนทางอีเมล: เพิ่ม `alerts.email_notified_at` |
 | `004_alert_line_notified.sql` | แจ้งเตือนผ่าน LINE: เพิ่ม `alerts.line_notified_at` |
 | `003_report_schedules.sql` | ตั้งเวลาส่งรายงานทางอีเมล: ตาราง `report_schedules` |

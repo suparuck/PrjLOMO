@@ -10,7 +10,7 @@ create type vehicle_status     as enum ('driving', 'charging', 'parked', 'low', 
 create type alert_severity     as enum ('critical', 'warning', 'info');
 create type alert_type         as enum ('battery', 'charging', 'device', 'maint', 'driving', 'geofence');
 create type user_role          as enum ('admin', 'manager', 'viewer');
-create type user_status        as enum ('active', 'invited');
+create type user_status        as enum ('active', 'invited', 'disabled');
 create type station_type       as enum ('depot', 'public');
 create type session_status     as enum ('active', 'completed', 'stopped');
 create type driving_event_type as enum ('harsh_brake', 'speeding', 'harsh_accel', 'long_idle');

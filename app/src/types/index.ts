@@ -348,10 +348,12 @@ export interface InviteInfo {
 
 export interface AppUser {
   id: string
-  status: 'active' | 'invited'
+  status: 'active' | 'invited' | 'disabled'
   name: string
   email: string
   initials: string
+  /** บทบาทแบบรหัส (ใช้ในฟอร์มแก้ไข) — role คือชื่อไทยสำหรับแสดงผล */
+  roleKey: UserRole
   role: string
   roleBadge: string
   permissions: string
