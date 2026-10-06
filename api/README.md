@@ -25,6 +25,7 @@ REST API (Node.js 22 · Fastify 5 · TypeScript · PostgreSQL) — container แ
 |---|---|
 | แบ่งหน้า | `GET /vehicles` · `GET /alerts` · `GET /charging/history` · `GET /drivers` (`q`; มี `rank` อันดับรวม รถประจำ และ `summary`) · `GET /users` (`q`) ส่ง `?page=1&pageSize=10` (≤100) ได้ซอง `{items,total,page,pageSize,pages}`; รถรองรับ `q` `status` `sort` (+`summary` ทั้งกอง), แจ้งเตือนรองรับ `severity` `type` (+`summary` ตามระดับ); ไม่ส่ง `page` = อาร์เรย์เดิม |
 | ตั้งเวลาส่งรายงาน | `GET/POST /report-schedules` · `PUT/DELETE /report-schedules/:id` · `POST /report-schedules/:id/send-now` (manager ขึ้นไป) |
+| LINE | `POST /integrations/line/test` (admin) ส่งข้อความทดสอบ; `GET /integrations` แสดงสถานะ LINE ตามการตั้งค่า token จริง |
 | realtime | `GET /stream` (SSE: เหตุการณ์ `change` เมื่อข้อมูลเปลี่ยน — ต้องล็อกอิน; ตัดสตรีมเมื่อ session ถูกเพิกถอน) |
 | auth | `POST /auth/login` · `POST /auth/logout` · `GET /auth/me` · `POST /auth/invite/lookup` · `POST /auth/invite/accept` (ผู้ถูกเชิญ ไม่ต้องล็อกอิน) · `POST /auth/change-password` (ล็อกอินอยู่) · `POST /auth/forgot-password` · `POST /auth/reset/lookup` · `POST /auth/reset/accept` (ไม่ต้องล็อกอิน) |
 | สาธารณะ | `GET /public/overview` (ตัวเลขรวม ไม่มีข้อมูลรายคัน — ใช้กับ Landing/Login) |
@@ -107,3 +108,11 @@ cd api && npm test                    # 70 การทดสอบ — สร�
 - **ลิงก์รีเซ็ต** `<APP_BASE_URL>/reset-password/<โทเคน>`: ใช้ครั้งเดียว อายุ 60 นาที เก็บเฉพาะ sha256 ส่งโทเคนใน body (ไม่อยู่ใน URL ของ API); `POST /auth/reset/lookup` ตรวจลิงก์ (404 ไม่ถูกต้อง/ใช้แล้ว, 410 หมดอายุ) → `POST /auth/reset/accept` ตั้งรหัสใหม่ ลิงก์อื่นที่ค้างของผู้ใช้นั้นดับ และทุก session หลุด
 - **ผู้ดูแลช่วยรีเซ็ต** `POST /users/:id/reset-link` (admin): ได้ลิงก์ใช้ครั้งเดียวไปส่งต่อเอง — ผู้ดูแลไม่เห็น/ตั้งรหัสผ่านแทนผู้ใช้
 - **อีเมล** (`api/src/services/mailer.ts`): `SMTP_URL` → ส่งผ่าน SMTP; `MAIL_MODE=log` เขียนอีเมลลง log (เฉพาะพัฒนา — ลิงก์รีเซ็ตจะอยู่ใน log); ไม่ตั้งอะไร = **ไม่ส่ง** (ปลอดภัยไว้ก่อน). ลิงก์สร้างจาก `APP_BASE_URL` เท่านั้น ไม่เชื่อ Host/Origin ของ request. เดโม: compose มี `mailpit` ใน profile `demo` (อ่านอีเมลที่ http://localhost:8025)
+
+## แจ้งเตือนเข้า LINE
+
+- ใช้ **LINE Messaging API (push)** — LINE Notify ปิดบริการแล้ว ต้องมี LINE Official Account: สร้าง Messaging API channel ใน LINE Developers Console แล้วออก *Channel access token (long-lived)*
+- ตั้งใน `.env`: `LINE_CHANNEL_ACCESS_TOKEN` และ `LINE_TO` (userId / groupId / roomId ที่จะรับข้อความ — บอทต้องเป็นเพื่อนหรืออยู่ในกลุ่มนั้น) แล้วรีสตาร์ต API; ไม่ตั้ง = ไม่ส่ง
+- ส่งเฉพาะแจ้งเตือนระดับ **วิกฤต/เตือน** ที่เกิดใหม่ (ไม่เกิน 10 นาที และเกิดหลังระบบเริ่มทำงาน) รวมเป็นข้อความเดียวต่อรอบ (ตรวจทุก 15 วินาที) เพื่อประหยัดโควตา — แผนฟรีของ LINE จำกัดจำนวนข้อความต่อเดือน
+- เปิด/ปิดได้ที่ ตั้งค่า > เกณฑ์การแจ้งเตือน (สวิตช์ LINE) · ปุ่ม "ส่งทดสอบ" ที่ ตั้งค่า > การเชื่อมต่อ (admin) ใช้โควตา 1 ข้อความ
+- token อยู่ใน environment ของ API เท่านั้น ไม่เก็บในฐานข้อมูลและไม่ส่งออกทาง API/log

@@ -95,6 +95,8 @@ export const api = {
   getSettings: () => get<Settings>('/settings'),
   listUsers: async (): Promise<AppUser[]> => (await get<D.UserDTO[]>('/users')).map((u) => m.user(u)),
   listIntegrations: async (): Promise<Integration[]> => (await get<D.IntegrationDTO[]>('/integrations')).map(m.integration),
+  /** ส่งข้อความทดสอบเข้า LINE (admin) */
+  testLine: () => write(() => post<{ sent: boolean }>('/integrations/line/test')),
   listApiKeys: () => get<ApiKeyInfo[]>('/api-keys'),
 
   // ---- เขียนข้อมูล (คืน Result ให้ฟอร์มแสดงข้อผิดพลาดรายฟิลด์) ----

@@ -20,18 +20,20 @@ import { reportScheduleRoutes } from './routes/reportSchedules'
 import { streamRoutes } from './routes/stream'
 import { publishChange } from './services/events'
 import { createMailer, type Mailer } from './services/mailer'
+import { createLineClient, type LineClient } from './services/line'
 
 declare module 'fastify' {
   interface FastifyInstance {
     /** รอจนอีเมลที่ค้างส่งอยู่เสร็จ (ใช้ในเทสต์) */
     mailIdle(): Promise<void>
     mailer: Mailer
+    line: LineClient
   }
 }
 
 export type App = FastifyInstance<any, any, any, any, TypeBoxTypeProvider>
 
-export async function buildApp(pool: Pool, opts: { logger?: boolean; rateLimit?: boolean; mailer?: Mailer } = {}) {
+export async function buildApp(pool: Pool, opts: { logger?: boolean; rateLimit?: boolean; mailer?: Mailer; line?: LineClient } = {}) {
   const app = Fastify({
     logger: opts.logger === false ? false : { level: config.logLevel },
     trustProxy: true, // อยู่หลังพร็อกซีของเว็บ — ใช้ IP จริงสำหรับ rate limit
@@ -46,6 +48,8 @@ export async function buildApp(pool: Pool, opts: { logger?: boolean; rateLimit?:
     pendingMail.add(p)
     void p.finally(() => pendingMail.delete(p))
   }
+  const line = opts.line ?? createLineClient({ token: config.lineToken, to: config.lineTo })
+  app.decorate('line', line)
   app.decorate('mailer', mailer)
   app.decorate('mailIdle', async () => {
     await Promise.allSettled([...pendingMail])
@@ -129,7 +133,7 @@ export async function buildApp(pool: Pool, opts: { logger?: boolean; rateLimit?:
       await v1.register(chargingRoutes(pool))
       await v1.register(alertRoutes(pool))
       await v1.register(reportRoutes(pool))
-      await v1.register(settingsRoutes(pool, { mailer, track }))
+      await v1.register(settingsRoutes(pool, { mailer, track }, line))
       await v1.register(publicRoutes(pool))
       await v1.register(ingestRoutes(pool))
       await v1.register(reportScheduleRoutes(pool, mailer))

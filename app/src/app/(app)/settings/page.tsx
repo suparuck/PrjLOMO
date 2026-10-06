@@ -79,6 +79,7 @@ export default function SettingsPage() {
   const [managingInvite, setManagingInvite] = useState<AppUser | null>(null)
   const [resetting, setResetting] = useState<AppUser | null>(null)
   const [managingKeys, setManagingKeys] = useState(false)
+  const [testingLine, setTestingLine] = useState(false)
   const [saved, setSaved] = useState<Settings | null>(null)
   const [form, setForm] = useState<Settings | null>(null)
   const [justSaved, setJustSaved] = useState(false)
@@ -129,6 +130,12 @@ export default function SettingsPage() {
   const patch = <K extends keyof Settings>(key: K, v: Partial<Settings[K]>) => {
     setJustSaved(false)
     setForm((f) => (f ? { ...f, [key]: { ...f[key], ...v } } : f))
+  }
+  const testLine = async () => {
+    setTestingLine(true)
+    const res = await api.testLine()
+    setTestingLine(false)
+    toast(res.ok ? 'ส่งข้อความทดสอบเข้า LINE แล้ว' : (Object.values(res.errors)[0] ?? 'ส่งไม่สำเร็จ'), res.ok ? 'success' : 'error')
   }
   const save = async () => {
     const res = await api.saveSettings(form)
@@ -314,13 +321,24 @@ export default function SettingsPage() {
                   <p>{i.text}</p>
                 </div>
                 {i.connected ? (
-                  <span className="badge s-charging">
-                    <i />
-                    เชื่อมต่อ
-                  </span>
+                  <div className="flex" style={{ gap: 8 }}>
+                    {i.key === 'line' && (
+                      <button type="button" className="btn btn-outline btn-sm" onClick={testLine} disabled={testingLine}>
+                        {testingLine ? 'กำลังส่ง…' : 'ส่งทดสอบ'}
+                      </button>
+                    )}
+                    <span className="badge s-charging">
+                      <i />
+                      เชื่อมต่อ
+                    </span>
+                  </div>
                 ) : (
-                  <button type="button" className="btn btn-outline btn-sm" onClick={i.key === 'api' ? () => setManagingKeys(true) : undefined}>
-                    {i.actionLabel}
+                  <button
+                    type="button"
+                    className="btn btn-outline btn-sm"
+                    onClick={i.key === 'api' ? () => setManagingKeys(true) : i.key === 'line' ? () => toast('ตั้งค่า LINE_CHANNEL_ACCESS_TOKEN และ LINE_TO ในไฟล์ .env แล้วรีสตาร์ต API (ดูวิธีใน api/README.md)', 'error') : undefined}
+                  >
+                    {i.actionLabel ?? 'ตั้งค่า'}
                   </button>
                 )}
               </div>

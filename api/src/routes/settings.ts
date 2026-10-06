@@ -8,6 +8,7 @@ import { one, rows } from '../db'
 import { AppError, conflict, invalid, notFound } from '../errors'
 import { checkEmail } from '../lib/validators'
 import { newResetToken, type MailContext } from './auth'
+import type { LineClient } from '../services/line'
 import { PageQuery, envelope, likeTerm, pageArgs } from '../lib/paging'
 
 import { sec } from '../security'
@@ -78,7 +79,7 @@ async function missingOrActive(pool: Pool, id: string) {
 const SETTINGS_SQL = `select org, thresholds, notify, charging from app_settings where id = 1`
 
 export const settingsRoutes =
-  (pool: Pool, mail: MailContext): FastifyPluginAsyncTypebox =>
+  (pool: Pool, mail: MailContext, line: LineClient): FastifyPluginAsyncTypebox =>
   async (app) => {
     const viewer = requireRole(pool, 'viewer')
     const mgr = requireRole(pool, 'manager')
@@ -111,8 +112,26 @@ export const settingsRoutes =
       },
     )
 
-    app.get('/integrations', { preValidation: mgr, schema: { tags: ['settings'], summary: 'การเชื่อมต่อกับระบบภายนอก', security: sec } }, async () =>
-      rows(pool, `select key, name, description as text, logo, color_token as "colorToken", connected, action_label as "actionLabel" from integrations order by sort`),
+    app.get('/integrations', { preValidation: mgr, schema: { tags: ['settings'], summary: 'การเชื่อมต่อกับระบบภายนอก (LINE แสดงตามการตั้งค่า token จริง)', security: sec } }, async () => {
+      const list = await rows<{ key: string; connected: boolean }>(
+        pool,
+        `select key, name, description as text, logo, color_token as "colorToken", connected, action_label as "actionLabel" from integrations order by sort`,
+      )
+      return list.map((i) => (i.key === 'line' ? { ...i, connected: line.configured } : i))
+    })
+
+    app.post(
+      '/integrations/line/test',
+      {
+        preValidation: adm,
+        config: { rateLimit: { max: 3, timeWindow: '1 minute' } },
+        schema: { tags: ['settings'], summary: 'ส่งข้อความทดสอบเข้า LINE (admin) — ใช้โควตาข้อความของ LINE 1 ข้อความ', security: sec },
+      },
+      async () => {
+        const r = await line.push('EV Monitor: ข้อความทดสอบ — การเชื่อมต่อ LINE ทำงานปกติ')
+        if (!r.ok) throw invalid({ _: r.error })
+        return { sent: true }
+      },
     )
 
     // ---- ผู้ใช้และสิทธิ์ ----

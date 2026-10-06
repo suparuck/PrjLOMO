@@ -29,6 +29,9 @@ services:
       # job ตรวจรถออฟไลน์ทำงานทุกกี่วินาที (0 = ปิด)
       OFFLINE_CHECK_INTERVAL_SECONDS: ${OFFLINE_CHECK_INTERVAL_SECONDS:-60}
       # อีเมลลืมรหัสผ่าน: ตั้ง SMTP_URL (เช่น smtp://user:pass@host:587) — ไม่ตั้ง = ไม่ส่งอีเมล (ผู้ดูแลสร้างลิงก์รีเซ็ตให้ที่หน้าตั้งค่าได้)
+      # LINE Messaging API: ตั้งทั้งสองค่าจึงเปิดใช้แจ้งเตือนเข้า LINE (ไม่ตั้ง = ไม่ส่ง)
+      LINE_CHANNEL_ACCESS_TOKEN: ${LINE_CHANNEL_ACCESS_TOKEN:-}
+      LINE_TO: ${LINE_TO:-}
       SMTP_URL: ${SMTP_URL:-}
       MAIL_FROM: ${MAIL_FROM:-EV Monitor <no-reply@evmonitor.local>}
       # ที่อยู่เว็บที่ใช้สร้างลิงก์ในอีเมล (ไม่ใช้ Host จาก request)

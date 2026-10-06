@@ -28,6 +28,9 @@ export const config = {
   mailMode: ((process.env.MAIL_MODE ?? (process.env.SMTP_URL ? 'smtp' : 'off')) as 'smtp' | 'log' | 'off'),
   smtpUrl: process.env.SMTP_URL || undefined,
   mailFrom: process.env.MAIL_FROM ?? 'EV Monitor <no-reply@evmonitor.local>',
+  /** LINE Messaging API (push) — ต้องตั้งทั้งสองค่าจึงจะเปิดใช้; ไม่ตั้ง = ไม่ส่ง */
+  lineToken: process.env.LINE_CHANNEL_ACCESS_TOKEN || undefined,
+  lineTo: process.env.LINE_TO || undefined,
   sessionCookie: 'ev_session',
   sessionTtlSeconds: 12 * 60 * 60,
   rememberTtlSeconds: 30 * 24 * 60 * 60,

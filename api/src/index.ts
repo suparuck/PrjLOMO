@@ -24,7 +24,7 @@ async function main() {
 
   const app = await buildApp(pool)
   await app.listen({ port: config.port, host: config.host })
-  const stopJobs = startJobs(pool, app.log, config.offlineCheckIntervalSeconds, app.mailer)
+  const stopJobs = startJobs(pool, app.log, config.offlineCheckIntervalSeconds, app.mailer, app.line)
 
   const shutdown = async (signal: string) => {
     app.log.info({ signal }, 'shutting down')

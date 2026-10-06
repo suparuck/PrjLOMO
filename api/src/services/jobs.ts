@@ -3,6 +3,8 @@ import { rows, withTx, one } from '../db'
 import { publishChange } from './events'
 import type { Mailer } from './mailer'
 import { runDueSchedules } from './reportMail'
+import type { LineClient } from './line'
+import { currentAlertFloor, runLineNotify } from './lineNotify'
 import { createAlert, enabledRules, hasOpenAlert, loadThresholds } from './ops'
 
 /** ล็อกระดับฐานข้อมูล: ถ้ามี API หลายอินสแตนซ์ จะมีเพียงหนึ่งตัวที่ตรวจในแต่ละรอบ */
@@ -43,7 +45,7 @@ interface Logger {
 }
 
 /** เริ่ม job ตามเวลา — คืนฟังก์ชันหยุด (intervalSeconds <= 0 = ปิด) */
-export function startJobs(pool: Pool, log: Logger, intervalSeconds: number, mailer?: Mailer): () => void {
+export function startJobs(pool: Pool, log: Logger, intervalSeconds: number, mailer?: Mailer, line?: LineClient): () => void {
   if (intervalSeconds <= 0) {
     log.info({}, 'background jobs disabled (OFFLINE_CHECK_INTERVAL_SECONDS=0)')
     return () => undefined
@@ -66,5 +68,19 @@ export function startJobs(pool: Pool, log: Logger, intervalSeconds: number, mail
   void tick()
   const timer = setInterval(() => void tick(), intervalSeconds * 1000)
   timer.unref() // ไม่ให้ timer ค้าง process ตอนปิดระบบ
-  return () => clearInterval(timer)
+
+  // ส่งแจ้งเตือนใหม่เข้า LINE: ตรวจถี่กว่า (15 วินาที) เพื่อให้ถึงมือเร็ว; ไม่แตะแจ้งเตือนที่มีอยู่ก่อนเริ่มระบบ
+  let lineTimer: ReturnType<typeof setInterval> | undefined
+  if (line?.configured) {
+    void currentAlertFloor(pool).then((floor) => {
+      lineTimer = setInterval(() => {
+        runLineNotify(pool, line, floor).catch((err) => log.error({ err }, 'line notify failed'))
+      }, 15_000)
+      lineTimer.unref()
+    })
+  }
+  return () => {
+    clearInterval(timer)
+    if (lineTimer) clearInterval(lineTimer)
+  }
 }
