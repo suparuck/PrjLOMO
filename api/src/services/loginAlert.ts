@@ -3,6 +3,7 @@ import type { Pool } from 'pg'
 import { config } from '../config'
 import { one, rows } from '../db'
 import { recordAudit } from './audit'
+import { getPrefs } from './notifyPrefs'
 import type { Mailer } from './mailer'
 
 /** ผิดกี่ครั้งใน WINDOW_MIN นาทีถึงแจ้งเจ้าของบัญชี (รหัสผ่านผิด / รหัส 2FA ผิดหลังรหัสผ่านถูก — อย่างหลังร้ายแรงกว่าจึงเกณฑ์ต่ำกว่า) */
@@ -35,6 +36,7 @@ export async function alertOnFailedLogins(
     [who.userId ?? who.email],
   )
   if (!u) return
+  if (!(await getPrefs(pool, u.id)).loginFailed) return // ผู้ใช้ปิดการเตือนนี้ (ไม่กินช่วงพัก; ยังเห็นใน audit log)
   const action = kind === 'password' ? 'auth.login_failed' : 'auth.2fa_failed'
   const threshold = kind === 'password' ? PASSWORD_FAILS : TWO_FACTOR_FAILS
   const recent = await rows<{ at: Date; ip: string | null }>(
@@ -117,7 +119,7 @@ export async function recordLoginAndMaybeAlert(
     isNew = seen.length > 0 && !seen.some((r) => ipPrefix(r.ip) === prefix)
   }
   await recordAudit(pool, req, { action: 'auth.login', actorId: user.id, actorEmail: user.email, detail: { ...detail, ...(isNew ? { newNetwork: true } : {}) } })
-  if (!isNew || mailer.mode === 'off') return
+  if (!isNew || mailer.mode === 'off' || !(await getPrefs(pool, user.id)).newNetwork) return
   track(
     (async () => {
       const ua = String(req.headers['user-agent'] ?? '').slice(0, 150)

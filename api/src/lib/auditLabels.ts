@@ -21,6 +21,7 @@ const L: Record<string, [AuditCategory, string]> = {
   'auth.invite_accept': ['users', 'ตอบรับคำเชิญและตั้งรหัสผ่าน'],
   'auth.reset_accept': ['security', 'ตั้งรหัสผ่านใหม่ผ่านลิงก์รีเซ็ต'],
   'POST /auth/change-password': ['security', 'เปลี่ยนรหัสผ่านของตัวเอง'],
+  'PUT /auth/notifications': ['security', 'เปลี่ยนการตั้งค่าแจ้งเตือนทางอีเมลของตัวเอง'],
   'POST /auth/2fa/enable': ['security', 'เปิดใช้ 2FA'],
   'POST /auth/2fa/disable': ['security', 'ปิด 2FA ของตัวเอง'],
   'POST /auth/2fa/recovery-codes': ['security', 'สร้างรหัสสำรอง 2FA ใหม่'],

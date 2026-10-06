@@ -358,6 +358,13 @@ export interface InviteResult {
   emailed: boolean
 }
 
+/** การรับอีเมลแจ้งเตือนของตัวเอง (GET /auth/me → notify, PUT /auth/notifications) */
+export interface NotifyPrefs {
+  alertEmail: boolean
+  loginFailed: boolean
+  newNetwork: boolean
+}
+
 export type AuditCategory = 'security' | 'users' | 'config' | 'data'
 
 /** แถวในบันทึกกิจกรรม (GET /audit-log — admin) */

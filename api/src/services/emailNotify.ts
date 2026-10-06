@@ -47,7 +47,7 @@ export async function runEmailNotify(
   const s = await one<{ on: boolean }>(pool, `select coalesce((notify->>'email')::boolean, false) as "on" from app_settings where id = 1`)
   if (!s?.on) return { sent: 0, skipped: 'disabled' }
 
-  const to = (await rows<{ email: string }>(pool, `select email from users where status = 'active' and role in ('admin', 'manager') order by email`)).map((u) => u.email)
+  const to = (await rows<{ email: string }>(pool, `select email from users where status = 'active' and role in ('admin', 'manager') and coalesce((notify_prefs->>'alertEmail')::boolean, true) order by email`)).map((u) => u.email)
   if (to.length === 0) return { sent: 0, skipped: 'no-recipients' }
 
   const claimed = await rows<Row>(

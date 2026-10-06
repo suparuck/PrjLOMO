@@ -13,6 +13,7 @@ import { createLoginGuard } from '../lib/loginGuard'
 import * as tf from '../services/twofactor'
 import { recordAudit } from '../services/audit'
 import { alertOnFailedLogins, recordLoginAndMaybeAlert } from '../services/loginAlert'
+import { getPrefs, normalizePrefs, savePrefs, SECURITY_PREFS } from '../services/notifyPrefs'
 
 const BAD_LINK = 'ลิงก์คำเชิญไม่ถูกต้องหรือถูกใช้ไปแล้ว'
 const EXPIRED_LINK = 'ลิงก์คำเชิญหมดอายุแล้ว กรุณาขอลิงก์ใหม่จากผู้ดูแลระบบ'
@@ -168,6 +169,37 @@ export const authRoutes =
     }
     const reissue = (reply: FastifyReply, userId: string, sv: number, u: { email: string; name: string; role: UserRole }) =>
       setSession(reply, { id: userId, email: u.email, name: u.name, role: u.role, sv }, config.sessionTtlSeconds)
+
+    // การรับอีเมลแจ้งเตือนของตัวเอง — ปิดเตือนความปลอดภัย (loginFailed/newNetwork) ต้องยืนยันรหัสผ่าน
+    app.put(
+      '/auth/notifications',
+      {
+        preValidation: me,
+        config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
+        schema: {
+          tags: ['auth'],
+          summary: 'ตั้งค่าอีเมลแจ้งเตือนของตัวเอง (ส่งเฉพาะที่ต้องการเปลี่ยน; ปิด loginFailed/newNetwork ต้องส่ง password)',
+          security: [{ cookieAuth: [] }, { bearerAuth: [] }],
+          body: Type.Object({
+            alertEmail: Type.Optional(Type.Boolean()),
+            loginFailed: Type.Optional(Type.Boolean()),
+            newNetwork: Type.Optional(Type.Boolean()),
+            password: Type.Optional(Type.String({ maxLength: 200 })),
+          }),
+        },
+      },
+      async (req) => {
+        const { password, ...patch } = req.body
+        const cur = await getPrefs(pool, req.user!.id)
+        const next = normalizePrefs({ ...cur, ...patch })
+        if (SECURITY_PREFS.some((k) => cur[k] && !next[k])) {
+          if (!password) throw invalid({ password: 'กรุณายืนยันรหัสผ่านก่อนปิดการแจ้งเตือนด้านความปลอดภัย' })
+          await reauth(req.user!.id, password)
+        }
+        await savePrefs(pool, req.user!.id, next)
+        return next
+      },
+    )
 
     app.post(
       '/auth/2fa/setup',
@@ -463,7 +495,8 @@ export const authRoutes =
       async (req) => {
         // บอกว่าเปิด 2FA หรือยัง และเหลือรหัสสำรองกี่ชุด (หน้าบัญชีของฉันใช้แสดงสถานะ)
         const s = await one<{ on: boolean }>(pool, 'select totp_enabled_at is not null as "on" from users where id = $1', [req.user!.id])
-        return { user: { ...req.user, twoFactorRequired: !!req.user!.twoFactorRequired, twoFactorEnabled: !!s?.on, recoveryCodesLeft: s?.on ? await tf.remainingRecoveryCodes(pool, req.user!.id) : 0 } }
+        const notify = await getPrefs(pool, req.user!.id)
+        return { user: { ...req.user, notify, twoFactorRequired: !!req.user!.twoFactorRequired, twoFactorEnabled: !!s?.on, recoveryCodesLeft: s?.on ? await tf.remainingRecoveryCodes(pool, req.user!.id) : 0 } }
       },
     )
   }

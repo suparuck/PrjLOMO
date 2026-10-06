@@ -6,7 +6,7 @@ import { ApiError, del, get, patch, post, put } from './http'
 import * as m from './mappers'
 import type * as D from './dto'
 import type {
-  AuditEntry, AlertRule, Alert, ApiKeyInfo, AppUser, BatteryInsights, ChargingHistory, ChargingLoad, ChargingSession, Driver, DriverEventStat,
+  AuditEntry, NotifyPrefs, AlertRule, Alert, ApiKeyInfo, AppUser, BatteryInsights, ChargingHistory, ChargingLoad, ChargingSession, Driver, DriverEventStat,
   ElectrificationReport, EnergySummary, EnergyWeek, IceVehicle, Integration, InviteInfo, InviteUserDraft, Paged, VehiclesPage, DriversPage, AlertsPage, VehicleStatus, AlertSeverity, AlertType, ReportSchedule, ReportSchedules, ScheduleDraft, ResetInfo, ResetLinkResult, TwoFactorSetup, UserRole, NewDriverDraft, NewStationDraft, IceDraft, TcoDraft, AssumptionValues, AssumptionLimits, NewVehicleDraft,
   NotificationChannel, Org, PublicOverview, Report, ReportFilters, Result, Settings, Station, Sustainability, Vehicle, VehicleDetail,
 } from '@/types'
@@ -61,7 +61,7 @@ export const api = {
   getOrg: () => get<Org>('/org'),
   /** ผู้ใช้ที่ล็อกอินอยู่ (จาก session cookie) */
   getMe: async () =>
-    (await get<{ user: { id: string; email: string; name: string; role: UserRole; twoFactorEnabled?: boolean; twoFactorRequired?: boolean; recoveryCodesLeft?: number } }>('/auth/me')).user,
+    (await get<{ user: { id: string; email: string; name: string; role: UserRole; twoFactorEnabled?: boolean; notify?: NotifyPrefs; twoFactorRequired?: boolean; recoveryCodesLeft?: number } }>('/auth/me')).user,
   listVehicles: async (): Promise<Vehicle[]> => (await get<D.VehicleDTO[]>('/vehicles')).map(m.vehicle),
   getVehicleDetail: async (id: string): Promise<VehicleDetail | null> => {
     try {
@@ -191,6 +191,8 @@ export const api = {
       return { email: d.email, token: d.resetToken, expiresAt: d.expiresAt }
     }),
   listAuditLog: (o: { page: number; pageSize?: number; q?: string; category?: string; from?: string; to?: string }) => get<Paged<AuditEntry>>(`/audit-log?${qs(o)}`),
+  /** ตั้งค่าอีเมลแจ้งเตือนของตัวเอง (ปิดเตือนความปลอดภัยต้องส่ง password) */
+  saveNotifyPrefs: (patch: Partial<NotifyPrefs>, password?: string) => write(() => put<NotifyPrefs>('/auth/notifications', { ...patch, password })),
   // ---- การยืนยันตัวตนสองขั้นตอน (2FA) ----
   twoFactorSetup: (password: string) => write(() => post<TwoFactorSetup>('/auth/2fa/setup', { password })),
   twoFactorEnable: (pending: string, code: string) => write(async () => (await post<{ recoveryCodes: string[] }>('/auth/2fa/enable', { pending, code })).recoveryCodes),
