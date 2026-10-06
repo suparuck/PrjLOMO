@@ -6,4 +6,7 @@ latest="$(list_dumps | head -n 1)"
 [ -n "$latest" ] || { echo "ยังไม่มีไฟล์สำรอง"; exit 1; }
 max_min=$(( ${BACKUP_MAX_AGE_HOURS:-26} * 60 ))
 [ -n "$(find "$latest" -mmin -"$max_min" 2>/dev/null)" ] || { echo "ไฟล์สำรองล่าสุดเก่าเกิน ${BACKUP_MAX_AGE_HOURS:-26} ชั่วโมง: $(basename "$latest")"; exit 1; }
+if [ -n "${OFFSITE_TARGET:-}" ]; then
+  [ -n "$(find "$BACKUP_DIR/.offsite-ok" -mmin -"$max_min" 2>/dev/null)" ] || { echo "ยังไม่ได้ส่งออกนอกเครื่องสำเร็จภายใน ${BACKUP_MAX_AGE_HOURS:-26} ชั่วโมง (ดู docker compose logs backup)"; exit 1; }
+fi
 echo "ok: $(basename "$latest")"

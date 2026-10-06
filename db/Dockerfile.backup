@@ -1,0 +1,5 @@
+# ภาพของ service backup: PostgreSQL client (pg_dump/pg_restore) + age (เข้ารหัส) + rclone (ส่งออกนอกเครื่อง)
+# แยกจาก db/Dockerfile เพื่อไม่ให้ฐานข้อมูลแบกเครื่องมือที่ไม่ได้ใช้
+FROM postgres:16-alpine
+RUN apk add --no-cache age rclone
+ENV TZ=Asia/Bangkok PGTZ=Asia/Bangkok

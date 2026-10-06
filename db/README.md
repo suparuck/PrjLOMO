@@ -91,8 +91,28 @@ docker compose start api web
 
 หลังกู้ ถ้าเป็นไฟล์จากรุ่น schema เก่ากว่าปัจจุบัน ให้รัน migration ที่ขาดใน `db/migrations/` ตามลำดับ
 
+### ส่งสำเนาออกนอกเครื่องแบบเข้ารหัส (แนะนำให้เปิดก่อนขึ้นระบบจริง)
+
+หลังสำรองสำเร็จทุกครั้ง service `backup` เข้ารหัสไฟล์ด้วย [age](https://age-encryption.org) แล้วอัปโหลดด้วย rclone ไปปลายทางที่ตั้งไว้ — **เซิร์ฟเวอร์ถือแค่กุญแจสาธารณะ** ใครเจาะเครื่องนี้หรือบัญชีที่เก็บไฟล์ได้ก็ถอดรหัสไม่ได้ ไฟล์ที่ปลายทางชื่อ `evmonitor-…dump.age` และ **ไม่ส่งไฟล์ที่ไม่เข้ารหัสเด็ดขาด** (ตั้งปลายทางแต่ไม่มีกุญแจ = ไม่ทำงานและฟ้องใน log)
+
+1. **สร้างกุญแจ** (ทำครั้งเดียว):
+   ```bash
+   docker compose run --rm --no-deps --entrypoint age-keygen backup
+   ```
+   จะแสดง `Public key: age1…` และบรรทัด `AGE-SECRET-KEY-…` — **เก็บบรรทัด SECRET ไว้นอกเครื่องนี้** (password manager / กระดาษในตู้เซฟ / USB แยก) ห้ามวางในเครื่องเซิร์ฟเวอร์หรือ `.env` **ทำหายแล้วกู้ไฟล์สำรองไม่ได้ ไม่มีทางแก้** (แนะนำเก็บสองที่ และใส่กุญแจสาธารณะของผู้ดูแลอีกคนเป็น recipient ที่สองได้)
+2. ตั้งใน `.env`: `BACKUP_AGE_RECIPIENTS=age1…` และปลายทางอย่างใดอย่างหนึ่ง
+   - **S3-compatible** (AWS S3, Cloudflare R2, Backblaze B2, Wasabi, MinIO ฯลฯ): `OFFSITE_TARGET=offsite:<bucket>/evmonitor` + `OFFSITE_S3_PROVIDER` / `OFFSITE_S3_ENDPOINT` / `OFFSITE_S3_REGION` / `OFFSITE_S3_ACCESS_KEY_ID` / `OFFSITE_S3_SECRET_ACCESS_KEY` (สร้างคีย์ที่มีสิทธิ์เขียน/ลบเฉพาะ bucket นี้ และเปิด versioning/object lock ที่ bucket ถ้าได้ เพื่อกันแรนซัมแวร์ลบสำเนา)
+   - **โฟลเดอร์/NAS/ดิสก์นอก**: `OFFSITE_TARGET=/offsite` + `OFFSITE_LOCAL_DIR=<พาธบนเครื่องโฮสต์>`
+3. `docker compose up -d backup` แล้วสำรองทันที `docker compose exec -T backup sh /backup/backup.sh` ดูบรรทัด "ส่งออกนอกเครื่องสำเร็จ"
+
+- ส่งไฟล์ที่ปลายทางยังไม่มีทุกไฟล์ (ปลายทางล่มไปแล้วกลับมาจะส่งย้อนให้เอง) ตรวจขนาดหลังอัปโหลด ล้มเหลวลองใหม่ 3 ครั้งโดยไม่ทำให้การสำรองในเครื่องล้ม
+- เก็บที่ปลายทาง `OFFSITE_KEEP_DAYS` (30) วัน อย่างน้อย `OFFSITE_KEEP_MIN` (5) ไฟล์
+- ถ้าตั้งปลายทางแล้วแต่ส่งไม่สำเร็จเกิน 26 ชั่วโมง `backup` จะขึ้น **unhealthy**
+- **ทดสอบถอดรหัสจริงเป็นระยะ** (กุญแจส่วนตัวนำมาเมาท์ชั่วคราว ไม่ทิ้งไว้ในเครื่อง): `docker compose cp <กุญแจ>.txt backup:/tmp/id.txt` แล้ว `docker compose exec -T backup sh /backup/offsite-verify.sh /tmp/id.txt` (ดึงไฟล์ล่าสุด → ถอดรหัส → `pg_restore --list`) จากนั้นลบ `/tmp/id.txt`
+- **กู้จากไฟล์ที่ปลายทาง:** ดาวน์โหลด `.dump.age` มาไว้ใน `BACKUP_DIR` แล้ว `docker compose exec -T -e BACKUP_AGE_IDENTITY=/tmp/id.txt backup sh /backup/restore.sh /backups/<ไฟล์>.dump.age` (ขั้นตอนกู้ทับของจริงเหมือนด้านบน)
+
 **ข้อจำกัดที่ต้องรู้**
-- ไฟล์สำรองอยู่ **เครื่องเดียวกับฐานข้อมูล** — ดิสก์เสีย/เครื่องหาย/ถูกเข้ารหัสด้วยแรนซัมแวร์ ก็หายพร้อมกัน ต้อง **คัดลอก `./backups` ออกไปเก็บนอกเครื่อง** เป็นระยะ (เช่น `robocopy`/`rsync`/object storage) และ `BACKUP_DIR` ควรชี้ไปดิสก์คนละลูกกับ volume ของฐานข้อมูล
-- ไฟล์ **ไม่ได้เข้ารหัส** — ถ้าส่งออกนอกเครื่องให้เข้ารหัสระหว่างส่ง/เก็บ (เช่น `age`, `gpg`, หรือการเข้ารหัสของที่เก็บปลายทาง)
+- ไฟล์ในโฟลเดอร์ `BACKUP_DIR` (ในเครื่อง) **ไม่ได้เข้ารหัส** และอยู่เครื่องเดียวกับฐานข้อมูล — เปิดการส่งออกนอกเครื่องด้านบนเพื่อกันดิสก์เสีย/เครื่องหาย/แรนซัมแวร์ และ `BACKUP_DIR` ควรชี้ไปดิสก์คนละลูกกับ volume ของฐานข้อมูล
+- ใช้ Git Bash บน Windows: ค่า `OFFSITE_TARGET=/offsite` ใน `.env` ใช้ได้ปกติ แต่ถ้า export ในเชลล์แล้วรัน compose ต้องตั้ง `MSYS_NO_PATHCONV=1`
 - สำรองแบบ logical วันละครั้ง: ข้อมูลหลังรอบสำรองล่าสุดอาจหายได้สูงสุด ~24 ชม. (ไม่ใช่ point-in-time recovery — ถ้าต้องการต้องเปิด WAL archiving)
 - ทดสอบกู้คืนด้วย `verify.sh` เป็นระยะ (เช่นทุกเดือน และหลังเปลี่ยน schema) — ไฟล์สำรองที่ไม่เคยทดสอบกู้ยังไม่ถือว่าสำรองแล้ว

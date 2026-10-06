@@ -28,6 +28,15 @@ mv "$tmp" "$final"
 size="$(wc -c < "$final" | tr -d ' ')"
 log "สำเร็จ: $(basename "$final") ($size ไบต์, $tables ตาราง)"
 
+# ส่งออกนอกเครื่องแบบเข้ารหัส (ถ้าตั้ง OFFSITE_TARGET) — ล้มเหลวไม่ทำให้การสำรองในเครื่องล้ม แต่ healthcheck จะขึ้น unhealthy เมื่อไฟล์ส่งออกเก่าเกินกำหนด
+if [ -n "${OFFSITE_TARGET:-}" ]; then
+  tries=1
+  until sh "$(dirname "$0")/offsite.sh"; do
+    [ "$tries" -ge 3 ] && { log "ส่งออกนอกเครื่องไม่สำเร็จหลังลอง 3 ครั้ง — ไฟล์ในเครื่องยังปลอดภัย จะลองใหม่รอบสำรองถัดไป"; break; }
+    tries=$((tries + 1)); log "ส่งออกนอกเครื่องล้มเหลว ลองใหม่ในอีก 60 วินาที"; sleep 60
+  done
+fi
+
 # ลบไฟล์เก่า: เก็บอย่างน้อย KEEP_MIN ไฟล์ใหม่สุดเสมอ ที่เหลือลบเมื่อเก่ากว่า KEEP_DAYS วัน
 n=0
 list_dumps | while IFS= read -r f; do

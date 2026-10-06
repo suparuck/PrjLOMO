@@ -1,6 +1,7 @@
 #!/bin/sh
 # กู้คืนจากไฟล์สำรอง — ปลอดภัยไว้ก่อน: ค่าเริ่มต้นกู้ลง "ฐานข้อมูลใหม่" ชื่อ evmonitor_restore (ไม่แตะข้อมูลจริง)
 #   sh restore.sh [ไฟล์.dump]            กู้ลงฐานข้อมูลใหม่ (ไฟล์ล่าสุดถ้าไม่ระบุ)
+#   ไฟล์ .age จากปลายทางนอกเครื่อง: BACKUP_AGE_IDENTITY=/path/กุญแจส่วนตัว sh restore.sh ไฟล์.dump.age
 #   RESTORE_DB=ชื่อ                      เปลี่ยนชื่อฐานข้อมูลปลายทาง
 #   RESTORE_OVER_LIVE=yes-overwrite-live กู้ทับฐานข้อมูลจริง (ลบข้อมูลปัจจุบันทั้งหมด!) — ต้องหยุด api/web ก่อน
 set -eu
@@ -8,6 +9,14 @@ set -eu
 
 file="${1:-$(list_dumps | head -n 1)}"
 [ -n "$file" ] && [ -f "$file" ] || die "ไม่พบไฟล์สำรอง (ระบุเป็นอาร์กิวเมนต์ หรือวางไว้ที่ $BACKUP_DIR)"
+# ไฟล์ .age (จากปลายทางนอกเครื่อง) ถอดรหัสก่อนด้วยกุญแจส่วนตัว: BACKUP_AGE_IDENTITY=/path/identity.txt (เมาท์ชั่วคราว)
+case "$file" in
+  *.age)
+    [ -n "${BACKUP_AGE_IDENTITY:-}" ] && [ -f "$BACKUP_AGE_IDENTITY" ] || die "ไฟล์ .age ต้องตั้ง BACKUP_AGE_IDENTITY ชี้ไปไฟล์กุญแจส่วนตัว"
+    plain="$(mktemp)"; trap "rm -f $plain" EXIT
+    age -d -i "$BACKUP_AGE_IDENTITY" -o "$plain" "$file" || die "ถอดรหัสไม่สำเร็จ"
+    file="$plain" ;;
+esac
 pg_restore --list "$file" >/dev/null || die "ไฟล์สำรองอ่านไม่ได้: $file"
 
 if [ "${RESTORE_OVER_LIVE:-}" = "yes-overwrite-live" ]; then
