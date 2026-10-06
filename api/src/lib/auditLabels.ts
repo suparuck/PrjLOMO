@@ -16,6 +16,7 @@ const L: Record<string, [AuditCategory, string]> = {
   'auth.login_failed': ['security', 'เข้าสู่ระบบไม่สำเร็จ (รหัสผ่านผิด)'],
   'auth.login_blocked': ['security', 'ถูกบล็อกชั่วคราวจากการเดารหัสผ่าน'],
   'auth.2fa_failed': ['security', 'ยืนยัน 2FA ไม่สำเร็จ'],
+  'auth.new_network_alert_sent': ['security', 'ส่งอีเมลเตือนเจ้าของบัญชี (เข้าจากเครือข่ายใหม่)'],
   'auth.login_alert_sent': ['security', 'ส่งอีเมลเตือนเจ้าของบัญชี (ล็อกอินผิดซ้ำ)'],
   'auth.invite_accept': ['users', 'ตอบรับคำเชิญและตั้งรหัสผ่าน'],
   'auth.reset_accept': ['security', 'ตั้งรหัสผ่านใหม่ผ่านลิงก์รีเซ็ต'],

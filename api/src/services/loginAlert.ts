@@ -70,3 +70,68 @@ export async function alertOnFailedLogins(
   })
   await recordAudit(pool, req, { action: 'auth.login_alert_sent', actorId: u.id, actorEmail: u.email, detail: { kind, failures: recent.length } })
 }
+
+/* ---------- ล็อกอินสำเร็จจากเครือข่ายใหม่ ---------- */
+/** ดูย้อนหลังกี่วันว่าเคยเข้าจากเครือข่ายนี้หรือไม่ */
+export const KNOWN_IP_DAYS = 90
+
+/**
+ * เครือข่ายของ IP: IPv4 → 3 ส่วนแรก (/24), IPv6 → 4 ส่วนแรก (/64) — มือถือ/อินเทอร์เน็ตบ้านที่ IP เปลี่ยนในเครือข่ายเดิมจึงไม่ถือว่าใหม่ (ลดอีเมลรบกวน)
+ * คืน null ถ้าไม่มี/อ่านไม่ได้ (ข้ามการตรวจ)
+ */
+export function ipPrefix(ip: string | null | undefined): string | null {
+  if (!ip) return null
+  const v4 = ip.match(/^(?:::ffff:)?(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.\d{1,3}$/i)
+  if (v4) return `${v4[1]}.${v4[2]}.${v4[3]}`
+  if (!ip.includes(':')) return null
+  const [head, tail] = ip.split('::')
+  const h = head ? head.split(':') : []
+  const t = tail === undefined ? [] : tail ? tail.split(':') : []
+  const full = tail === undefined ? h : [...h, ...Array(Math.max(0, 8 - h.length - t.length)).fill('0'), ...t]
+  if (full.length !== 8) return null
+  return full.slice(0, 4).map((x) => x.toLowerCase().replace(/^0+(?=.)/, '')).join(':')
+}
+
+/**
+ * เรียกเมื่อเข้าสู่ระบบสำเร็จครบทุกขั้น: บันทึก audit แล้วถ้า "เคยเข้าสำเร็จมาก่อนแต่ไม่เคยจากเครือข่ายนี้ใน KNOWN_IP_DAYS วัน" ส่งอีเมลเตือนเจ้าของบัญชี
+ * - ครั้งแรกสุดของบัญชี (ยังไม่มีประวัติ) ไม่เตือน — ไม่มีอะไรให้เทียบ
+ * - ต้องตรวจก่อนบันทึกแถวของครั้งนี้ ไม่เช่นนั้นจะนับตัวเองเป็น "เคยเห็น"
+ * - อีเมลส่งในพื้นหลัง (ผู้เรียกใช้ mail.track) และไม่ส่งถ้าไม่ตั้ง SMTP
+ */
+export async function recordLoginAndMaybeAlert(
+  pool: Pool,
+  mailer: Mailer,
+  track: (p: Promise<unknown>) => void,
+  req: Pick<FastifyRequest, 'ip' | 'log' | 'headers'>,
+  user: { id: string; email: string; name: string },
+  detail: Record<string, unknown> = {},
+): Promise<void> {
+  const prefix = ipPrefix(req.ip)
+  let isNew = false
+  if (prefix) {
+    const seen = await rows<{ ip: string | null }>(
+      pool,
+      `select distinct ip from audit_log where action = 'auth.login' and actor_id = $1 and at > now() - ($2::int * interval '1 day')`,
+      [user.id, KNOWN_IP_DAYS],
+    )
+    isNew = seen.length > 0 && !seen.some((r) => ipPrefix(r.ip) === prefix)
+  }
+  await recordAudit(pool, req, { action: 'auth.login', actorId: user.id, actorEmail: user.email, detail: { ...detail, ...(isNew ? { newNetwork: true } : {}) } })
+  if (!isNew || mailer.mode === 'off') return
+  track(
+    (async () => {
+      const ua = String(req.headers['user-agent'] ?? '').slice(0, 150)
+      await mailer.send({
+        to: user.email,
+        subject: 'เข้าสู่ระบบจากเครือข่ายใหม่ — EV Monitor',
+        text:
+          `สวัสดี ${user.name}\n\n` +
+          `บัญชี ${user.email} เพิ่งเข้าสู่ระบบ EV Monitor จากเครือข่ายที่ไม่เคยใช้ใน ${KNOWN_IP_DAYS} วันที่ผ่านมา\n\n` +
+          `เวลา: ${THAI_TIME.format(new Date())} น.\nที่อยู่ IP: ${req.ip}${ua ? `\nอุปกรณ์/เบราว์เซอร์: ${ua}` : ''}\n\n` +
+          `หากเป็นคุณ ไม่ต้องทำอะไร (ระบบจะจำเครือข่ายนี้ไว้ ไม่แจ้งซ้ำ)\n` +
+          `หากไม่ใช่คุณ เปลี่ยนรหัสผ่านทันทีที่ ${config.appBaseUrl}/account (ทุกเครื่องจะถูกออกจากระบบ) และเปิดใช้ 2FA แล้วแจ้งผู้ดูแลระบบ`,
+      })
+      await recordAudit(pool, req, { action: 'auth.new_network_alert_sent', actorId: user.id, actorEmail: user.email })
+    })().catch((err) => req.log.error({ err }, 'new network alert failed')),
+  )
+}

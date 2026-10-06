@@ -12,7 +12,7 @@ import type { Mailer } from '../services/mailer'
 import { createLoginGuard } from '../lib/loginGuard'
 import * as tf from '../services/twofactor'
 import { recordAudit } from '../services/audit'
-import { alertOnFailedLogins } from '../services/loginAlert'
+import { alertOnFailedLogins, recordLoginAndMaybeAlert } from '../services/loginAlert'
 
 const BAD_LINK = 'ลิงก์คำเชิญไม่ถูกต้องหรือถูกใช้ไปแล้ว'
 const EXPIRED_LINK = 'ลิงก์คำเชิญหมดอายุแล้ว กรุณาขอลิงก์ใหม่จากผู้ดูแลระบบ'
@@ -115,7 +115,7 @@ export const authRoutes =
 
         const ttl = remember ? config.rememberTtlSeconds : config.sessionTtlSeconds
         setSession(reply, row, ttl, remember)
-        await recordAudit(pool, req, { action: 'auth.login', actorId: row.id, actorEmail: row.email })
+        await recordLoginAndMaybeAlert(pool, mail.mailer, mail.track, req, row)
         return { user: publicUser(row) }
       },
     )
@@ -150,7 +150,7 @@ export const authRoutes =
         if (!row) throw invalidCode()
         const ttl = ch.remember ? config.rememberTtlSeconds : config.sessionTtlSeconds
         setSession(reply, row, ttl, ch.remember)
-        await recordAudit(pool, req, { action: 'auth.login', actorId: row.id, actorEmail: row.email, detail: { twoFactor: true } })
+        await recordLoginAndMaybeAlert(pool, mail.mailer, mail.track, req, row, { twoFactor: true })
         return { user: publicUser(row) }
       },
     )
