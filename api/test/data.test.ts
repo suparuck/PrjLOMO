@@ -161,7 +161,9 @@ describe('อ่านข้อมูล: ตรงกับ mockup เดิม
     assert.ok(!('password_hash' in users[0]) && !('passwordHash' in users[0]), 'ห้ามส่ง hash ออกมา')
     const ig = await get('/integrations')
     assert.equal(ig.length, 6)
-    assert.equal(ig.filter((i: any) => i.connected).length, 3)
+    // LINE แสดงตามการตั้งค่า token จริง (ไม่ตั้ง = ไม่เชื่อมต่อ) จึงเหลือ 2: Telematics และ PEA
+    assert.equal(ig.filter((i: any) => i.connected).length, 2)
+    assert.equal(ig.find((i: any) => i.key === 'line').connected, false)
   })
 
   it('หน้าสาธารณะ: มีเฉพาะตัวเลขรวม ไม่ต้องล็อกอิน และไม่รั่วรายคัน', async () => {
