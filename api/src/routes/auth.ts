@@ -12,6 +12,7 @@ import type { Mailer } from '../services/mailer'
 import { createLoginGuard } from '../lib/loginGuard'
 import * as tf from '../services/twofactor'
 import { recordAudit } from '../services/audit'
+import { alertOnFailedLogins } from '../services/loginAlert'
 
 const BAD_LINK = 'ลิงก์คำเชิญไม่ถูกต้องหรือถูกใช้ไปแล้ว'
 const EXPIRED_LINK = 'ลิงก์คำเชิญหมดอายุแล้ว กรุณาขอลิงก์ใหม่จากผู้ดูแลระบบ'
@@ -104,6 +105,7 @@ export const authRoutes =
           // ไม่เช่นนั้นเวลาตอบที่เร็วกว่าบอกได้ว่าอีเมลนี้ไม่มีในระบบ
           const exists = await one(pool, "select 1 from users where lower(email) = lower($1) and status = 'active' and password_hash is not null", [email.trim()])
           if (!exists) await pool.query('select crypt($1, $2)', [password, DUMMY_HASH]).catch(() => undefined)
+          else mail.track(alertOnFailedLogins(pool, mail.mailer, req, { email: email.trim() }, 'password').catch((err) => req.log.error({ err }, 'login alert failed')))
           throw new AppError(401, 'invalid_credentials', 'อีเมลหรือรหัสผ่านไม่ถูกต้อง')
         }
         loginGuard.success(email)
@@ -136,6 +138,7 @@ export const authRoutes =
         if (!ok) {
           twoFaGuard.fail(ch.userId)
           await recordAudit(pool, req, { action: 'auth.2fa_failed', actorId: ch.userId })
+          mail.track(alertOnFailedLogins(pool, mail.mailer, req, { userId: ch.userId }, '2fa').catch((err) => req.log.error({ err }, 'login alert failed')))
           throw invalidCode()
         }
         twoFaGuard.success(ch.userId)
