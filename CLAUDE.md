@@ -12,6 +12,7 @@
 - อีเมลแจ้งเตือนเหตุการณ์: job เดียวกับ LINE (ตรวจทุก 15 วินาที, `api/src/services/emailNotify.ts`) ส่งให้ admin/manager ที่ active ฉบับเดียวต่อคนต่อรอบ (ระดับวิกฤต/เตือน) ผ่านตัวส่งอีเมลเดียวกับลืมรหัสผ่าน (ต้องตั้ง SMTP_URL) จอง `alerts.email_notified_at` กันซ้ำ ไม่แตะของที่มีก่อนเริ่มระบบ/เก่ากว่า 10 นาที เคารพสวิตช์ `notify.email`; ยังไม่มีการเลือกรับ/ไม่รับรายบุคคล และสวิตช์ `dailyDigest` ยังไม่ทำงาน
 - แก้ไขผู้ใช้ (admin): `PATCH /users/:id` เปลี่ยนชื่อ/บทบาท/เปิด-ปิดบัญชี (`users.status = disabled`) — ปิดแล้ว session หลุดทันที เข้าสู่ระบบ/ลืมรหัส/รีเซ็ตไม่ได้ เปิดใหม่ใช้รหัสเดิมได้; ห้ามเปลี่ยนบทบาท/ปิดบัญชีตัวเอง และต้องเหลือ admin ที่ใช้งานอยู่ ≥ 1 คน (ล็อกแถว admin ในทรานแซกชัน); ผู้ที่ยังไม่ตอบรับคำเชิญแก้ไม่ได้
 - เรียลไทม์: API มี `GET /stream` (SSE) ส่งเหตุการณ์ `change` (ไม่มีเนื้อข้อมูล) เมื่อมีคำขอแก้ข้อมูลสำเร็จหรือ job ตั้งรถออฟไลน์ → เว็บ (`LiveProvider`) สั่งให้หน้าที่ใช้ `useAsync(fn, deps, { live: true })` โหลดซ้ำเงียบ ๆ; ใช้ได้เฉพาะ API อินสแตนซ์เดียว (บัสอยู่ในหน่วยความจำ — ขยายหลายอินสแตนซ์ให้ย้ายไป Postgres LISTEN/NOTIFY)
+- ความปลอดภัย: อ่าน `SECURITY.md` ก่อนขึ้น production (ผลทบทวน สิ่งที่แก้แล้ว และรายการที่ต้องทำ: HTTPS, รหัสเดโม, สำรองฐานข้อมูล ฯลฯ); ล็อกอินจำกัดทั้งต่อ IP (30/นาที) และรายบัญชี (20 ผิด/15 นาที, `api/src/lib/loginGuard.ts`); `TRUST_PROXY_HOPS` (API) และ `TRUST_FORWARDED_FOR` (เว็บ) ต้องตั้งให้ตรงกับโครงสร้างพร็อกซีจริง
 - การเปลี่ยน schema: แก้ `db/init/01_schema.sql` (ติดตั้งใหม่) **และ** เพิ่มไฟล์ใน `db/migrations/` (ฐานข้อมูลที่รันอยู่) — init รันเฉพาะตอน volume ว่าง
 - รัน: `cp .env.example .env` (ตั้ง POSTGRES_PASSWORD, AUTH_SECRET) แล้ว `docker compose up --build -d` · ทดสอบ API: `cd api && npm test` (ดูวิธีตั้งค่าใน api/README.md)
 - กฎซ้ำสองที่ที่ต้องแก้คู่กัน: validators ใน `app/src/lib/validators.ts` ↔ `api/src/lib/validators.ts`; AUTH_SECRET ต้องเหมือนกันทั้ง api และ web
@@ -24,7 +25,7 @@
 - รูปแบบข้อมูลและข้อมูลตัวอย่าง: `design/prototype/data.js`
 
 ## Stack ที่ใช้จริง (ผู้ใช้สั่งเปลี่ยนจาก Vite เป็น Next.js)
-- Next.js 14 (App Router) + React 18 + TypeScript
+- Next.js 16 (App Router) + React 19 + TypeScript (อัปเกรดจาก 14 เพื่อปิดช่องโหว่ — ดู `SECURITY.md`); ตัวกรองคำขอคือ `app/src/proxy.ts` (เดิมชื่อ middleware) ซึ่งตรวจ session และเก็บกวาด `X-Forwarded-For` ก่อนส่งต่อ API; lint ใช้ ESLint 9 flat config (`app/eslint.config.mjs`, `npm run lint` = `eslint src`)
 - กราฟ: Chart.js + react-chartjs-2 · แผนที่: Leaflet + react-leaflet (tiles: OpenStreetMap — CARTO ต้องใช้ API key)
 - สไตล์: `app/src/styles/tokens.css` (ตัวแปรทั้งหมด รวมสี/ขนาดฟอนต์ที่แตกออกจากต้นแบบ) + `global.css` (คลาสจากต้นแบบ) — **ไม่ใช้ Tailwind** เว้นแต่ผู้ใช้ขอ; ห้ามใส่ค่า hex/rgba/font-size ดิบนอก `tokens.css`
 - ข้อมูล: `app/src/api/` เรียก API จริง (http.ts) แล้วแปลง DTO เป็นรูปที่หน้าเว็บใช้ (mappers.ts) · Backend: Fastify 5 + PostgreSQL 16 (ดู api/README.md)

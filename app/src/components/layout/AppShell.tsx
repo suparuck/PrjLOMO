@@ -60,7 +60,8 @@ function Shell({ children }: { children: ReactNode }) {
               <footer className="app-foot">
                 <span>
                   <i className={`live-dot${connected ? ' on' : ''}`} aria-hidden="true" />
-                  {connected ? 'เรียลไทม์' : 'ออฟไลน์'} · อัปเดตล่าสุด {updatedAt.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit' })} น.
+                  {connected ? 'เรียลไทม์' : 'ออฟไลน์'}
+                  {updatedAt && ` · อัปเดตล่าสุด ${updatedAt.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit' })} น.`}
                 </span>
                 <span>© 2026 EV Monitor Dashboard</span>
               </footer>

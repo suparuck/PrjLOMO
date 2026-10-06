@@ -23,7 +23,10 @@ export function useAsync<T>(fn: () => Promise<T>, deps: unknown[] = [], opts: { 
   const { version } = useLive()
   const seen = useRef(version)
   const latest = useRef(fn)
-  latest.current = fn
+  // อัปเดตใน effect (ไม่เขียน ref ระหว่าง render) ให้การโหลดซ้ำแบบเรียลไทม์ใช้ฟังก์ชันล่าสุดเสมอ
+  useEffect(() => {
+    latest.current = fn
+  })
   useEffect(() => {
     if (!opts.live || version === seen.current) return
     seen.current = version

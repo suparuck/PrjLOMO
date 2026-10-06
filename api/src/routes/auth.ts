@@ -9,6 +9,7 @@ import { one, withTx } from '../db'
 import { AppError, invalid } from '../errors'
 import { checkDisplayName, checkPassword, type UserRole } from '../lib/validators'
 import type { Mailer } from '../services/mailer'
+import { createLoginGuard } from '../lib/loginGuard'
 
 const BAD_LINK = 'ลิงก์คำเชิญไม่ถูกต้องหรือถูกใช้ไปแล้ว'
 const EXPIRED_LINK = 'ลิงก์คำเชิญหมดอายุแล้ว กรุณาขอลิงก์ใหม่จากผู้ดูแลระบบ'
@@ -50,14 +51,20 @@ export interface MailContext {
   track(p: Promise<unknown>): void
 }
 
+/** bcrypt ปลอมสำหรับเทียบเวลา — ใช้เมื่อไม่พบบัญชี เพื่อให้ตอบช้าพอ ๆ กับกรณีรหัสผิด (ไม่ให้เดาได้ว่ามีอีเมลนี้) */
+const DUMMY_HASH = '$2a$10$7EqJtq98hPqEX7fNZaFWoOhi5BUyLEbLp4c1YQ9o9xYqEoK4gqzL2'
+
 export const authRoutes =
   (pool: Pool, mail: MailContext): FastifyPluginAsyncTypebox =>
   async (app) => {
+    const loginGuard = createLoginGuard()
+
     app.post(
       '/auth/login',
       {
-        // จำกัดการเดารหัสผ่าน: 10 ครั้ง/นาที/IP
-        config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
+        // จำกัดการเดารหัสผ่านต่อ IP: 30 ครั้ง/นาที (เปิดเว็บตรงโดยไม่มี reverse proxy ทุกผู้ใช้จะมี IP เดียวกันในสายตา API
+        // จึงไม่ตั้งต่ำเกินไป) — ตัวป้องกันหลักคือการจำกัดรายบัญชีด้านล่าง (loginGuard) ซึ่งไม่ขึ้นกับ IP
+        config: { rateLimit: { max: 30, timeWindow: '1 minute' } },
         schema: {
           tags: ['auth'],
           summary: 'เข้าสู่ระบบ (ตั้ง session cookie)',
@@ -70,6 +77,8 @@ export const authRoutes =
       },
       async (req, reply) => {
         const { email, password, remember } = req.body
+        // เดาผิดรายบัญชีเกินเพดาน (จาก IP ใดก็ตาม) → ปฏิเสธชั่วคราวก่อนแตะฐานข้อมูล
+        if (loginGuard.blocked(email)) throw new AppError(429, 'rate_limited', 'พยายามเข้าสู่ระบบผิดหลายครั้งเกินไป กรุณารอสักครู่แล้วลองใหม่')
         // ตรวจรหัสผ่านด้วย bcrypt ในฐานข้อมูล (pgcrypto) และบันทึกเวลาเข้าใช้ในคำสั่งเดียว
         const row = await one<SessionRow>(
           pool,
@@ -78,7 +87,15 @@ export const authRoutes =
             returning id, email, name, role, session_version as sv`,
           [email.trim(), password],
         )
-        if (!row) throw new AppError(401, 'invalid_credentials', 'อีเมลหรือรหัสผ่านไม่ถูกต้อง')
+        if (!row) {
+          loginGuard.fail(email)
+          // ไม่มีบัญชีนี้ที่ใช้งานอยู่: ยังต้องเสียเวลา bcrypt เท่ากับกรณีรหัสผิด (ซึ่ง UPDATE ข้างบนทำ bcrypt ไปแล้วหนึ่งครั้ง)
+          // ไม่เช่นนั้นเวลาตอบที่เร็วกว่าบอกได้ว่าอีเมลนี้ไม่มีในระบบ
+          const exists = await one(pool, "select 1 from users where lower(email) = lower($1) and status = 'active' and password_hash is not null", [email.trim()])
+          if (!exists) await pool.query('select crypt($1, $2)', [password, DUMMY_HASH]).catch(() => undefined)
+          throw new AppError(401, 'invalid_credentials', 'อีเมลหรือรหัสผ่านไม่ถูกต้อง')
+        }
+        loginGuard.success(email)
 
         const ttl = remember ? config.rememberTtlSeconds : config.sessionTtlSeconds
         setSession(reply, row, ttl, remember)

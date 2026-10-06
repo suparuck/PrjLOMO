@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useRef } from 'react'
+import { useLayoutEffect, useMemo, useRef } from 'react'
 import { Bar } from 'react-chartjs-2'
 import type { Plugin } from 'chart.js'
 import { chartColors, setupChart } from '@/lib/chartSetup'
@@ -12,7 +12,10 @@ export function BatteryBars({ vehicles, metric }: { vehicles: Vehicle[]; metric:
   setupChart()
   const c = chartColors()
   const metricRef = useRef(metric)
-  metricRef.current = metric
+  // ปลั๊กอินของกราฟอ่านค่าล่าสุดผ่าน ref — อัปเดตใน layout effect (ไม่เขียน ref ระหว่าง render และเสร็จก่อน effect ที่ทำให้กราฟวาดใหม่)
+  useLayoutEffect(() => {
+    metricRef.current = metric
+  })
 
   const threshold = useMemo<Plugin<'bar'>>(
     () => ({

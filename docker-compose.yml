@@ -25,6 +25,8 @@ services:
       AUTH_SECRET: ${AUTH_SECRET:?กำหนด AUTH_SECRET ในไฟล์ .env (ดู .env.example)}
       INGEST_API_KEY: ${INGEST_API_KEY:-}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      # จำนวนพร็อกซีที่เชื่อถือหน้า API (เว็บ = 1) — ห้ามเชื่อ X-Forwarded-For ที่ผู้เรียกใส่เอง (ดู SECURITY.md)
+      TRUST_PROXY_HOPS: ${TRUST_PROXY_HOPS:-1}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       # job ตรวจรถออฟไลน์ทำงานทุกกี่วินาที (0 = ปิด)
       OFFLINE_CHECK_INTERVAL_SECONDS: ${OFFLINE_CHECK_INTERVAL_SECONDS:-60}
@@ -54,6 +56,8 @@ services:
     environment:
       API_INTERNAL_URL: http://api:4000
       AUTH_SECRET: ${AUTH_SECRET:?กำหนด AUTH_SECRET ในไฟล์ .env (ดู .env.example)}
+      # true เมื่อมี reverse proxy ของเราอยู่หน้าเว็บและตั้ง X-Forwarded-For เอง (ดู app/src/proxy.ts) — เปิดพอร์ตเว็บตรงให้เป็น false
+      TRUST_FORWARDED_FOR: ${TRUST_FORWARDED_FOR:-false}
     depends_on:
       api:
         condition: service_healthy

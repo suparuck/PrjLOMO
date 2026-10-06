@@ -7,6 +7,8 @@ function required(name: string): string {
 
 const authSecret = required('AUTH_SECRET')
 if (authSecret.length < 16) throw new Error('AUTH_SECRET ต้องยาวอย่างน้อย 16 ตัวอักษร')
+// production: ใช้เซ็น session ของทุกคน — สั้นเกินไปเดาได้ (สุ่มด้วย: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")
+if (process.env.NODE_ENV === 'production' && authSecret.length < 32) throw new Error('AUTH_SECRET ใน production ต้องยาวอย่างน้อย 32 ตัวอักษร')
 
 export const config = {
   env: process.env.NODE_ENV ?? 'development',
@@ -31,6 +33,12 @@ export const config = {
   /** LINE Messaging API (push) — ต้องตั้งทั้งสองค่าจึงจะเปิดใช้; ไม่ตั้ง = ไม่ส่ง */
   lineToken: process.env.LINE_CHANNEL_ACCESS_TOKEN || undefined,
   lineTo: process.env.LINE_TO || undefined,
+  /**
+   * จำนวนพร็อกซีที่เชื่อถือหน้า API (เว็บ Next.js = 1) — ใช้หา IP ผู้เรียกจริงสำหรับ rate limit
+   * ห้ามเป็น true (เชื่อทุกชั้น): ผู้โจมตีใส่ X-Forwarded-For ปลอมแล้วหลบการจำกัดการเดารหัสผ่านได้
+   * ถ้ามี reverse proxy/load balancer เพิ่มหน้าเว็บ ให้ตั้งเป็นจำนวนชั้นรวม · API ที่เปิดตรงสู่ภายนอกให้ตั้ง 0
+   */
+  trustProxyHops: Number(process.env.TRUST_PROXY_HOPS ?? 1),
   sessionCookie: 'ev_session',
   sessionTtlSeconds: 12 * 60 * 60,
   rememberTtlSeconds: 30 * 24 * 60 * 60,

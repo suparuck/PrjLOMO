@@ -35,8 +35,16 @@ export type App = FastifyInstance<any, any, any, any, TypeBoxTypeProvider>
 
 export async function buildApp(pool: Pool, opts: { logger?: boolean; rateLimit?: boolean; mailer?: Mailer; line?: LineClient } = {}) {
   const app = Fastify({
-    logger: opts.logger === false ? false : { level: config.logLevel },
-    trustProxy: true, // อยู่หลังพร็อกซีของเว็บ — ใช้ IP จริงสำหรับ rate limit
+    // บันทึก IP ที่ระบบใช้จริง (หลังตัดพร็อกซีที่เชื่อถือ) ไม่ใช่แค่ IP ซ็อกเก็ตของพร็อกซี — ใช้ตรวจสอบ/ไล่เหตุได้
+    logger:
+      opts.logger === false
+        ? false
+        : {
+            level: config.logLevel,
+            serializers: { req: (req) => ({ method: req.method, url: req.url, host: req.host, ip: req.ip, remoteAddress: req.socket?.remoteAddress }) },
+          },
+    // เชื่อเฉพาะพร็อกซีของเราตามจำนวนชั้น (hop < N) — ไม่เชื่อ X-Forwarded-For ที่ผู้เรียกใส่เอง (0 = ไม่เชื่อเลย ใช้ IP ของซ็อกเก็ต)
+    trustProxy: config.trustProxyHops > 0 ? (_addr: string, hop: number) => hop < config.trustProxyHops : false,
     ajv: { customOptions: { removeAdditional: true, coerceTypes: true, useDefaults: true, allErrors: true } },
   }).withTypeProvider<TypeBoxTypeProvider>()
 
@@ -62,6 +70,13 @@ export async function buildApp(pool: Pool, opts: { logger?: boolean; rateLimit?:
   app.addHook('onResponse', async (req, reply) => {
     if (['GET', 'HEAD', 'OPTIONS'].includes(req.method) || reply.statusCode >= 400 || req.url.includes('/auth/')) return
     publishChange()
+  })
+
+  // ส่วนหัวความปลอดภัยพื้นฐานของ API (ตอบเป็น JSON/ไฟล์เท่านั้น): กันเดาชนิดเนื้อหา, ไม่ส่ง Referer, ข้อมูลส่วนตัวไม่ถูกแคช
+  app.addHook('onSend', async (req, reply) => {
+    reply.header('X-Content-Type-Options', 'nosniff')
+    reply.header('Referrer-Policy', 'no-referrer')
+    if (!req.url.startsWith('/docs') && !reply.hasHeader('cache-control')) reply.header('Cache-Control', 'no-store')
   })
 
   await app.register(cookie)
