@@ -67,6 +67,9 @@ services:
     profiles: ["demo"]
     image: ev-monitor-api:latest
     command: ["node", "dist/simulate.js"]
+    # ใช้อิมเมจเดียวกับ API ซึ่งมี HEALTHCHECK ยิง :4000/healthz แต่ตัวจำลองไม่ได้เปิดพอร์ต จึงขึ้น unhealthy ตลอด — ปิดไว้
+    healthcheck:
+      disable: true
     environment:
       DATABASE_URL: postgres://evm:${POSTGRES_PASSWORD}@db:5432/evmonitor
       API_URL: http://api:4000
