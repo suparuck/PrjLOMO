@@ -10,6 +10,12 @@ if (authSecret.length < 16) throw new Error('AUTH_SECRET ต้องยาว�
 // production: ใช้เซ็น session ของทุกคน — สั้นเกินไปเดาได้ (สุ่มด้วย: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")
 if (process.env.NODE_ENV === 'production' && authSecret.length < 32) throw new Error('AUTH_SECRET ใน production ต้องยาวอย่างน้อย 32 ตัวอักษร')
 
+/** ชั่วโมง 0–19 (ค่า 0 ใช้ได้ — ห้ามใช้ `|| ค่าเริ่มต้น` เพราะ 0 เป็น falsy) ค่าที่ไม่ใช่ตัวเลข → ค่าเริ่มต้น */
+export function parseHour(raw: string | undefined, fallback: number): number {
+  const n = raw === undefined || raw.trim() === '' ? NaN : Number(raw)
+  return Number.isFinite(n) ? Math.min(19, Math.max(0, Math.trunc(n))) : fallback
+}
+
 export const config = {
   env: process.env.NODE_ENV ?? 'development',
   port: Number(process.env.PORT ?? 4000),
@@ -24,7 +30,7 @@ export const config = {
   // เก็บบันทึกกิจกรรม (audit log) กี่วัน (ค่าเริ่มต้น 365; ต่ำกว่า 30 ไม่รับ)
   auditKeepDays: Math.max(30, Number(process.env.AUDIT_KEEP_DAYS ?? 365) || 365),
   // ชั่วโมง (เวลาไทย 0–19) ที่ส่งสรุปรายวันทางอีเมล
-  digestHourTh: Math.min(19, Math.max(0, Number(process.env.DIGEST_HOUR_TH ?? 8) || 8)),
+  digestHourTh: parseHour(process.env.DIGEST_HOUR_TH, 8),
   offlineCheckIntervalSeconds: Number(process.env.OFFLINE_CHECK_INTERVAL_SECONDS ?? 60),
   inviteTtlDays: 7,
   resetTtlMinutes: 60,

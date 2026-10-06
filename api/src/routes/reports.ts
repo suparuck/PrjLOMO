@@ -11,6 +11,7 @@ import { computeElectrification, computeReport, loadConfig } from '../services/r
 
 import { sec } from '../security'
 import { XLSX_TYPE, buildEsgXlsx, buildReportXlsx } from '../services/reportXlsx'
+import { thaiDate } from '../lib/schedule'
 const round = (n: number, d = 0) => Math.round(n * 10 ** d) / 10 ** d
 
 export const reportRoutes =
@@ -55,7 +56,7 @@ export const reportRoutes =
       async (req, reply) => {
         const { kind = 'report', period = 'year', brand = 'all' } = req.query
         const buf = kind === 'esg' ? await buildEsgXlsx(pool, period, brand) : await buildReportXlsx(pool, period, brand)
-        const name = `ev-monitor-${kind}-${new Date().toISOString().slice(0, 10)}.xlsx`
+        const name = `ev-monitor-${kind}-${thaiDate()}.xlsx`
         return reply
           .header('Content-Type', XLSX_TYPE)
           .header('Content-Disposition', `attachment; filename="${name}"`)

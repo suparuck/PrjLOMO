@@ -104,4 +104,19 @@ describe('job ตรวจรถออฟไลน์', () => {
     stop()
     assert.match(logs[0], /disabled/)
   })
+
+  it('งานหนึ่งพัง (เช่น ฐานข้อมูลขาดคอลัมน์ของสรุปรายวัน) ไม่ทำให้ตรวจรถออฟไลน์หยุดตามไปด้วย', async () => {
+    await t.pool.query('alter table app_settings drop column digest_last_date')
+    await silent('EV-006', 90)
+    const errors: string[] = []
+    const mailer = { mode: 'log' as const, async send() {} }
+    const stop = startJobs(t.pool, { info: () => undefined, error: (o, m) => errors.push(`${(o as { job?: string }).job}: ${m}`) }, 3600, mailer)
+    try {
+      await new Promise((r) => setTimeout(r, 700))
+    } finally {
+      stop()
+    }
+    assert.ok(errors.some((e) => e.startsWith('daily digest')), 'ต้องรายงานว่าสรุปรายวันพัง')
+    assert.equal(await status('EV-006'), 'offline')
+  })
 })

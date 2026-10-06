@@ -1,7 +1,7 @@
 import './env'
 import { after, before, describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { nextRun } from '../src/lib/schedule'
+import { nextRun, thaiDate } from '../src/lib/schedule'
 import { runDueSchedules } from '../src/services/reportMail'
 import { json, login, startApp } from './helpers'
 
@@ -122,5 +122,13 @@ describe('ตั้งเวลาส่งรายงาน (API + job)', () =
     assert.deepEqual([json(put).frequency, json(put).weekday, json(put).monthDay, json(put).enabled], ['monthly', null, 15, false])
     assert.equal((await call('DELETE', `/report-schedules/${created.id}`)).statusCode, 200)
     assert.equal((await call('DELETE', `/report-schedules/${created.id}`)).statusCode, 404)
+  })
+})
+
+describe('วันที่เวลาไทย (ชื่อไฟล์)', () => {
+  it('thaiDate: 00:00–07:00 น. ไทยเป็นวันถัดจากวัน UTC', () => {
+    assert.equal(thaiDate(new Date('2026-10-06T18:00:00Z')), '2026-10-07')
+    assert.equal(thaiDate(new Date('2026-10-06T16:59:59Z')), '2026-10-06')
+    assert.equal(thaiDate(new Date('2026-12-31T17:00:00Z')), '2027-01-01')
   })
 })

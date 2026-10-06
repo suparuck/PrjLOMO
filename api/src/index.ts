@@ -3,6 +3,7 @@ import { config } from './config'
 import { createPool, one } from './db'
 import { hashKey } from './auth'
 import { startJobs } from './services/jobs'
+import { missingMigrations } from './services/schemaCheck'
 import { findDefaultPasswordUsers } from './services/accounts'
 
 async function main() {
@@ -32,6 +33,18 @@ async function main() {
     }
   } catch (err) {
     app.log.error({ err }, 'ตรวจผู้ดูแลระบบไม่สำเร็จ')
+  }
+  // ฐานข้อมูลเก่าที่ยังไม่รัน migration: เตือนดัง ๆ ตั้งแต่เริ่ม (ไม่รอให้ฟีเจอร์พังตอนมีคนใช้)
+  try {
+    const missing = await missingMigrations(pool)
+    if (missing.length) {
+      app.log.error(
+        { missing },
+        `ฐานข้อมูลยังขาด migration: ${missing.join(', ')} — ฟีเจอร์ที่เกี่ยวข้องจะพัง รันด้วย: docker compose exec -T db psql -U evm -d evmonitor -v ON_ERROR_STOP=1 < db/migrations/<ไฟล์> (ดู db/README.md)`,
+      )
+    }
+  } catch (err) {
+    app.log.error({ err }, 'ตรวจโครงสร้างฐานข้อมูลไม่สำเร็จ')
   }
   // เตือนเมื่อมีบัญชีที่ยังใช้รหัสผ่านตั้งต้น (ข้อมูลเดโม) — production ควรเปลี่ยน/ปิดก่อนเปิดให้ผู้ใช้จริง
   try {

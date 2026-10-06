@@ -25,3 +25,8 @@ export function nextRun(rule: ScheduleRule, after: Date): Date {
   }
   throw new Error('คำนวณเวลาส่งถัดไปไม่ได้') // ไม่ควรเกิด: กฎที่ผ่านการตรวจมีวันตรงภายใน 62 วันเสมอ
 }
+
+/** วันที่ตามเวลาไทย 'YYYY-MM-DD' (ชื่อไฟล์/ข้อความที่ผู้ใช้เห็นต้องไม่ใช้วันที่ UTC — ช่วง 00:00–07:00 น. ไทยจะเป็นวันก่อนหน้า) */
+export function thaiDate(now: Date = new Date()): string {
+  return new Date(now.getTime() + TH_OFFSET_MS).toISOString().slice(0, 10)
+}

@@ -90,3 +90,16 @@ describe('สรุปรายวัน: กองยานว่างเป�
     }
   })
 })
+
+describe('ค่า DIGEST_HOUR_TH', () => {
+  it('0 ใช้ได้ (ไม่ถูกแทนด้วยค่าเริ่มต้น), ว่าง/ไม่ใช่ตัวเลขใช้ค่าเริ่มต้น, เกินช่วงถูกบีบ', async () => {
+    const { parseHour } = await import('../src/config')
+    assert.equal(parseHour('0', 8), 0)
+    assert.equal(parseHour('6', 8), 6)
+    assert.equal(parseHour(undefined, 8), 8)
+    assert.equal(parseHour('', 8), 8)
+    assert.equal(parseHour('abc', 8), 8)
+    assert.equal(parseHour('25', 8), 19)
+    assert.equal(parseHour('-3', 8), 0)
+  })
+})

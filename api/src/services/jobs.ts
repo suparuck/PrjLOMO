@@ -55,27 +55,38 @@ export function startJobs(pool: Pool, log: Logger, intervalSeconds: number, mail
     return () => undefined
   }
   let lastPurge = 0
-  const tick = async () => {
+  // แต่ละงานแยกกัน: งานใดงานหนึ่งพัง (เช่น ฐานข้อมูลขาด migration, SMTP ล่ม) ต้องไม่ทำให้งานอื่น — โดยเฉพาะตรวจรถออฟไลน์ — หยุดไปด้วย
+  const step = async (name: string, fn: () => Promise<void>) => {
     try {
-      if (Date.now() - lastPurge > 24 * 3600_000) {
-        lastPurge = Date.now()
-        const n = await purgeAudit(pool, config.auditKeepDays)
-        if (n) log.info({ deleted: n }, 'audit log: purged old entries')
-      }
-      if (mailer) {
+      await fn()
+    } catch (err) {
+      log.error({ err, job: name }, `background job failed: ${name}`)
+    }
+  }
+  const tick = async () => {
+    await step('audit purge', async () => {
+      if (Date.now() - lastPurge <= 24 * 3600_000) return
+      lastPurge = Date.now()
+      const n = await purgeAudit(pool, config.auditKeepDays)
+      if (n) log.info({ deleted: n }, 'audit log: purged old entries')
+    })
+    if (mailer) {
+      await step('daily digest', async () => {
         const dg = await runDailyDigest(pool, mailer)
         if (dg.sent || dg.skipped === 'failed') log.info(dg, 'daily digest')
+      })
+      await step('report schedules', async () => {
         const s = await runDueSchedules(pool, mailer)
         if (s.sent.length || s.failed.length) log.info(s, 'report schedules: ran due schedules')
-      }
+      })
+    }
+    await step('offline check', async () => {
       const r = await runOfflineCheck(pool)
       if (r.marked.length) {
         log.info({ marked: r.marked }, 'offline check: vehicles marked offline')
         publishChange()
       }
-    } catch (err) {
-      log.error({ err }, 'offline check failed')
-    }
+    })
   }
   void tick()
   const timer = setInterval(() => void tick(), intervalSeconds * 1000)

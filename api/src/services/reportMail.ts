@@ -5,6 +5,7 @@ import { nextRun, type Frequency } from '../lib/schedule'
 import type { Mailer } from './mailer'
 import { computeReport, type ReportPeriod } from './report'
 import { PERIOD_LABEL, XLSX_TYPE, buildReportXlsx } from './reportXlsx'
+import { thaiDate } from '../lib/schedule'
 
 export interface ScheduleRow {
   id: string
@@ -49,7 +50,7 @@ async function deliver(pool: Pool, mailer: Mailer, s: ScheduleRow): Promise<{ ok
     // แนบ Excel ฉบับเต็ม — สร้างไม่ได้ก็ยังส่งอีเมลสรุปตามปกติ (ผู้รับยังเข้าลิงก์ในอีเมลได้)
     let attachments: NonNullable<Parameters<Mailer['send']>[0]['attachments']> | undefined
     try {
-      const date = new Date().toISOString().slice(0, 10)
+      const date = thaiDate()
       attachments = [{ filename: `ev-monitor-report-${date}.xlsx`, content: await buildReportXlsx(pool, s.period, s.brand), contentType: XLSX_TYPE }]
     } catch (err) {
       console.error('[report] สร้างไฟล์ Excel แนบไม่สำเร็จ:', err instanceof Error ? err.message : err)
