@@ -58,7 +58,7 @@ export function InviteUserModal({ users, onClose, onDone }: { users: AppUser[]; 
       >
         <InviteLinkPanel email={created.user.email} token={created.token} expiresAt={created.expiresAt} />
         <p className="small muted" style={{ marginTop: 12 }}>
-          ระบบยังไม่ส่งอีเมลให้อัตโนมัติ — หากทำลิงก์หาย สร้างลิงก์ใหม่ได้จากรายชื่อผู้ใช้ (ลิงก์เดิมจะใช้ไม่ได้)
+          {created.emailed ? `ส่งอีเมลคำเชิญไปที่ ${created.user.email} แล้ว (ส่งลิงก์ด้านบนเองซ้ำได้) — ` : 'ยังไม่ได้ตั้งค่าอีเมลในระบบ จึงไม่ได้ส่งให้อัตโนมัติ — '}หากทำลิงก์หาย สร้างลิงก์ใหม่ได้จากรายชื่อผู้ใช้ (ลิงก์เดิมจะใช้ไม่ได้)
         </p>
       </Modal>
     )

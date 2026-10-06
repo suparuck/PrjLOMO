@@ -104,7 +104,7 @@ export function user(u: D.UserDTO, now = new Date()): AppUser {
   }
 }
 
-export const invite = (d: D.InviteDTO): InviteResult => ({ user: user(d), token: d.inviteToken, expiresAt: d.inviteExpiresAt })
+export const invite = (d: D.InviteDTO): InviteResult => ({ user: user(d), token: d.inviteToken, expiresAt: d.inviteExpiresAt, emailed: d.emailed })
 
 export const integration = (i: D.IntegrationDTO): Integration => ({
   key: i.key,

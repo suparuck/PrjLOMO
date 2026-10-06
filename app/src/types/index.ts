@@ -252,6 +252,8 @@ export interface InviteResult {
   user: AppUser
   token: string
   expiresAt: string
+  /** ระบบส่งอีเมลคำเชิญให้แล้ว */
+  emailed: boolean
 }
 
 export interface ResetInfo {

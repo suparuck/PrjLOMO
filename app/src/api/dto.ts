@@ -86,6 +86,8 @@ export interface UserDTO {
 export interface InviteDTO extends UserDTO {
   inviteToken: string
   inviteExpiresAt: string
+  /** true = ระบบส่งอีเมลคำเชิญให้แล้ว */
+  emailed: boolean
 }
 
 export interface IntegrationDTO {

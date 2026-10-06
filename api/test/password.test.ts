@@ -154,4 +154,18 @@ describe('เปลี่ยนรหัสผ่าน / ลืมรหัส�
     await t.pool.query(`delete from users where id = $1`, [id])
     assert.equal((await me(h)).statusCode, 401, 'บัญชีถูกลบ → 401')
   })
+
+  it('เชิญผู้ใช้: ส่งอีเมลคำเชิญให้อัตโนมัติ (emailed=true) และลิงก์ในอีเมลใช้ตอบรับได้', async () => {
+    t.mail.length = 0
+    const inv = json(await post('/users/invite', { email: 'mail1@company.co.th', role: 'viewer' }, admin))
+    assert.equal(inv.emailed, true)
+    assert.equal(t.mail.length, 1)
+    assert.equal(t.mail[0].to, 'mail1@company.co.th')
+    const tok = t.mail[0].text.match(/\/invite\/([\w-]+)/)![1]
+    assert.equal(tok, inv.inviteToken)
+    const again = json(await post(`/users/${inv.id}/invite-link`, {}, admin))
+    assert.equal(again.emailed, true)
+    assert.equal(t.mail.length, 2)
+    assert.equal((await post('/auth/invite/accept', { token: again.inviteToken, password: 'Passw0rdOK' })).statusCode, 200)
+  })
 })

@@ -7,7 +7,7 @@ import { config } from '../config'
 import { one, rows } from '../db'
 import { AppError, conflict, invalid, notFound } from '../errors'
 import { checkEmail } from '../lib/validators'
-import { newResetToken } from './auth'
+import { newResetToken, type MailContext } from './auth'
 
 import { sec } from '../security'
 const Money = Type.String({ pattern: '^\\d{1,4}(\\.\\d{1,2})?$' })
@@ -45,6 +45,29 @@ function newInvite() {
   return { token, hash: hashKey(token) }
 }
 
+/** ส่งอีเมลคำเชิญ (ถ้าตั้งค่าอีเมลไว้) — ล้มเหลวไม่ทำให้การเชิญล้ม ผู้ดูแลยังส่งลิงก์เองได้ */
+async function sendInviteMail(mail: MailContext, log: { error: (o: object, m: string) => void }, to: string, token: string) {
+  if (mail.mailer.mode === 'off') return false
+  try {
+    await mail.mailer.send({
+      to,
+      subject: 'คำเชิญเข้าใช้งาน EV Monitor',
+      text:
+        `คุณได้รับเชิญให้เข้าใช้งาน EV Monitor
+
+คลิกลิงก์ด้านล่างเพื่อตั้งรหัสผ่านและเปิดใช้บัญชี (ใช้ได้ครั้งเดียว ภายใน ${config.inviteTtlDays} วัน):
+
+` +
+        `${config.appBaseUrl}/invite/${token}
+`,
+    })
+    return true
+  } catch (err) {
+    log.error({ err }, 'send invite mail failed')
+    return false
+  }
+}
+
 /** ไม่พบผู้ใช้ → 404, พบแต่ตอบรับแล้ว → 409 */
 async function missingOrActive(pool: Pool, id: string) {
   const exists = await one(pool, 'select 1 from users where id = $1', [id])
@@ -54,7 +77,7 @@ async function missingOrActive(pool: Pool, id: string) {
 const SETTINGS_SQL = `select org, thresholds, notify, charging from app_settings where id = 1`
 
 export const settingsRoutes =
-  (pool: Pool): FastifyPluginAsyncTypebox =>
+  (pool: Pool, mail: MailContext): FastifyPluginAsyncTypebox =>
   async (app) => {
     const viewer = requireRole(pool, 'viewer')
     const mgr = requireRole(pool, 'manager')
@@ -126,7 +149,8 @@ export const settingsRoutes =
            returning ${USER_COLS}, invite_expires_at as "inviteExpiresAt"`,
           [email, req.body.role, inv.hash, config.inviteTtlDays],
         )
-        return reply.status(201).send({ ...u, inviteToken: inv.token })
+        const emailed = await sendInviteMail(mail, req.log, email, inv.token)
+        return reply.status(201).send({ ...u, inviteToken: inv.token, emailed })
       },
     )
 
@@ -146,7 +170,8 @@ export const settingsRoutes =
           [req.params.id, inv.hash, config.inviteTtlDays],
         )
         if (!u) throw await missingOrActive(pool, req.params.id)
-        return { ...u, inviteToken: inv.token }
+        const emailed = await sendInviteMail(mail, req.log, (u as { email: string }).email, inv.token)
+        return { ...u, inviteToken: inv.token, emailed }
       },
     )
 

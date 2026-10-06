@@ -118,7 +118,7 @@ export async function buildApp(pool: Pool, opts: { logger?: boolean; rateLimit?:
       await v1.register(chargingRoutes(pool))
       await v1.register(alertRoutes(pool))
       await v1.register(reportRoutes(pool))
-      await v1.register(settingsRoutes(pool))
+      await v1.register(settingsRoutes(pool, { mailer, track }))
       await v1.register(publicRoutes(pool))
       await v1.register(ingestRoutes(pool))
     },
