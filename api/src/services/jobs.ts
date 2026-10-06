@@ -5,6 +5,7 @@ import type { Mailer } from './mailer'
 import { runDueSchedules } from './reportMail'
 import type { LineClient } from './line'
 import { currentAlertFloor, runLineNotify } from './lineNotify'
+import { runEmailNotify } from './emailNotify'
 import { createAlert, enabledRules, hasOpenAlert, loadThresholds } from './ops'
 
 /** ล็อกระดับฐานข้อมูล: ถ้ามี API หลายอินสแตนซ์ จะมีเพียงหนึ่งตัวที่ตรวจในแต่ละรอบ */
@@ -69,18 +70,23 @@ export function startJobs(pool: Pool, log: Logger, intervalSeconds: number, mail
   const timer = setInterval(() => void tick(), intervalSeconds * 1000)
   timer.unref() // ไม่ให้ timer ค้าง process ตอนปิดระบบ
 
-  // ส่งแจ้งเตือนใหม่เข้า LINE: ตรวจถี่กว่า (15 วินาที) เพื่อให้ถึงมือเร็ว; ไม่แตะแจ้งเตือนที่มีอยู่ก่อนเริ่มระบบ
-  let lineTimer: ReturnType<typeof setInterval> | undefined
-  if (line?.configured) {
+  // ส่งแจ้งเตือนใหม่เข้า LINE/อีเมล: ตรวจถี่กว่า (15 วินาที) เพื่อให้ถึงมือเร็ว; ไม่แตะแจ้งเตือนที่มีอยู่ก่อนเริ่มระบบ
+  let notifyTimer: ReturnType<typeof setInterval> | undefined
+  let stopped = false
+  const emailOn = !!mailer && mailer.mode !== 'off'
+  if (line?.configured || emailOn) {
     void currentAlertFloor(pool).then((floor) => {
-      lineTimer = setInterval(() => {
-        runLineNotify(pool, line, floor).catch((err) => log.error({ err }, 'line notify failed'))
+      if (stopped) return
+      notifyTimer = setInterval(() => {
+        if (line?.configured) runLineNotify(pool, line, floor).catch((err) => log.error({ err }, 'line notify failed'))
+        if (emailOn) runEmailNotify(pool, mailer!, floor).catch((err) => log.error({ err }, 'email notify failed'))
       }, 15_000)
-      lineTimer.unref()
+      notifyTimer.unref()
     })
   }
   return () => {
+    stopped = true
     clearInterval(timer)
-    if (lineTimer) clearInterval(lineTimer)
+    if (notifyTimer) clearInterval(notifyTimer)
   }
 }

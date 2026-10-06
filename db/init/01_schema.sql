@@ -246,7 +246,8 @@ create table alerts (
   created_at       timestamptz not null default now(),
   acknowledged_at  timestamptz,
   acknowledged_by  uuid references users(id) on delete set null,
-  line_notified_at timestamptz             -- เวลาที่ส่งเข้า LINE แล้ว (ว่าง = ยังไม่ส่ง)
+  line_notified_at timestamptz,            -- เวลาที่ส่งเข้า LINE แล้ว (ว่าง = ยังไม่ส่ง)
+  email_notified_at timestamptz            -- เวลาที่ส่งอีเมลแล้ว (ว่าง = ยังไม่ส่ง)
 );
 create index alerts_open_idx on alerts (created_at desc) where acknowledged_at is null;
 create index alerts_created_idx on alerts (created_at desc);
