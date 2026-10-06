@@ -8,6 +8,7 @@ import { checkVehicleFields } from '../lib/validators'
 import { DRIVER_SELECT, VEHICLE_COLS } from '../services/queries'
 import { estimateRangeKm } from '../services/ops'
 import { loadConfig } from '../services/report'
+import { PageQuery, envelope, likeTerm, pageArgs } from '../lib/paging'
 
 import { sec } from '../security'
 const IdParam = Type.Object({ id: Type.String() })
@@ -17,8 +18,64 @@ export const vehicleRoutes =
   async (app) => {
     const mgr = requireRole(pool, 'manager')
 
-    app.get('/vehicles', { preValidation: mgr, schema: { tags: ['vehicles'], summary: 'รายการรถทั้งหมด', security: sec } }, async () =>
-      rows(pool, `select ${VEHICLE_COLS} from vehicles v order by v.id`),
+    const SORTS = {
+      id: 'v.id',
+      'soc-asc': 'v.soc, v.id',
+      'soc-desc': 'v.soc desc, v.id',
+      'range-desc': 'v.range_km desc, v.id',
+    } as const
+
+    /** ภาพรวมทั้งกอง (ไม่ขึ้นกับตัวกรอง/หน้า) สำหรับ KPI และจำนวนบนชิปสถานะ */
+    async function fleetSummary() {
+      const r = await one<{ total: number; rangeKm: number; avgSoh: number; odometerKm: number; models: string[] }>(
+        pool,
+        `select count(*)::int as total, coalesce(sum(range_km), 0)::int as "rangeKm",
+                coalesce(round(avg(soh)::numeric, 1), 0)::float8 as "avgSoh",
+                coalesce(sum(odometer_km), 0)::float8 as "odometerKm",
+                coalesce(array_agg(distinct model), '{}') as models
+           from vehicles`,
+      )
+      const byStatus = await rows<{ status: string; n: number }>(pool, 'select status, count(*)::int as n from vehicles group by status')
+      return { ...r!, byStatus: Object.fromEntries(byStatus.map((x) => [x.status, x.n])) }
+    }
+
+    app.get(
+      '/vehicles',
+      {
+        preValidation: mgr,
+        schema: {
+          tags: ['vehicles'],
+          summary: 'รายการรถ — ไม่ส่ง page = อาร์เรย์ทั้งหมด; ส่ง page = แบ่งหน้า (ค้นหา q กรองสถานะ เรียง) พร้อม summary ของรถทั้งกอง',
+          security: sec,
+          querystring: Type.Object({
+            ...PageQuery,
+            q: Type.Optional(Type.String({ maxLength: 100 })),
+            status: Type.Optional(Type.Union([Type.Literal('driving'), Type.Literal('charging'), Type.Literal('parked'), Type.Literal('low'), Type.Literal('offline')])),
+            sort: Type.Optional(Type.Union([Type.Literal('id'), Type.Literal('soc-asc'), Type.Literal('soc-desc'), Type.Literal('range-desc')], { default: 'id' })),
+          }),
+        },
+      },
+      async (req) => {
+        const { q, status, sort } = req.query
+        const pg = pageArgs(req.query)
+        if (!pg.paged) return rows(pool, `select ${VEHICLE_COLS} from vehicles v order by v.id`)
+
+        const where: string[] = []
+        const args: unknown[] = []
+        if (status) where.push(`v.status = $${args.push(status)}`)
+        if (q?.trim()) {
+          const p = `$${args.push(likeTerm(q))}`
+          where.push(`(v.id ilike ${p} or v.model ilike ${p} or v.plate ilike ${p} or v.location_text ilike ${p} or d.name ilike ${p})`)
+        }
+        const cond = where.length ? `where ${where.join(' and ')}` : ''
+        const from = 'from vehicles v left join drivers d on d.id = v.driver_id'
+        const [list, total, summary] = await Promise.all([
+          rows(pool, `select ${VEHICLE_COLS} ${from} ${cond} order by ${SORTS[sort ?? 'id']} limit ${pg.pageSize} offset ${pg.offset}`, args),
+          one<{ n: number }>(pool, `select count(*)::int as n ${from} ${cond}`, args),
+          fleetSummary(),
+        ])
+        return envelope(list, total!.n, pg.page, pg.pageSize, { summary })
+      },
     )
 
     app.get(

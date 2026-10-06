@@ -295,6 +295,24 @@ export interface InviteResult {
   emailed: boolean
 }
 
+/** ซองข้อมูลแบ่งหน้าจาก API (ส่ง page มา) */
+export interface Paged<T> {
+  items: T[]
+  total: number
+  page: number
+  pageSize: number
+  pages: number
+}
+
+export interface VehiclesPage extends Paged<Vehicle> {
+  /** ภาพรวมทั้งกอง ไม่ขึ้นกับตัวกรอง/หน้า */
+  summary: { total: number; rangeKm: number; avgSoh: number; odometerKm: number; models: string[]; byStatus: Partial<Record<VehicleStatus, number>> }
+}
+
+export interface AlertsPage extends Paged<Alert> {
+  summary: { bySeverity: Partial<Record<AlertSeverity, { total: number; open: number }>> }
+}
+
 export interface ResetInfo {
   email: string
   name: string

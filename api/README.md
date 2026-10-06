@@ -23,6 +23,7 @@ REST API (Node.js 22 · Fastify 5 · TypeScript · PostgreSQL) — container แ
 
 | กลุ่ม | Endpoint |
 |---|---|
+| แบ่งหน้า | `GET /vehicles` · `GET /alerts` · `GET /charging/history` ส่ง `?page=1&pageSize=10` (≤100) ได้ซอง `{items,total,page,pageSize,pages}`; รถรองรับ `q` `status` `sort` (+`summary` ทั้งกอง), แจ้งเตือนรองรับ `severity` `type` (+`summary` ตามระดับ); ไม่ส่ง `page` = อาร์เรย์เดิม |
 | ตั้งเวลาส่งรายงาน | `GET/POST /report-schedules` · `PUT/DELETE /report-schedules/:id` · `POST /report-schedules/:id/send-now` (manager ขึ้นไป) |
 | realtime | `GET /stream` (SSE: เหตุการณ์ `change` เมื่อข้อมูลเปลี่ยน — ต้องล็อกอิน; ตัดสตรีมเมื่อ session ถูกเพิกถอน) |
 | auth | `POST /auth/login` · `POST /auth/logout` · `GET /auth/me` · `POST /auth/invite/lookup` · `POST /auth/invite/accept` (ผู้ถูกเชิญ ไม่ต้องล็อกอิน) · `POST /auth/change-password` (ล็อกอินอยู่) · `POST /auth/forgot-password` · `POST /auth/reset/lookup` · `POST /auth/reset/accept` (ไม่ต้องล็อกอิน) |

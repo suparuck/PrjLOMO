@@ -5,6 +5,7 @@ import { requireRole } from '../auth'
 import { one, rows } from '../db'
 import { notFound } from '../errors'
 import { ALERT_COLS } from '../services/queries'
+import { PageQuery, envelope, pageArgs } from '../lib/paging'
 
 import { sec } from '../security'
 
@@ -21,10 +22,35 @@ export const alertRoutes =
           tags: ['alerts'],
           summary: 'รายการแจ้งเตือน (ใหม่ → เก่า)',
           security: sec,
-          querystring: Type.Object({ limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 500, default: 200 })) }),
+          querystring: Type.Object({
+            limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 500, default: 200 })),
+            ...PageQuery,
+            severity: Type.Optional(Type.Union([Type.Literal('critical'), Type.Literal('warning'), Type.Literal('info')])),
+            type: Type.Optional(Type.Union([Type.Literal('battery'), Type.Literal('charging'), Type.Literal('device'), Type.Literal('maint'), Type.Literal('driving'), Type.Literal('geofence')])),
+          }),
         },
       },
-      async (req) => rows(pool, `select ${ALERT_COLS} from alerts a order by a.created_at desc, a.id desc limit $1`, [req.query.limit ?? 200]),
+      async (req) => {
+        const pg = pageArgs(req.query)
+        // ไม่ส่ง page: พฤติกรรมเดิม (ล่าสุด N รายการ ใช้กับตัวเลขบนเมนู)
+        if (!pg.paged) return rows(pool, `select ${ALERT_COLS} from alerts a order by a.created_at desc, a.id desc limit $1`, [req.query.limit ?? 200])
+
+        const where: string[] = []
+        const args: unknown[] = []
+        if (req.query.severity) where.push(`a.severity = $${args.push(req.query.severity)}`)
+        if (req.query.type) where.push(`a.type = $${args.push(req.query.type)}`)
+        const cond = where.length ? `where ${where.join(' and ')}` : ''
+        const [list, total, counts] = await Promise.all([
+          rows(pool, `select ${ALERT_COLS} from alerts a ${cond} order by a.created_at desc, a.id desc limit ${pg.pageSize} offset ${pg.offset}`, args),
+          one<{ n: number }>(pool, `select count(*)::int as n from alerts a ${cond}`, args),
+          // จำนวนทั้งหมด/ที่ยังไม่รับทราบแยกตามระดับ (ไม่ขึ้นกับตัวกรอง) สำหรับชิปและ KPI
+          rows<{ severity: string; total: number; open: number }>(
+            pool,
+            'select severity, count(*)::int as total, count(*) filter (where acknowledged_at is null)::int as open from alerts group by severity',
+          ),
+        ])
+        return envelope(list, total!.n, pg.page, pg.pageSize, { summary: { bySeverity: Object.fromEntries(counts.map((c) => [c.severity, { total: c.total, open: c.open }])) } })
+      },
     )
 
     // เวลาตอบสนองเฉลี่ย (นาที) จากแจ้งเตือนที่รับทราบแล้วใน 30 วัน

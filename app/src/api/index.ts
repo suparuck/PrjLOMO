@@ -7,7 +7,7 @@ import * as m from './mappers'
 import type * as D from './dto'
 import type {
   AlertRule, Alert, ApiKeyInfo, AppUser, BatteryInsights, ChargingHistory, ChargingLoad, ChargingSession, Driver, DriverEventStat,
-  ElectrificationReport, EnergySummary, EnergyWeek, IceVehicle, Integration, InviteInfo, InviteUserDraft, ReportSchedule, ReportSchedules, ScheduleDraft, ResetInfo, ResetLinkResult, UserRole, NewDriverDraft, NewVehicleDraft,
+  ElectrificationReport, EnergySummary, EnergyWeek, IceVehicle, Integration, InviteInfo, InviteUserDraft, Paged, VehiclesPage, AlertsPage, VehicleStatus, AlertSeverity, AlertType, ReportSchedule, ReportSchedules, ScheduleDraft, ResetInfo, ResetLinkResult, UserRole, NewDriverDraft, NewVehicleDraft,
   NotificationChannel, Org, PublicOverview, Report, ReportFilters, Result, Settings, Station, Sustainability, Vehicle, VehicleDetail,
 } from '@/types'
 
@@ -27,6 +27,13 @@ async function write<T>(fn: () => Promise<T>, rename: Record<string, string> = {
   }
 }
 
+/** สร้าง query string จากค่าที่มีจริง (ข้าม undefined/ค่าว่าง) */
+const qs = (o: Record<string, string | number | undefined>) =>
+  Object.entries(o)
+    .filter(([, v]) => v !== undefined && v !== '')
+    .map(([k, v]) => `${k}=${encodeURIComponent(String(v))}`)
+    .join('&')
+
 const num = (s: string) => Number(s.trim().replace(/,/g, ''))
 
 export const api = {
@@ -42,6 +49,19 @@ export const api = {
       if (e instanceof ApiError && e.status === 404) return null
       throw e
     }
+  },
+  /** แบ่งหน้าฝั่งเซิร์ฟเวอร์: ค้นหา กรองสถานะ เรียง + summary ของทั้งกอง */
+  listVehiclesPage: async (o: { page: number; pageSize?: number; q?: string; status?: VehicleStatus; sort?: string }): Promise<VehiclesPage> => {
+    const r = await get<Paged<D.VehicleDTO> & Pick<VehiclesPage, 'summary'>>(`/vehicles?${qs({ ...o, pageSize: o.pageSize ?? 10 })}`)
+    return { ...r, items: r.items.map(m.vehicle) }
+  },
+  listAlertsPage: async (o: { page: number; pageSize?: number; severity?: AlertSeverity; type?: AlertType }): Promise<AlertsPage> => {
+    const r = await get<Paged<D.AlertDTO> & Pick<AlertsPage, 'summary'>>(`/alerts?${qs({ ...o, pageSize: o.pageSize ?? 10 })}`)
+    return { ...r, items: r.items.map(m.alert) }
+  },
+  listChargingHistoryPage: async (o: { page: number; pageSize?: number }): Promise<Paged<ChargingHistory>> => {
+    const r = await get<Paged<D.SessionDTO>>(`/charging/history?${qs({ hours: 72, ...o, pageSize: o.pageSize ?? 10 })}`)
+    return { ...r, items: r.items.map(m.historyItem) }
   },
   listDrivers: async (): Promise<Driver[]> => (await get<D.DriverDTO[]>('/drivers')).map(m.driver),
   getDriverEvents: () => get<DriverEventStat[]>('/drivers/events'),

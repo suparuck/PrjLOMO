@@ -1,8 +1,7 @@
 'use client'
 
-import { useMemo, useState } from 'react'
-import { usePagination } from '@/hooks/usePagination'
-import { Pager } from '@/components/ui/Pager'
+import { useEffect, useState } from 'react'
+import { Pager, pagerOf } from '@/components/ui/Pager'
 import { PageLoading } from '@/components/ui/PageLoading'
 import Link from 'next/link'
 import { api } from '@/api'
@@ -58,23 +57,35 @@ export default function AlertsPage() {
     }
   }
 
-  const list = useMemo(() => (A ?? []).filter((a) => (sev === 'all' || a.severity === sev) && (type === 'all' || a.type === type)), [A, sev, type])
-  const pg = usePagination(list, 10, `${sev}|${type}`)
+  // แบ่งหน้า/กรองที่ API — โหลดใหม่เมื่อหน้า ตัวกรอง หรือรายการแจ้งเตือนเปลี่ยน (รับทราบแล้ว/มีเหตุการณ์ใหม่)
+  const [page, setPage] = useState(1)
+  useEffect(() => setPage(1), [sev, type])
+  const { data: pageData, error: pageError } = useAsync(
+    () => api.listAlertsPage({ page, pageSize: 10, severity: sev === 'all' ? undefined : sev, type: type === 'all' ? undefined : type }),
+    [page, sev, type, A],
+    { live: true },
+  )
+  useEffect(() => {
+    if (pageData && pageData.page > pageData.pages) setPage(pageData.pages)
+  }, [pageData])
 
-  if (!A) return <PageLoading error={error} />
+  if (!A || !pageData) return <PageLoading error={error ?? pageError} />
 
-  const open = A.filter((a) => !a.acknowledged)
+  const list = pageData.items
+  const by = pageData.summary.bySeverity
+  const sevs = ['critical', 'warning', 'info'] as const
+  const openCount = (k?: AlertSeverity) => (k ? (by[k]?.open ?? 0) : sevs.reduce((n, x) => n + (by[x]?.open ?? 0), 0))
   const chipOptions: { key: SevFilter; label: string; count: number }[] = [
-    { key: 'all', label: 'ทั้งหมด', count: A.length },
-    ...(['critical', 'warning', 'info'] as const).map((k) => ({ key: k, label: SEV_TH[k], count: A.filter((a) => a.severity === k).length })),
+    { key: 'all', label: 'ทั้งหมด', count: sevs.reduce((n, x) => n + (by[x]?.total ?? 0), 0) },
+    ...sevs.map((k) => ({ key: k, label: SEV_TH[k], count: by[k]?.total ?? 0 })),
   ]
 
   return (
     <>
       <section className="grid g-4 mb kpi-grid-2m">
-        <KpiCard label="ยังไม่รับทราบ" value={open.length} unit="รายการ" note="" icon="bell" tone="navy" />
-        <KpiCard label="วิกฤต" value={open.filter((a) => a.severity === 'critical').length} unit="รายการ" note="" icon="alert" tone="red" />
-        <KpiCard label="เตือน" value={open.filter((a) => a.severity === 'warning').length} unit="รายการ" note="" icon="alert" tone="amber" />
+        <KpiCard label="ยังไม่รับทราบ" value={openCount()} unit="รายการ" note="" icon="bell" tone="navy" />
+        <KpiCard label="วิกฤต" value={openCount('critical')} unit="รายการ" note="" icon="alert" tone="red" />
+        <KpiCard label="เตือน" value={openCount('warning')} unit="รายการ" note="" icon="alert" tone="amber" />
         <KpiCard label="เวลาตอบสนองเฉลี่ย" value={stats?.avgResponseMinutes ?? '–'} unit="นาที" note="" icon="clock" tone="green" />
       </section>
 
@@ -91,14 +102,14 @@ export default function AlertsPage() {
                   </option>
                 ))}
               </select>
-              <button className="btn btn-outline" onClick={acknowledgeAll} disabled={open.length === 0}>
+              <button className="btn btn-outline" onClick={acknowledgeAll} disabled={openCount() === 0}>
                 <Icon name="check" size={16} />
                 รับทราบทั้งหมด
               </button>
             </div>
           </div>
           <div>
-            {pg.slice.map((a) => (
+            {list.map((a) => (
               <div key={a.id} className={`alert-row${a.acknowledged ? ' acked' : ''}`}>
                 <span className={`sev ${a.severity}`} />
                 <div className={`li-ico ${SEV_TONE[a.severity]}`}>
@@ -125,9 +136,9 @@ export default function AlertsPage() {
                 )}
               </div>
             ))}
-            {list.length === 0 && <div className="empty">ไม่มีการแจ้งเตือน</div>}
+            {pageData.total === 0 && <div className="empty">ไม่มีการแจ้งเตือน</div>}
           </div>
-          <Pager p={pg} unit="รายการ" />
+          <Pager p={pagerOf(pageData, setPage)} unit="รายการ" />
         </div>
 
         <div>

@@ -5,6 +5,7 @@ import { requireRole } from '../auth'
 import { one, rows, withTx } from '../db'
 import { AppError, invalid } from '../errors'
 import { SESSION_COLS } from '../services/queries'
+import { PageQuery, envelope, pageArgs } from '../lib/paging'
 import { enabledRules, createAlert, refreshVehicleStatus } from '../services/ops'
 
 import { sec } from '../security'
@@ -39,19 +40,24 @@ export const chargingRoutes =
           summary: 'ประวัติการชาร์จ (เสร็จสิ้น/หยุดแล้ว) ภายใน N ชั่วโมงล่าสุด',
           security: sec,
           querystring: Type.Object({
+            ...PageQuery,
             hours: Type.Optional(Type.Integer({ minimum: 1, maximum: 24 * 365, default: 72 })),
             limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 500, default: 50 })),
           }),
         },
       },
-      async (req) =>
-        rows(
-          pool,
-          `select ${SESSION_COLS} from charging_sessions s join stations st on st.id = s.station_id
-            where s.status <> 'active' and s.started_at >= now() - ($1::int * interval '1 hour')
-            order by s.started_at desc limit $2`,
-          [req.query.hours ?? 72, req.query.limit ?? 50],
-        ),
+      async (req) => {
+        const pg = pageArgs(req.query)
+        const hours = req.query.hours ?? 72
+        const base = `from charging_sessions s join stations st on st.id = s.station_id
+            where s.status <> 'active' and s.started_at >= now() - ($1::int * interval '1 hour')`
+        if (!pg.paged) return rows(pool, `select ${SESSION_COLS} ${base} order by s.started_at desc limit $2`, [hours, req.query.limit ?? 50])
+        const [list, total] = await Promise.all([
+          rows(pool, `select ${SESSION_COLS} ${base} order by s.started_at desc, s.id desc limit $2 offset $3`, [hours, pg.pageSize, pg.offset]),
+          one<{ n: number }>(pool, `select count(*)::int as n ${base}`, [hours]),
+        ])
+        return envelope(list, total!.n, pg.page, pg.pageSize)
+      },
     )
 
     // โหลดการชาร์จรายชั่วโมงของวันล่าสุดที่มีข้อมูล

@@ -2,8 +2,18 @@
 
 import type { Pagination } from '@/hooks/usePagination'
 
+/** แปลงซองข้อมูลจาก API เป็นค่าที่ Pager ใช้ */
+export const pagerOf = (p: { page: number; pageSize: number; total: number; pages: number }, setPage: (n: number) => void) => ({
+  page: p.page,
+  pages: p.pages,
+  total: p.total,
+  from: p.total ? (p.page - 1) * p.pageSize + 1 : 0,
+  to: Math.min(p.page * p.pageSize, p.total),
+  setPage,
+})
+
 /** แถบเปลี่ยนหน้า: "แสดง a–b จาก n" + ก่อนหน้า / เลขหน้า / ถัดไป (ซ่อนเมื่อมีหน้าเดียว แต่ยังบอกจำนวนรวม) */
-export function Pager({ p, unit, className = '' }: { p: Pick<Pagination, 'page' | 'pages' | 'total' | 'from' | 'to' | 'setPage'>; unit: string; className?: string }) {
+export function Pager({ p, unit, className = '' }: { p: Pick<Pagination, 'page' | 'pages' | 'total' | 'from' | 'to'> & { setPage: (n: number) => void }; unit: string; className?: string }) {
   // แสดงเลขหน้ารอบหน้าปัจจุบัน (สูงสุด 5 ปุ่ม) พร้อมหน้าแรก/สุดท้ายเสมอ
   const nums = Array.from({ length: p.pages }, (_, i) => i + 1).filter((n) => n === 1 || n === p.pages || Math.abs(n - p.page) <= 1)
   return (
