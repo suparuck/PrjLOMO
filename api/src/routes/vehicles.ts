@@ -15,7 +15,7 @@ const IdParam = Type.Object({ id: Type.String() })
 export const vehicleRoutes =
   (pool: Pool): FastifyPluginAsyncTypebox =>
   async (app) => {
-    const mgr = requireRole('manager')
+    const mgr = requireRole(pool, 'manager')
 
     app.get('/vehicles', { preValidation: mgr, schema: { tags: ['vehicles'], summary: 'รายการรถทั้งหมด', security: sec } }, async () =>
       rows(pool, `select ${VEHICLE_COLS} from vehicles v order by v.id`),

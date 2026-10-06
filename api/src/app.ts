@@ -16,15 +16,38 @@ import { reportRoutes } from './routes/reports'
 import { settingsRoutes } from './routes/settings'
 import { publicRoutes } from './routes/public'
 import { ingestRoutes } from './routes/ingest'
+import { createMailer, type Mailer } from './services/mailer'
+
+declare module 'fastify' {
+  interface FastifyInstance {
+    /** รอจนอีเมลที่ค้างส่งอยู่เสร็จ (ใช้ในเทสต์) */
+    mailIdle(): Promise<void>
+  }
+}
 
 export type App = FastifyInstance<any, any, any, any, TypeBoxTypeProvider>
 
-export async function buildApp(pool: Pool, opts: { logger?: boolean; rateLimit?: boolean } = {}) {
+export async function buildApp(pool: Pool, opts: { logger?: boolean; rateLimit?: boolean; mailer?: Mailer } = {}) {
   const app = Fastify({
     logger: opts.logger === false ? false : { level: config.logLevel },
     trustProxy: true, // อยู่หลังพร็อกซีของเว็บ — ใช้ IP จริงสำหรับ rate limit
     ajv: { customOptions: { removeAdditional: true, coerceTypes: true, useDefaults: true, allErrors: true } },
   }).withTypeProvider<TypeBoxTypeProvider>()
+
+  const mailer =
+    opts.mailer ?? createMailer({ mode: config.mailMode, smtpUrl: config.smtpUrl, from: config.mailFrom, log: app.log as any })
+  // อีเมลส่งแบบ fire-and-forget (ไม่ให้เวลาตอบกลับรั่วข้อมูล) — เก็บงานค้างไว้ให้เทสต์/ตอนปิดระบบรอได้
+  const pendingMail = new Set<Promise<unknown>>()
+  const track = (p: Promise<unknown>) => {
+    pendingMail.add(p)
+    void p.finally(() => pendingMail.delete(p))
+  }
+  app.decorate('mailIdle', async () => {
+    await Promise.allSettled([...pendingMail])
+  })
+  app.addHook('onClose', async () => {
+    await Promise.allSettled([...pendingMail])
+  })
 
   await app.register(cookie)
   if (opts.rateLimit !== false) await app.register(rateLimit, { global: true, max: 600, timeWindow: '1 minute' })
@@ -89,7 +112,7 @@ export async function buildApp(pool: Pool, opts: { logger?: boolean; rateLimit?:
 
   await app.register(
     async (v1) => {
-      await v1.register(authRoutes(pool))
+      await v1.register(authRoutes(pool, { mailer, track }))
       await v1.register(vehicleRoutes(pool))
       await v1.register(driverRoutes(pool))
       await v1.register(chargingRoutes(pool))

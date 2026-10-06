@@ -11,6 +11,7 @@ import { Switch } from '@/components/ui/Switch'
 import { InviteUserModal } from '@/components/modals/InviteUserModal'
 import { InviteManageModal } from '@/components/modals/InviteManageModal'
 import { ApiKeyModal } from '@/components/modals/ApiKeyModal'
+import { ResetLinkModal } from '@/components/modals/ResetLinkModal'
 import { useToast } from '@/components/ui/Toast'
 import type { AppUser, Settings } from '@/types'
 
@@ -63,6 +64,7 @@ export default function SettingsPage() {
   const toast = useToast()
   const [inviting, setInviting] = useState(false)
   const [managingInvite, setManagingInvite] = useState<AppUser | null>(null)
+  const [resetting, setResetting] = useState<AppUser | null>(null)
   const [managingKeys, setManagingKeys] = useState(false)
   const [saved, setSaved] = useState<Settings | null>(null)
   const [form, setForm] = useState<Settings | null>(null)
@@ -269,7 +271,9 @@ export default function SettingsPage() {
                           ลิงก์คำเชิญ
                         </button>
                       ) : (
-                        <button className="btn btn-ghost btn-sm">แก้ไข</button>
+                        <button type="button" className="btn btn-ghost btn-sm" onClick={() => setResetting(u)}>
+                          รีเซ็ตรหัสผ่าน
+                        </button>
                       )}
                     </td>
                   </tr>
@@ -344,6 +348,7 @@ export default function SettingsPage() {
       </div>
 
       {managingKeys && <ApiKeyModal onClose={() => setManagingKeys(false)} />}
+      {resetting && <ResetLinkModal user={resetting} onClose={() => setResetting(null)} />}
       {managingInvite && (
         <InviteManageModal
           user={managingInvite}

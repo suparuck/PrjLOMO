@@ -25,16 +25,23 @@ export async function resetTestDb() {
   await c.end()
 }
 
+/** ตัวส่งอีเมลสำหรับเทสต์: เก็บจดหมายไว้ในหน่วยความจำ */
+export function memoryMailer() {
+  const sent: { to: string; subject: string; text: string }[] = []
+  return { sent, mailer: { mode: 'log' as const, async send(m: { to: string; subject: string; text: string }) { sent.push(m) } } }
+}
+
 export async function startApp() {
   await resetTestDb()
   const pool = createPool(TEST_URL)
   await pool.query(`alter database ${TEST_DB} set timezone = 'Asia/Bangkok'`)
-  const app = await buildApp(pool, { logger: false, rateLimit: false })
+  const mail = memoryMailer()
+  const app = await buildApp(pool, { logger: false, rateLimit: false, mailer: mail.mailer })
   await app.ready()
   // API key สำหรับทดสอบ ingest
   const k = generateApiKey()
   await pool.query(`insert into api_keys (name, key_prefix, key_hash) values ('test', $1, $2)`, [k.prefix, k.hash])
-  return { app, pool, apiKey: k.key, stop: async () => { await app.close(); await pool.end() } }
+  return { app, pool, mail: mail.sent, apiKey: k.key, stop: async () => { await app.close(); await pool.end() } }
 }
 
 type App = Awaited<ReturnType<typeof startApp>>['app']

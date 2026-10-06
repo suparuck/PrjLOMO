@@ -50,6 +50,8 @@ create table users (
   last_login_at  timestamptz,
   invite_token_hash  text,                   -- sha256 ของโทเคนคำเชิญ (ใช้ครั้งเดียว) — ไม่เก็บโทเคนจริง
   invite_expires_at  timestamptz,
+  -- เพิ่มค่านี้ทุกครั้งที่เปลี่ยน/รีเซ็ตรหัสผ่าน: session (JWT) เดิมที่ออกก่อนหน้าจะใช้ไม่ได้ทันที
+  session_version    integer not null default 1,
   created_at     timestamptz not null default now(),
   updated_at     timestamptz not null default now(),
   check (status = 'invited' or password_hash is not null)
@@ -57,6 +59,17 @@ create table users (
 create unique index users_email_key on users (lower(email));
 create unique index users_invite_token_key on users (invite_token_hash) where invite_token_hash is not null;
 create trigger trg_users_updated before update on users for each row execute function set_updated_at();
+
+-- ลิงก์รีเซ็ตรหัสผ่าน (ใช้ครั้งเดียว): เก็บเฉพาะ sha256 ของโทเคน
+create table password_resets (
+  token_hash   text primary key,
+  user_id      uuid not null references users(id) on delete cascade,
+  expires_at   timestamptz not null,
+  used_at      timestamptz,
+  requested_by text not null default 'self' check (requested_by in ('self', 'admin')),
+  created_at   timestamptz not null default now()
+);
+create index password_resets_user_idx on password_resets (user_id, created_at desc);
 
 create table api_keys (
   id            uuid primary key default gen_random_uuid(),

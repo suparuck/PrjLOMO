@@ -21,6 +21,13 @@ export const config = {
   /** ตรวจรถออฟไลน์ทุกกี่วินาที (0 = ปิด job) */
   offlineCheckIntervalSeconds: Number(process.env.OFFLINE_CHECK_INTERVAL_SECONDS ?? 60),
   inviteTtlDays: 7,
+  resetTtlMinutes: 60,
+  /** ที่อยู่เว็บสำหรับสร้างลิงก์ในอีเมล — ตั้งค่าเอง ไม่ใช้ Host/Origin จาก request (กัน host header poisoning) */
+  appBaseUrl: (process.env.APP_BASE_URL ?? 'http://localhost:3000').replace(/\/$/, ''),
+  /** smtp = ส่งผ่าน SMTP_URL · log = เขียนอีเมลลง log (เฉพาะพัฒนา: ลิงก์รีเซ็ตจะอยู่ใน log) · off = ไม่ส่ง */
+  mailMode: ((process.env.MAIL_MODE ?? (process.env.SMTP_URL ? 'smtp' : 'off')) as 'smtp' | 'log' | 'off'),
+  smtpUrl: process.env.SMTP_URL || undefined,
+  mailFrom: process.env.MAIL_FROM ?? 'EV Monitor <no-reply@evmonitor.local>',
   sessionCookie: 'ev_session',
   sessionTtlSeconds: 12 * 60 * 60,
   rememberTtlSeconds: 30 * 24 * 60 * 60,

@@ -23,14 +23,14 @@ REST API (Node.js 22 · Fastify 5 · TypeScript · PostgreSQL) — container แ
 
 | กลุ่ม | Endpoint |
 |---|---|
-| auth | `POST /auth/login` · `POST /auth/logout` · `GET /auth/me` · `POST /auth/invite/lookup` · `POST /auth/invite/accept` (ผู้ถูกเชิญ ไม่ต้องล็อกอิน) |
+| auth | `POST /auth/login` · `POST /auth/logout` · `GET /auth/me` · `POST /auth/invite/lookup` · `POST /auth/invite/accept` (ผู้ถูกเชิญ ไม่ต้องล็อกอิน) · `POST /auth/change-password` (ล็อกอินอยู่) · `POST /auth/forgot-password` · `POST /auth/reset/lookup` · `POST /auth/reset/accept` (ไม่ต้องล็อกอิน) |
 | สาธารณะ | `GET /public/overview` (ตัวเลขรวม ไม่มีข้อมูลรายคัน — ใช้กับ Landing/Login) |
 | รถ | `GET /vehicles` · `GET /vehicles/:id` (คนขับ กราฟ SoC 24 ชม. ทริป บำรุงรักษา) · `POST /vehicles` · `PATCH /vehicles/:id` · `POST /vehicles/:id/maintenance` · `POST /maintenance/:id/complete` |
 | คนขับ | `GET /drivers` · `GET /drivers/events` · `POST /drivers` · `PATCH /drivers/:id` |
 | การชาร์จ | `GET /stations` · `GET /charging/sessions` · `GET /charging/history` · `GET /charging/load` · `PATCH /charging/sessions/:vehicleId/target` · `POST /charging/sessions/:vehicleId/stop` |
 | แจ้งเตือน | `GET /alerts` · `GET /alerts/stats` · `POST /alerts/:id/ack` · `POST /alerts/ack-all` · `GET/PATCH /alert-rules` · `GET /notification-channels` |
 | รายงาน/แดชบอร์ด | `GET /reports?period=year\|q3\|sep&brand=all\|BYD\|MG` · `GET /reports/electrification` · `GET /ice-vehicles` · `GET /energy/week` · `GET /energy/summary` · `GET /sustainability` · `GET /battery/insights` |
-| ตั้งค่า | `GET /org` · `GET/PUT /settings` · `GET /integrations` · `GET /users` · `POST /users/invite` · `POST /users/:id/invite-link` · `DELETE /users/:id` (ยกเลิกคำเชิญ) · `GET/POST /api-keys` · `DELETE /api-keys/:id` |
+| ตั้งค่า | `GET /org` · `GET/PUT /settings` · `GET /integrations` · `GET /users` · `POST /users/invite` · `POST /users/:id/invite-link` · `POST /users/:id/reset-link` · `DELETE /users/:id` (ยกเลิกคำเชิญ) · `GET/POST /api-keys` · `DELETE /api-keys/:id` |
 
 **ส่งข้อมูลเข้า** (`X-API-Key`) — แต่ละอันอัปเดตตารางหลัก *และ* ผลต่อเนื่อง
 
@@ -77,7 +77,7 @@ cd api && npm test                    # 70 การทดสอบ — สร�
 - **JWT HS256 เซ็นด้วย `AUTH_SECRET`** ที่ API ออกให้ ส่วนเว็บ (middleware) ตรวจลายเซ็นด้วยคีย์เดียวกันเพื่อกันเข้าหน้า สิทธิ์จริงบังคับที่ API · ยังไม่มี token revocation (หมดอายุเองใน 12 ชม./30 วันถ้าจดจำ)
 - **กฎซ้ำกับเว็บ**: `src/lib/validators.ts` ตรงกับ `app/src/lib/validators.ts` (เว็บใช้แจ้งผิดทันที API เป็นผู้ตัดสิน) — แก้กฎต้องแก้ทั้งสองที่
 - **ค่าที่ยังเป็นการประมาณ** (ระบุในโค้ดและ `report_config`): อัตราการใช้งานรถในรายงาน (ประมาณจากเลขไมล์) · ระยะวิ่งใช้งานจริง = 86% ของสเปก · % เทียบปีก่อน/ช่วงก่อนที่ยังไม่มีข้อมูลย้อนหลัง
-- **ยังไม่ทำ**: ส่งอีเมล/LINE/SMS จริง (รวมการส่งลิงก์คำเชิญอัตโนมัติ) · เพิกถอน JWT · ลืมรหัสผ่าน/เปลี่ยนรหัสผ่าน
+- **ยังไม่ทำ**: LINE/SMS จริง · ส่งลิงก์คำเชิญทางอีเมลอัตโนมัติ (ตัวส่งอีเมลมีแล้ว ใช้กับลืมรหัสผ่าน) · ล็อกอินล้มเหลวซ้ำแล้วล็อกบัญชี (ตอนนี้จำกัดด้วย rate limit ต่อ IP)
 
 ## คำเชิญผู้ใช้
 
@@ -95,3 +95,12 @@ cd api && npm test                    # 70 การทดสอบ — สร�
 - รถส่งข้อมูลกลับมา → สถานะคำนวณใหม่เองใน `POST /ingest/telemetry` (ไม่ต้องมี job ฝั่งกลับมาออนไลน์)
 - ใช้ advisory lock ในฐานข้อมูล: รัน API หลายอินสแตนซ์ได้ จะมีเพียงตัวเดียวที่ตรวจในแต่ละรอบ
 - **ข้อมูลเดโมไม่มี telemetry ไหลเข้า** รถทั้งกองจึงถูกตั้งเป็นออฟไลน์หลังผ่านไปเกินเกณฑ์ — เปิดตัวจำลองเพื่อให้เดโมมีชีวิต: `docker compose --profile demo up -d` (`api/src/simulate.ts` ส่งข้อมูลผ่าน `/ingest/telemetry` ด้วย API key จริงทุก 30 วินาที เฉพาะรถที่ยังออนไลน์)
+
+## เปลี่ยนรหัสผ่านและลืมรหัสผ่าน
+
+- **session ถูกเพิกถอนได้**: ใน JWT มี `sv` = `users.session_version`; guard ทุกเส้นทางอ่านผู้ใช้จากฐานข้อมูลทุก request (บทบาท/สถานะ/`sv` ต้องตรง) — เปลี่ยน/รีเซ็ตรหัสผ่าน เปลี่ยนบทบาท หรือลบบัญชี มีผลทันที (ตอบ 401/403)
+- **เปลี่ยนรหัสผ่าน** `POST /auth/change-password` (ต้องล็อกอิน): ส่ง `currentPassword` + `newPassword`; รหัสปัจจุบันผิดตอบ **422** (ไม่ใช่ 401 เพราะเว็บจะพาไปหน้าล็อกอิน); สำเร็จแล้ว `sv` +1 ทุกเครื่องหลุด และออก cookie ใหม่ให้เครื่องที่เปลี่ยน
+- **ลืมรหัสผ่าน** `POST /auth/forgot-password`: ตอบ `{ok:true}` เหมือนกันเสมอ (ไม่บอกว่ามีอีเมลนี้หรือไม่ และส่งอีเมลในพื้นหลังเพื่อไม่ให้เวลาตอบรั่ว); ส่งเฉพาะบัญชี `active`; ผู้ใช้หนึ่งคนขอได้ไม่เกิน 3 ลิงก์ใน 15 นาที; rate limit 5 ครั้ง/นาที/IP
+- **ลิงก์รีเซ็ต** `<APP_BASE_URL>/reset-password/<โทเคน>`: ใช้ครั้งเดียว อายุ 60 นาที เก็บเฉพาะ sha256 ส่งโทเคนใน body (ไม่อยู่ใน URL ของ API); `POST /auth/reset/lookup` ตรวจลิงก์ (404 ไม่ถูกต้อง/ใช้แล้ว, 410 หมดอายุ) → `POST /auth/reset/accept` ตั้งรหัสใหม่ ลิงก์อื่นที่ค้างของผู้ใช้นั้นดับ และทุก session หลุด
+- **ผู้ดูแลช่วยรีเซ็ต** `POST /users/:id/reset-link` (admin): ได้ลิงก์ใช้ครั้งเดียวไปส่งต่อเอง — ผู้ดูแลไม่เห็น/ตั้งรหัสผ่านแทนผู้ใช้
+- **อีเมล** (`api/src/services/mailer.ts`): `SMTP_URL` → ส่งผ่าน SMTP; `MAIL_MODE=log` เขียนอีเมลลง log (เฉพาะพัฒนา — ลิงก์รีเซ็ตจะอยู่ใน log); ไม่ตั้งอะไร = **ไม่ส่ง** (ปลอดภัยไว้ก่อน). ลิงก์สร้างจาก `APP_BASE_URL` เท่านั้น ไม่เชื่อ Host/Origin ของ request. เดโม: compose มี `mailpit` ใน profile `demo` (อ่านอีเมลที่ http://localhost:8025)

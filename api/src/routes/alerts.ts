@@ -11,7 +11,7 @@ import { sec } from '../security'
 export const alertRoutes =
   (pool: Pool): FastifyPluginAsyncTypebox =>
   async (app) => {
-    const mgr = requireRole('manager')
+    const mgr = requireRole(pool, 'manager')
 
     app.get(
       '/alerts',

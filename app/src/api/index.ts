@@ -7,7 +7,7 @@ import * as m from './mappers'
 import type * as D from './dto'
 import type {
   AlertRule, Alert, ApiKeyInfo, AppUser, BatteryInsights, ChargingHistory, ChargingLoad, ChargingSession, Driver, DriverEventStat,
-  ElectrificationReport, EnergySummary, EnergyWeek, IceVehicle, Integration, InviteInfo, InviteUserDraft, UserRole, NewDriverDraft, NewVehicleDraft,
+  ElectrificationReport, EnergySummary, EnergyWeek, IceVehicle, Integration, InviteInfo, InviteUserDraft, ResetInfo, ResetLinkResult, UserRole, NewDriverDraft, NewVehicleDraft,
   NotificationChannel, Org, PublicOverview, Report, ReportFilters, Result, Settings, Station, Sustainability, Vehicle, VehicleDetail,
 } from '@/types'
 
@@ -95,6 +95,19 @@ export const api = {
   lookupInvite: (token: string) => write(() => post<InviteInfo>('/auth/invite/lookup', { token })),
   acceptInvite: (token: string, password: string, name: string) =>
     write(() => post<{ user: { role: UserRole } }>('/auth/invite/accept', { token, password, name: name.trim() || undefined })),
+  // ---- ลืม/เปลี่ยนรหัสผ่าน ----
+  /** ขอลิงก์รีเซ็ตทางอีเมล — API ตอบเหมือนกันเสมอ (ไม่บอกว่ามีอีเมลนี้หรือไม่) */
+  forgotPassword: (email: string) => post<{ ok: boolean }>('/auth/forgot-password', { email }),
+  lookupReset: (token: string) => write(() => post<ResetInfo>('/auth/reset/lookup', { token })),
+  acceptReset: (token: string, password: string) => write(() => post<{ ok: boolean }>('/auth/reset/accept', { token, password })),
+  changePassword: (currentPassword: string, newPassword: string) =>
+    write(() => post<{ ok: boolean }>('/auth/change-password', { currentPassword, newPassword })),
+  /** ผู้ดูแลสร้างลิงก์รีเซ็ตรหัสผ่านให้ผู้ใช้ (โทเคนแสดงครั้งเดียว) */
+  adminResetLink: (userId: string) =>
+    write(async (): Promise<ResetLinkResult> => {
+      const d = await post<{ email: string; resetToken: string; expiresAt: string }>(`/users/${userId}/reset-link`)
+      return { email: d.email, token: d.resetToken, expiresAt: d.expiresAt }
+    }),
   setChargingTarget: (vehicleId: string, targetSoc: number) =>
     write(async () => {
       const s = await patch<D.SessionDTO>(`/charging/sessions/${encodeURIComponent(vehicleId)}/target`, { targetSoc })

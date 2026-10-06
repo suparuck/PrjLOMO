@@ -254,6 +254,18 @@ export interface InviteResult {
   expiresAt: string
 }
 
+export interface ResetInfo {
+  email: string
+  name: string
+}
+
+/** ผลของการสร้างลิงก์รีเซ็ตรหัสผ่านโดยผู้ดูแล: โทเคนแสดงได้ครั้งเดียว */
+export interface ResetLinkResult {
+  email: string
+  token: string
+  expiresAt: string
+}
+
 export interface InviteInfo {
   email: string
   name: string

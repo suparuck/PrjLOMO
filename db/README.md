@@ -47,6 +47,7 @@ docker compose exec -T db psql -U evm -d evmonitor -v ON_ERROR_STOP=1 < db/migra
 | ไฟล์ | เปลี่ยนอะไร |
 |---|---|
 | `001_invite_tokens.sql` | ตอบรับคำเชิญ: เพิ่ม `users.invite_token_hash`, `users.invite_expires_at` |
+| `002_password_reset.sql` | ลืม/เปลี่ยนรหัสผ่าน: เพิ่ม `users.session_version` และตาราง `password_resets` |
 
 ## ข้อควรระวังด้านความปลอดภัย
 

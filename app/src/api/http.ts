@@ -31,7 +31,7 @@ export async function request<T>(method: string, path: string, body?: unknown): 
 
   // session หมดอายุ/ยังไม่ล็อกอิน → กลับหน้าเข้าสู่ระบบ (ยกเว้นตอนกำลังล็อกอินเอง)
   if (res.status === 401 && typeof window !== 'undefined' && !path.startsWith('/auth/login')) {
-    window.location.href = `/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`
+    window.location.href = `/login?expired=1&next=${encodeURIComponent(window.location.pathname + window.location.search)}`
   }
   throw err
 }

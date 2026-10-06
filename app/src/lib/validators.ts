@@ -127,3 +127,22 @@ export function validatePassword(pw: string): string | null {
   if (!/[A-Za-z]/.test(pw) || !/\d/.test(pw)) return 'รหัสผ่านต้องมีทั้งตัวอักษรและตัวเลข'
   return null
 }
+
+/** อีเมลที่กรอกในฟอร์มลืมรหัสผ่าน */
+export function validateEmail(raw: string): string | null {
+  const email = normalizeEmail(raw)
+  if (!email) return 'กรุณากรอกอีเมล'
+  if (!EMAIL_RE.test(email)) return 'รูปแบบอีเมลไม่ถูกต้อง'
+  return null
+}
+
+/** เปลี่ยนรหัสผ่านในหน้าบัญชี: ต้องกรอกรหัสปัจจุบัน และรหัสใหม่ต้องผ่านกฎและไม่ซ้ำรหัสเดิม */
+export function validatePasswordChange(d: { current: string; next: string; confirm: string }): Errors {
+  const errors: Errors = {}
+  if (!d.current) errors.current = 'กรุณากรอกรหัสผ่านปัจจุบัน'
+  const pw = validatePassword(d.next)
+  if (pw) errors.next = pw
+  else if (d.next === d.current) errors.next = 'รหัสผ่านใหม่ต้องไม่ซ้ำกับรหัสผ่านปัจจุบัน'
+  if (!pw && d.confirm !== d.next) errors.confirm = 'รหัสผ่านทั้งสองช่องไม่ตรงกัน'
+  return errors
+}

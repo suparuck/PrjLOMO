@@ -60,7 +60,7 @@ export function Topbar({
             <small>{me ? USER_ROLES[me.role].label : ''}</small>
           </span>
           <div className="user-menu">
-            <Link href="/settings">
+            <Link href="/account">
               <Icon name="settings" size={16} /> ตั้งค่าบัญชี
             </Link>
             <a

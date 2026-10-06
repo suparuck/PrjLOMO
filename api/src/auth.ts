@@ -16,15 +16,20 @@ export interface SessionUser {
   role: UserRole
 }
 
-export function signToken(user: SessionUser, ttlSeconds: number): string {
+/** ข้อมูลใน token: sv = session_version ของผู้ใช้ตอนออก token (เปลี่ยน/รีเซ็ตรหัสผ่านแล้ว token เดิมใช้ไม่ได้) */
+export interface TokenClaims extends SessionUser {
+  sv: number
+}
+
+export function signToken(user: TokenClaims, ttlSeconds: number): string {
   const header = b64u(JSON.stringify({ alg: 'HS256', typ: 'JWT' }))
   const now = Math.floor(Date.now() / 1000)
-  const payload = b64u(JSON.stringify({ sub: user.id, email: user.email, name: user.name, role: user.role, iat: now, exp: now + ttlSeconds }))
+  const payload = b64u(JSON.stringify({ sub: user.id, email: user.email, name: user.name, role: user.role, sv: user.sv, iat: now, exp: now + ttlSeconds }))
   const sig = createHmac('sha256', config.authSecret).update(`${header}.${payload}`).digest('base64url')
   return `${header}.${payload}.${sig}`
 }
 
-export function verifyToken(token: string | undefined): SessionUser | null {
+export function verifyToken(token: string | undefined): TokenClaims | null {
   if (!token) return null
   const parts = token.split('.')
   if (parts.length !== 3) return null
@@ -37,8 +42,8 @@ export function verifyToken(token: string | undefined): SessionUser | null {
     if (given.length !== expected.length || !timingSafeEqual(given, expected)) return null
     const p = JSON.parse(Buffer.from(payload, 'base64url').toString())
     if (typeof p.exp !== 'number' || p.exp < Date.now() / 1000) return null
-    if (!p.sub || !p.email || !(p.role in USER_ROLE_RANK)) return null
-    return { id: p.sub, email: p.email, name: p.name ?? p.email, role: p.role }
+    if (!p.sub || !p.email || !(p.role in USER_ROLE_RANK) || !Number.isInteger(p.sv)) return null
+    return { id: p.sub, email: p.email, name: p.name ?? p.email, role: p.role, sv: p.sv }
   } catch {
     return null
   }
@@ -57,13 +62,23 @@ function tokenFrom(req: FastifyRequest): string | undefined {
   return req.cookies?.[config.sessionCookie]
 }
 
-/** ต้องล็อกอิน และมีบทบาทอย่างน้อย minRole (viewer < manager < admin) */
-export function requireRole(minRole: UserRole) {
+/**
+ * ต้องล็อกอิน และมีบทบาทอย่างน้อย minRole (viewer < manager < admin)
+ * ตรวจ token แล้วอ่านผู้ใช้จากฐานข้อมูลทุก request: บทบาท/ชื่อมาจากฐานข้อมูล (ไม่เชื่อค่าใน token),
+ * ผู้ใช้ที่ถูกลบ/ไม่ active หรือ session_version ไม่ตรง (เปลี่ยน/รีเซ็ตรหัสผ่านแล้ว) → 401
+ */
+export function requireRole(pool: Pool, minRole: UserRole) {
   return async function guard(req: FastifyRequest, _reply: FastifyReply) {
-    const user = verifyToken(tokenFrom(req))
-    if (!user) throw unauthorized()
-    if (USER_ROLE_RANK[user.role] < USER_ROLE_RANK[minRole]) throw forbidden()
-    req.user = user
+    const claims = verifyToken(tokenFrom(req))
+    if (!claims) throw unauthorized()
+    const u = await one<{ id: string; email: string; name: string; role: UserRole; sv: number }>(
+      pool,
+      `select id, email, name, role, session_version as sv from users where id = $1 and status = 'active'`,
+      [claims.id],
+    )
+    if (!u || u.sv !== claims.sv) throw unauthorized('เซสชันหมดอายุ กรุณาเข้าสู่ระบบอีกครั้ง')
+    if (USER_ROLE_RANK[u.role] < USER_ROLE_RANK[minRole]) throw forbidden()
+    req.user = { id: u.id, email: u.email, name: u.name, role: u.role }
   }
 }
 

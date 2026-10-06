@@ -22,7 +22,7 @@ async function assignVehicle(c: PoolClient, driverId: string, vehicleId: string)
 export const driverRoutes =
   (pool: Pool): FastifyPluginAsyncTypebox =>
   async (app) => {
-    const mgr = requireRole('manager')
+    const mgr = requireRole(pool, 'manager')
 
     app.get('/drivers', { preValidation: mgr, schema: { tags: ['drivers'], summary: 'รายชื่อคนขับพร้อมสถิติ 30 วัน', security: sec } }, async () =>
       rows(pool, `${DRIVER_SELECT} order by d.id`),

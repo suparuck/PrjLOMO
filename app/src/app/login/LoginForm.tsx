@@ -11,7 +11,9 @@ const DEMO = (process.env.NEXT_PUBLIC_DEMO_LOGIN ?? '').split(':')
 
 export function LoginForm() {
   const router = useRouter()
-  const next = safeNext(useSearchParams()?.get('next'))
+  const params = useSearchParams()
+  const next = safeNext(params?.get('next'))
+  const notice = params?.get('reset') ? 'ตั้งรหัสผ่านใหม่แล้ว กรุณาเข้าสู่ระบบด้วยรหัสผ่านใหม่' : params?.get('expired') ? 'เซสชันหมดอายุหรือถูกออกจากระบบ กรุณาเข้าสู่ระบบอีกครั้ง' : ''
   const [email, setEmail] = useState(DEMO[0] ?? '')
   const [password, setPassword] = useState(DEMO.slice(1).join(':'))
   const [remember, setRemember] = useState(true)
@@ -45,6 +47,11 @@ export function LoginForm() {
     <form className="auth-box" onSubmit={onSubmit}>
       <h1>เข้าสู่ระบบ</h1>
       <p>ยินดีต้อนรับกลับ กรุณากรอกข้อมูลเพื่อเข้าใช้งาน</p>
+      {notice && (
+        <p role="status" className="small" style={{ margin: '-12px 0 18px', color: 'var(--green)', fontWeight: 600 }}>
+          {notice}
+        </p>
+      )}
       <div className="field">
         <label htmlFor="email">อีเมล</label>
         <input className="input" id="email" type="email" placeholder="name@company.co.th" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} />
@@ -57,7 +64,7 @@ export function LoginForm() {
         <label className="flex" style={{ gap: 8 }}>
           <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} style={{ accentColor: 'var(--red)' }} /> จดจำฉันไว้
         </label>
-        <a href="#">ลืมรหัสผ่าน?</a>
+        <Link href="/forgot-password">ลืมรหัสผ่าน?</Link>
       </div>
       {error && (
         <p role="alert" className="small" style={{ color: 'var(--danger)', margin: '-8px 0 14px' }}>

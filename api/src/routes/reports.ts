@@ -12,8 +12,8 @@ const round = (n: number, d = 0) => Math.round(n * 10 ** d) / 10 ** d
 export const reportRoutes =
   (pool: Pool): FastifyPluginAsyncTypebox =>
   async (app) => {
-    const viewer = requireRole('viewer')
-    const mgr = requireRole('manager')
+    const viewer = requireRole(pool, 'viewer')
+    const mgr = requireRole(pool, 'manager')
 
     app.get(
       '/reports',

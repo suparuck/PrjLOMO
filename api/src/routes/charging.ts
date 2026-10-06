@@ -16,7 +16,7 @@ const PEAK = { peakStart: 9, peakEnd: 22 }
 export const chargingRoutes =
   (pool: Pool): FastifyPluginAsyncTypebox =>
   async (app) => {
-    const mgr = requireRole('manager')
+    const mgr = requireRole(pool, 'manager')
 
     app.get('/stations', { preValidation: mgr, schema: { tags: ['charging'], summary: 'สถานีชาร์จ (Depot และสาธารณะ)', security: sec } }, async () =>
       rows(

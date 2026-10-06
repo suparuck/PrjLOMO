@@ -7,6 +7,7 @@ import { config } from '../config'
 import { one, rows } from '../db'
 import { AppError, conflict, invalid, notFound } from '../errors'
 import { checkEmail } from '../lib/validators'
+import { newResetToken } from './auth'
 
 import { sec } from '../security'
 const Money = Type.String({ pattern: '^\\d{1,4}(\\.\\d{1,2})?$' })
@@ -55,9 +56,9 @@ const SETTINGS_SQL = `select org, thresholds, notify, charging from app_settings
 export const settingsRoutes =
   (pool: Pool): FastifyPluginAsyncTypebox =>
   async (app) => {
-    const viewer = requireRole('viewer')
-    const mgr = requireRole('manager')
-    const adm = requireRole('admin')
+    const viewer = requireRole(pool, 'viewer')
+    const mgr = requireRole(pool, 'manager')
+    const adm = requireRole(pool, 'admin')
 
     app.get('/org', { preValidation: viewer, schema: { tags: ['settings'], summary: 'ข้อมูลองค์กร (เมือง จุดกึ่งกลางแผนที่)', security: sec } }, async () => {
       const r = await one<{ name: string; city: string; lat: number; lng: number }>(
@@ -146,6 +147,37 @@ export const settingsRoutes =
         )
         if (!u) throw await missingOrActive(pool, req.params.id)
         return { ...u, inviteToken: inv.token }
+      },
+    )
+
+    // รีเซ็ตรหัสผ่านโดยผู้ดูแล (กรณีไม่มีอีเมล/ผู้ใช้เข้าอีเมลไม่ได้): ได้ลิงก์ใช้ครั้งเดียวไปส่งต่อเอง
+    // ผู้ดูแลไม่เห็นหรือตั้งรหัสผ่านแทนผู้ใช้ได้ — ผู้ใช้ตั้งเองผ่านลิงก์
+    app.post(
+      '/users/:id/reset-link',
+      {
+        preValidation: adm,
+        schema: {
+          tags: ['users'],
+          summary: 'สร้างลิงก์รีเซ็ตรหัสผ่านให้ผู้ใช้ที่ใช้งานอยู่ (แสดงครั้งเดียว อายุ 60 นาที; ลิงก์ที่ค้างอยู่เดิมใช้ไม่ได้)',
+          params: Type.Object({ id: Type.String({ format: 'uuid' }) }),
+          security: sec,
+        },
+      },
+      async (req) => {
+        const u = await one<{ id: string; email: string; name: string }>(pool, `select id, email, name from users where id = $1 and status = 'active'`, [req.params.id])
+        if (!u) {
+          const exists = await one(pool, 'select 1 from users where id = $1', [req.params.id])
+          throw exists ? conflict('ผู้ใช้นี้ยังไม่ได้ตอบรับคำเชิญ — ใช้ลิงก์คำเชิญแทน') : notFound('ผู้ใช้')
+        }
+        const r = newResetToken()
+        await pool.query(`update password_resets set used_at = now() where user_id = $1 and used_at is null`, [u.id])
+        const row = await one<{ expiresAt: string }>(
+          pool,
+          `insert into password_resets (token_hash, user_id, expires_at, requested_by)
+           values ($1, $2, now() + ($3::int * interval '1 minute'), 'admin') returning expires_at as "expiresAt"`,
+          [r.hash, u.id, config.resetTtlMinutes],
+        )
+        return { id: u.id, email: u.email, name: u.name, resetToken: r.token, expiresAt: row!.expiresAt }
       },
     )
 
