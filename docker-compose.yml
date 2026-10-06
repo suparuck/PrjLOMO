@@ -17,6 +17,35 @@ services:
       - "127.0.0.1:${DB_PORT:-5433}:5432"
     restart: unless-stopped
 
+  # สำรองฐานข้อมูลอัตโนมัติ: pg_dump ทุกวัน (ค่าเริ่มต้นตี 2 เวลาไทย) → ./backups เก็บ 14 วัน (อย่างน้อย 3 ไฟล์) · ดู db/README.md
+  # ไฟล์สำรองอยู่เครื่องเดียวกับฐานข้อมูล — ต้องคัดลอกออกไปเก็บนอกเครื่องเองด้วย (กันดิสก์/เครื่องเสีย)
+  backup:
+    image: ev-monitor-db:latest
+    entrypoint: ["sh", "/backup/run.sh"]
+    environment:
+      PGHOST: db
+      PGUSER: evm
+      PGDATABASE: evmonitor
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      BACKUP_HOUR_TH: ${BACKUP_HOUR_TH:-2}
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
+      BACKUP_KEEP_MIN: ${BACKUP_KEEP_MIN:-3}
+      BACKUP_ON_START: ${BACKUP_ON_START:-true}
+    volumes:
+      - ./db/backup:/backup:ro
+      - ${BACKUP_DIR:-./backups}:/backups
+    depends_on:
+      db:
+        condition: service_healthy
+    # healthy = มีไฟล์สำรองใหม่กว่า 26 ชั่วโมง (ถ้าสำรองหยุดทำงานจะขึ้น unhealthy)
+    healthcheck:
+      test: ["CMD", "sh", "/backup/check.sh"]
+      interval: 10m
+      timeout: 10s
+      retries: 1
+      start_period: 15m
+    restart: unless-stopped
+
   api:
     build: ./api
     image: ev-monitor-api:latest

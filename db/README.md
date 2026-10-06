@@ -57,4 +57,39 @@ docker compose exec -T db psql -U evm -d evmonitor -v ON_ERROR_STOP=1 < db/migra
 
 - ผู้ใช้เดโมใน `02_reference.sql` ใช้รหัสผ่าน `demo1234` — **เปลี่ยนหรือลบก่อนขึ้นระบบจริง**
 - รหัสผ่านฐานข้อมูลมาจาก `.env` (`POSTGRES_PASSWORD`) พอร์ตเปิดที่ `127.0.0.1` เท่านั้น
-- ข้อมูลอยู่ใน named volume `pgdata` — สำรองด้วย `docker compose exec db pg_dump -U evm evmonitor > backup.sql`
+- ข้อมูลอยู่ใน named volume `pgdata` — สำรองอัตโนมัติด้วย service `backup` (หัวข้อถัดไป) และ **ไฟล์สำรองมีข้อมูลส่วนบุคคลกับรหัสผ่านที่แฮชแล้ว ต้องเก็บรักษาเท่ากับฐานข้อมูลจริง**
+
+## สำรองและกู้คืนฐานข้อมูล
+
+service `backup` (เริ่มพร้อม `docker compose up -d`) ทำ `pg_dump` ทุกวันตอน **ตี 2 เวลาไทย** (และสำรองทันทีตอนเริ่มครั้งแรก) เก็บที่ `./backups` บนเครื่องโฮสต์:
+
+- ไฟล์ชื่อ `evmonitor-YYYYMMDD-HHMMSS.dump` (เวลา UTC) รูปแบบ custom บีบอัด — เขียนเป็นไฟล์ชั่วคราวแล้วค่อยเปลี่ยนชื่อ และ **ตรวจว่าอ่านกลับได้ + มีข้อมูลตารางครบ** ก่อนนับว่าสำเร็จ (ไฟล์เสีย/ว่างจะไม่ถูกเก็บ)
+- เก็บย้อนหลัง **14 วัน** แต่ **อย่างน้อย 3 ไฟล์ล่าสุดเสมอ** (กันลบจนเหลือศูนย์ถ้าระบบสำรองหยุดไปนาน) ปรับได้ด้วย `BACKUP_KEEP_DAYS` / `BACKUP_KEEP_MIN` / `BACKUP_HOUR_TH` / `BACKUP_DIR` ใน `.env`
+- ล้มเหลวจะลองใหม่ทุก 15 นาที สูงสุด 4 ครั้ง; `docker compose ps` แสดง `backup` เป็น **unhealthy** ถ้าไม่มีไฟล์สำรองที่ใหม่กว่า 26 ชั่วโมง
+- ไฟล์มีสิทธิ์อ่านได้เฉพาะเจ้าของ (`0600`) ใน container (บน Windows/ดิสก์ที่ไม่รองรับสิทธิ์ ให้ป้องกันที่โฟลเดอร์เอง)
+
+```bash
+docker compose logs backup                                  # ดูผลการสำรอง
+docker compose exec -T backup sh /backup/backup.sh          # สำรองเดี๋ยวนี้
+docker compose exec -T backup sh /backup/verify.sh          # ทดสอบกู้คืนจริง (ลงฐานข้อมูลชั่วคราว เทียบจำนวนแถว แล้วลบ)
+docker compose exec -T backup sh /backup/restore.sh         # กู้ไฟล์ล่าสุดลงฐานข้อมูลใหม่ evmonitor_restore (ไม่แตะข้อมูลจริง)
+docker compose exec -T backup sh /backup/restore.sh /backups/evmonitor-20261006-135143.dump
+```
+
+> **Windows + Git Bash:** Git Bash แปลง path ที่ขึ้นต้นด้วย `/` เป็น path ของ Windows จนคำสั่งข้างบนพัง ให้ตั้ง `MSYS_NO_PATHCONV=1` นำหน้า (หรือใช้ PowerShell/CMD ซึ่งไม่เป็น)
+
+**กู้คืนจริงเมื่อข้อมูลหาย** (ทับฐานข้อมูลจริง — ข้อมูลปัจจุบันหายทั้งหมด):
+
+```bash
+docker compose stop api web                                 # ต้องไม่มีใครต่ออยู่
+docker compose exec -T -e RESTORE_OVER_LIVE=yes-overwrite-live backup sh /backup/restore.sh /backups/<ไฟล์>.dump
+docker compose start api web
+```
+
+หลังกู้ ถ้าเป็นไฟล์จากรุ่น schema เก่ากว่าปัจจุบัน ให้รัน migration ที่ขาดใน `db/migrations/` ตามลำดับ
+
+**ข้อจำกัดที่ต้องรู้**
+- ไฟล์สำรองอยู่ **เครื่องเดียวกับฐานข้อมูล** — ดิสก์เสีย/เครื่องหาย/ถูกเข้ารหัสด้วยแรนซัมแวร์ ก็หายพร้อมกัน ต้อง **คัดลอก `./backups` ออกไปเก็บนอกเครื่อง** เป็นระยะ (เช่น `robocopy`/`rsync`/object storage) และ `BACKUP_DIR` ควรชี้ไปดิสก์คนละลูกกับ volume ของฐานข้อมูล
+- ไฟล์ **ไม่ได้เข้ารหัส** — ถ้าส่งออกนอกเครื่องให้เข้ารหัสระหว่างส่ง/เก็บ (เช่น `age`, `gpg`, หรือการเข้ารหัสของที่เก็บปลายทาง)
+- สำรองแบบ logical วันละครั้ง: ข้อมูลหลังรอบสำรองล่าสุดอาจหายได้สูงสุด ~24 ชม. (ไม่ใช่ point-in-time recovery — ถ้าต้องการต้องเปิด WAL archiving)
+- ทดสอบกู้คืนด้วย `verify.sh` เป็นระยะ (เช่นทุกเดือน และหลังเปลี่ยน schema) — ไฟล์สำรองที่ไม่เคยทดสอบกู้ยังไม่ถือว่าสำรองแล้ว

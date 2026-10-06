@@ -7,3 +7,6 @@ out/
 next-env.d.ts
 *.tsbuildinfo
 .claude/
+
+# สำรองฐานข้อมูล (มีรหัสผ่านที่แฮชแล้วและข้อมูลส่วนบุคคล — ห้าม commit)
+/backups/
