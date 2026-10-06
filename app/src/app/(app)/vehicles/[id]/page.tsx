@@ -9,6 +9,7 @@ import { formatRelative } from '@/lib/time'
 import { usePageHeader } from '@/components/layout/PageHeader'
 import { Card, CardHeader } from '@/components/ui/Card'
 import { LinkButton } from '@/components/ui/Button'
+import { telHref } from '@/lib/phone'
 import { Icon } from '@/components/ui/Icon'
 import { ScoreRing } from '@/components/ui/ScoreRing'
 import { SocBar } from '@/components/ui/SocBar'
@@ -90,10 +91,17 @@ export default function VehicleDetailPage({ params }: { params: { id: string } }
             <LinkButton href="/map" size="md" icon="map">
               ดูบนแผนที่
             </LinkButton>
-            <button className="btn btn-navy">
-              <Icon name="phone" size={16} />
-              ติดต่อคนขับ
-            </button>
+            {d ? (
+              <a className="btn btn-navy" href={telHref(d.phone)} title={`โทร ${d.name} ${d.phone}`}>
+                <Icon name="phone" size={16} />
+                ติดต่อคนขับ
+              </a>
+            ) : (
+              <button type="button" className="btn btn-navy" disabled title="รถคันนี้ยังไม่มีคนขับประจำ">
+                <Icon name="phone" size={16} />
+                ติดต่อคนขับ
+              </button>
+            )}
           </div>
         </div>
       </section>

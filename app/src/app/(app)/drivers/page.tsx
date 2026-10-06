@@ -11,6 +11,7 @@ import { Icon } from '@/components/ui/Icon'
 import { KpiCard } from '@/components/ui/KpiCard'
 import { ScoreRing } from '@/components/ui/ScoreRing'
 import { SearchInput } from '@/components/ui/SearchInput'
+import { DriverDetailModal } from '@/components/modals/DriverDetailModal'
 import { AddDriverModal } from '@/components/modals/AddDriverModal'
 import { useToast } from '@/components/ui/Toast'
 import { DriverEventsDonut } from '@/components/charts/DriverEventsDonut'
@@ -28,6 +29,7 @@ export default function DriversPage() {
   const toast = useToast()
   const [adding, setAdding] = useState(false)
   const [q, setQ] = useState('')
+  const [detail, setDetail] = useState<Driver | null>(null)
   if (!data) return <PageLoading error={error} />
 
   const { drivers: D, vehicles, events } = data
@@ -121,7 +123,9 @@ export default function DriversPage() {
                         <td className="r">{v?.efficiency ?? '-'}</td>
                         <td className="r">{d.events}</td>
                         <td>
-                          <button className="btn btn-ghost btn-sm">รายละเอียด</button>
+                          <button type="button" className="btn btn-ghost btn-sm" onClick={() => setDetail(d)}>
+                            รายละเอียด
+                          </button>
                         </td>
                       </tr>
                     )
@@ -200,6 +204,7 @@ export default function DriversPage() {
         </div>
       </section>
 
+      {detail && <DriverDetailModal driver={detail} vehicle={vehOf(detail.id)} onClose={() => setDetail(null)} />}
       {adding && (
         <AddDriverModal
           drivers={D}
