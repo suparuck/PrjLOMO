@@ -14,6 +14,7 @@ import { useToast } from '@/components/ui/Toast'
 import { ReportScheduleModal } from '@/components/modals/ReportScheduleModal'
 import { IceVehicleModal } from '@/components/modals/IceVehicleModal'
 import { TcoModal } from '@/components/modals/TcoModal'
+import { AssumptionsModal } from '@/components/modals/AssumptionsModal'
 import { PERIOD_LABEL, brandLabel, downloadReportXlsx } from '@/lib/exportReport'
 import {
   Co2Chart,
@@ -44,6 +45,8 @@ export default function ReportsPage() {
   const [brand, setBrand] = useState<ReportBrand>('all')
   const toast = useToast()
   const [scheduling, setScheduling] = useState(false)
+  const [assumptions, setAssumptions] = useState<Awaited<ReturnType<typeof api.getReportConfig>> | null>(null)
+  const [loadingAssumptions, setLoadingAssumptions] = useState(false)
   // ผู้ดูรายงาน (viewer) ดูรายงานได้แต่จัดการตารางส่งอีเมลไม่ได้ (ต้องเป็น manager ขึ้นไป)
   const { data: me } = useAsync(() => api.getMe())
   const [exporting, setExporting] = useState<'report' | 'esg' | null>(null)
@@ -63,8 +66,19 @@ export default function ReportsPage() {
     window.history.replaceState(null, '', `#${t}`)
   }
 
-  const { data: report, error: reportError } = useAsync(() => api.getReport({ period, brand }), [period, brand])
+  const { data: report, error: reportError, reload: reloadReport } = useAsync(() => api.getReport({ period, brand }), [period, brand])
   const { data: electrify, error: electrifyError, reload: reloadElectrify } = useAsync(() => api.getElectrification())
+
+  async function openAssumptions() {
+    setLoadingAssumptions(true)
+    try {
+      setAssumptions(await api.getReportConfig())
+    } catch {
+      toast('โหลดสมมติฐานไม่สำเร็จ', 'error')
+    } finally {
+      setLoadingAssumptions(false)
+    }
+  }
 
   async function doExport(kind: 'report' | 'esg') {
     if (!report) return
@@ -110,6 +124,12 @@ export default function ReportsPage() {
             {exporting === 'report' ? 'กำลังสร้าง…' : 'Excel'}
           </button>
           {me && me.role !== 'viewer' && (
+            <button type="button" className="btn btn-outline" onClick={openAssumptions} disabled={loadingAssumptions}>
+              <Icon name="settings" size={16} />
+              {loadingAssumptions ? 'กำลังโหลด…' : 'สมมติฐาน'}
+            </button>
+          )}
+          {me && me.role !== 'viewer' && (
             <button type="button" className="btn btn-navy" onClick={() => setScheduling(true)}>
               <Icon name="clock" size={16} />
               ตั้งเวลาส่งรายงาน
@@ -133,6 +153,18 @@ export default function ReportsPage() {
       )}
 
       {scheduling && <ReportScheduleModal onClose={() => setScheduling(false)} />}
+      {assumptions && (
+        <AssumptionsModal
+          initial={assumptions}
+          onClose={() => setAssumptions(null)}
+          onDone={() => {
+            setAssumptions(null)
+            reloadReport()
+            reloadElectrify()
+            toast('บันทึกสมมติฐานของรายงานแล้ว — รายงานคำนวณใหม่')
+          }}
+        />
+      )}
     </>
   )
 }

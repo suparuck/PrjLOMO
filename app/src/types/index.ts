@@ -117,6 +117,25 @@ export interface IceVehicle {
   recommendedEv: string
 }
 
+/** สมมติฐานของรายงาน (ดู api/src/services/reportConfig.ts) */
+export interface AssumptionValues {
+  gridKgPerKwh: number
+  treeKgPerYear: number
+  oilCostPerKm: number
+  kwhChangePct: number
+  efficiencyChangePct: number
+  actualRangeRatio: number
+  defaultEfficiency: number
+  co2GPerKm: { sedan: number; diesel: number; hybrid: number; evSolar: number }
+  evEstimate: { workingDays: number; kwhPerKm: number; pricePerKwh: number }
+}
+export type AssumptionLimits = Record<
+  | 'gridKgPerKwh' | 'treeKgPerYear' | 'oilCostPerKm' | 'kwhChangePct' | 'efficiencyChangePct' | 'actualRangeRatio' | 'defaultEfficiency'
+  | 'co2GPerKm.sedan' | 'co2GPerKm.diesel' | 'co2GPerKm.hybrid' | 'co2GPerKm.evSolar'
+  | 'evEstimate.workingDays' | 'evEstimate.kwhPerKm' | 'evEstimate.pricePerKwh',
+  { min: number; max: number; dp: number; label: string }
+>
+
 export interface IceDraft {
   id: string
   model: string

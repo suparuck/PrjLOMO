@@ -7,7 +7,7 @@ import * as m from './mappers'
 import type * as D from './dto'
 import type {
   AlertRule, Alert, ApiKeyInfo, AppUser, BatteryInsights, ChargingHistory, ChargingLoad, ChargingSession, Driver, DriverEventStat,
-  ElectrificationReport, EnergySummary, EnergyWeek, IceVehicle, Integration, InviteInfo, InviteUserDraft, Paged, VehiclesPage, DriversPage, AlertsPage, VehicleStatus, AlertSeverity, AlertType, ReportSchedule, ReportSchedules, ScheduleDraft, ResetInfo, ResetLinkResult, UserRole, NewDriverDraft, NewStationDraft, IceDraft, TcoDraft, NewVehicleDraft,
+  ElectrificationReport, EnergySummary, EnergyWeek, IceVehicle, Integration, InviteInfo, InviteUserDraft, Paged, VehiclesPage, DriversPage, AlertsPage, VehicleStatus, AlertSeverity, AlertType, ReportSchedule, ReportSchedules, ScheduleDraft, ResetInfo, ResetLinkResult, UserRole, NewDriverDraft, NewStationDraft, IceDraft, TcoDraft, AssumptionValues, AssumptionLimits, NewVehicleDraft,
   NotificationChannel, Org, PublicOverview, Report, ReportFilters, Result, Settings, Station, Sustainability, Vehicle, VehicleDetail,
 } from '@/types'
 
@@ -137,6 +137,9 @@ export const api = {
       ),
       { odometerKm: 'odometer' },
     ),
+  // ---- สมมติฐานของรายงาน ----
+  getReportConfig: () => get<{ values: AssumptionValues; defaults: AssumptionValues; limits: AssumptionLimits }>('/report-config'),
+  saveReportConfig: (v: AssumptionValues) => write(() => put<{ saved: boolean }>('/report-config', v)),
   // ---- รถสันดาปและ TCO (รายงานความพร้อมเปลี่ยนเป็น EV) ----
   addIceVehicle: (d: IceDraft) => write(() => post<IceVehicle>('/ice-vehicles', { id: d.id, ...iceBody(d) })),
   updateIceVehicle: (id: string, d: IceDraft) => write(() => patch<IceVehicle>(`/ice-vehicles/${encodeURIComponent(id)}`, iceBody(d))),

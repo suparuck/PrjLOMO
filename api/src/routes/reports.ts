@@ -6,6 +6,7 @@ import { one, rows, withTx } from '../db'
 import { monthLabel, weekdayLabel } from '../lib/labels'
 import { invalid, notFound } from '../errors'
 import { checkIceFields, checkTco } from '../lib/validators'
+import { DEFAULT_ASSUMPTIONS, LIMITS, checkAssumptions, readAssumptions, writeAssumptions } from '../services/reportConfig'
 import { computeElectrification, computeReport, loadConfig } from '../services/report'
 
 import { sec } from '../security'
@@ -200,6 +201,41 @@ export const reportRoutes =
         const r = await one(pool, 'delete from ice_vehicles where id = $1 returning id', [req.params.id])
         if (!r) throw notFound('รถสันดาป')
         return { deleted: true }
+      },
+    )
+
+    // ---- สมมติฐานของรายงาน (ค่าปัจจัยที่ใช้คำนวณ CO₂ ต้นทุน ค่าไฟ EV ฯลฯ) ----
+    const Num = (k: keyof typeof LIMITS) => Type.Number({ minimum: LIMITS[k].min, maximum: LIMITS[k].max })
+    app.get(
+      '/report-config',
+      { preValidation: mgr, schema: { tags: ['reports'], summary: 'สมมติฐานของรายงาน (ค่าปัจจุบัน ค่ามาตรฐาน และช่วงที่ยอมรับ)', security: sec } },
+      async () => ({ values: await readAssumptions(pool), defaults: DEFAULT_ASSUMPTIONS, limits: LIMITS }),
+    )
+
+    app.put(
+      '/report-config',
+      {
+        preValidation: mgr,
+        schema: {
+          tags: ['reports'],
+          summary: 'บันทึกสมมติฐานของรายงานทั้งชุด — มีผลกับรายงาน แดชบอร์ด ไฟล์ Excel และอีเมลรายงานตามเวลาทันที',
+          security: sec,
+          body: Type.Object({
+            gridKgPerKwh: Num('gridKgPerKwh'),
+            treeKgPerYear: Num('treeKgPerYear'),
+            oilCostPerKm: Num('oilCostPerKm'),
+            kwhChangePct: Num('kwhChangePct'),
+            efficiencyChangePct: Num('efficiencyChangePct'),
+            actualRangeRatio: Num('actualRangeRatio'),
+            defaultEfficiency: Num('defaultEfficiency'),
+            co2GPerKm: Type.Object({ sedan: Num('co2GPerKm.sedan'), diesel: Num('co2GPerKm.diesel'), hybrid: Num('co2GPerKm.hybrid'), evSolar: Num('co2GPerKm.evSolar') }),
+            evEstimate: Type.Object({ workingDays: Num('evEstimate.workingDays'), kwhPerKm: Num('evEstimate.kwhPerKm'), pricePerKwh: Num('evEstimate.pricePerKwh') }),
+          }),
+        },
+      },
+      async (req) => {
+        await writeAssumptions(pool, checkAssumptions(req.body))
+        return { saved: true }
       },
     )
 
