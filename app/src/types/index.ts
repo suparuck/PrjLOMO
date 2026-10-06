@@ -56,6 +56,17 @@ export interface Station {
   pricePerKwh: number
 }
 
+export interface NewStationDraft {
+  name: string
+  type: 'depot' | 'public'
+  network: string
+  power: string
+  ports: string
+  pricePerKwh: string
+  lat: string
+  lng: string
+}
+
 export interface ChargingSession {
   vehicleId: string
   stationName: string

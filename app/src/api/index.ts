@@ -7,7 +7,7 @@ import * as m from './mappers'
 import type * as D from './dto'
 import type {
   AlertRule, Alert, ApiKeyInfo, AppUser, BatteryInsights, ChargingHistory, ChargingLoad, ChargingSession, Driver, DriverEventStat,
-  ElectrificationReport, EnergySummary, EnergyWeek, IceVehicle, Integration, InviteInfo, InviteUserDraft, Paged, VehiclesPage, DriversPage, AlertsPage, VehicleStatus, AlertSeverity, AlertType, ReportSchedule, ReportSchedules, ScheduleDraft, ResetInfo, ResetLinkResult, UserRole, NewDriverDraft, NewVehicleDraft,
+  ElectrificationReport, EnergySummary, EnergyWeek, IceVehicle, Integration, InviteInfo, InviteUserDraft, Paged, VehiclesPage, DriversPage, AlertsPage, VehicleStatus, AlertSeverity, AlertType, ReportSchedule, ReportSchedules, ScheduleDraft, ResetInfo, ResetLinkResult, UserRole, NewDriverDraft, NewStationDraft, NewVehicleDraft,
   NotificationChannel, Org, PublicOverview, Report, ReportFilters, Result, Settings, Station, Sustainability, Vehicle, VehicleDetail,
 } from '@/types'
 
@@ -33,6 +33,17 @@ const qs = (o: Record<string, string | number | undefined>) =>
     .filter(([, v]) => v !== undefined && v !== '')
     .map(([k, v]) => `${k}=${encodeURIComponent(String(v))}`)
     .join('&')
+
+const stationBody = (d: NewStationDraft) => ({
+  name: d.name,
+  type: d.type,
+  network: d.network,
+  power: d.power,
+  ports: Number(d.ports),
+  pricePerKwh: Number(d.pricePerKwh),
+  lat: Number(d.lat),
+  lng: Number(d.lng),
+})
 
 const num = (s: string) => Number(s.trim().replace(/,/g, ''))
 
@@ -117,6 +128,9 @@ export const api = {
       ),
       { odometerKm: 'odometer' },
     ),
+  addStation: (d: NewStationDraft) => write(async () => m.station(await post<D.StationDTO>('/stations', stationBody(d)))),
+  updateStation: (id: string, d: NewStationDraft) => write(async () => m.station(await patch<D.StationDTO>(`/stations/${encodeURIComponent(id)}`, stationBody(d)))),
+  deleteStation: (id: string) => write(() => del<{ deleted: boolean }>(`/stations/${encodeURIComponent(id)}`)),
   addDriver: (d: NewDriverDraft) =>
     write(async () => m.driver(await post<D.DriverDTO>('/drivers', { name: d.name, phone: d.phone, vehicleId: d.vehicleId || null }))),
   inviteUser: (d: InviteUserDraft) =>

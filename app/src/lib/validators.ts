@@ -2,7 +2,7 @@
  * ตรวจสอบข้อมูลฟอร์ม — ใช้ทั้งฝั่งฟอร์ม (แจ้งผิดทันที) และฝั่ง API (ตัดสินจริง)
  * ทุกฟังก์ชันคืน { errors, value } โดย value เป็นข้อมูลที่ปรับรูปแบบแล้ว (ว่างถ้ามี error)
  */
-import type { InviteUserDraft, NewDriverDraft, NewVehicleDraft, UserRole } from '@/types'
+import type { InviteUserDraft, NewDriverDraft, NewStationDraft, NewVehicleDraft, UserRole } from '@/types'
 
 export type Errors = Record<string, string>
 
@@ -149,4 +149,46 @@ export function validatePasswordChange(d: { current: string; next: string; confi
   else if (d.next === d.current) errors.next = 'รหัสผ่านใหม่ต้องไม่ซ้ำกับรหัสผ่านปัจจุบัน'
   if (!pw && d.confirm !== d.next) errors.confirm = 'รหัสผ่านทั้งสองช่องไม่ตรงกัน'
   return errors
+}
+
+/** ตรวจฟอร์มสถานีชาร์จ (กฎเดียวกับ checkStationFields ใน api/src/lib/validators.ts) — names = ชื่อสถานีอื่นที่มีอยู่แล้ว, busy = ช่องที่ใช้งานอยู่ (เมื่อแก้ไข) */
+export function validateStation(
+  d: NewStationDraft,
+  ctx: { names: string[]; busy?: number },
+): { errors: Errors; value?: { name: string; type: 'depot' | 'public'; network: string; power: string; ports: number; pricePerKwh: number; lat: number; lng: number } } {
+  const errors: Errors = {}
+  const clean = (s: string) => s.trim().replace(/\s+/g, ' ')
+  const name = clean(d.name)
+  const network = clean(d.network)
+  const power = clean(d.power)
+  const num = (s: string) => (/^-?\d+(\.\d+)?$/.test(s.trim()) ? Number(s.trim()) : NaN)
+
+  if (!name) errors.name = 'กรุณากรอกชื่อสถานี'
+  else if (name.length < 2 || name.length > 80) errors.name = 'ชื่อสถานีต้องยาว 2–80 ตัวอักษร'
+  else if (ctx.names.some((n) => n.trim().toLowerCase() === name.toLowerCase())) errors.name = 'มีสถานีชื่อนี้อยู่แล้ว'
+
+  if (!network) errors.network = 'กรุณากรอกเครือข่าย/ผู้ให้บริการ'
+  else if (network.length > 60) errors.network = 'เครือข่ายต้องไม่เกิน 60 ตัวอักษร'
+
+  if (!power) errors.power = 'กรุณากรอกกำลังชาร์จ'
+  else if (power.length > 60) errors.power = 'กำลังชาร์จต้องไม่เกิน 60 ตัวอักษร'
+
+  const ports = num(d.ports)
+  if (!d.ports.trim()) errors.ports = 'กรุณากรอกจำนวนช่องชาร์จ'
+  else if (!Number.isInteger(ports) || ports < 1 || ports > 100) errors.ports = 'จำนวนช่องต้องเป็นจำนวนเต็ม 1–100'
+  else if (ctx.busy && ports < ctx.busy) errors.ports = `ตอนนี้ใช้งานอยู่ ${ctx.busy} ช่อง ลดจำนวนช่องต่ำกว่านี้ไม่ได้`
+
+  const price = num(d.pricePerKwh)
+  if (!d.pricePerKwh.trim()) errors.pricePerKwh = 'กรุณากรอกราคาต่อ kWh'
+  else if (Number.isNaN(price) || price < 0 || price > 99.99) errors.pricePerKwh = 'ราคาต้องเป็นตัวเลข 0–99.99 บาท'
+  else if (Math.round(price * 100) / 100 !== price) errors.pricePerKwh = 'ราคาใส่ทศนิยมได้ไม่เกิน 2 ตำแหน่ง'
+
+  const lat = num(d.lat)
+  if (!d.lat.trim()) errors.lat = 'กรุณากรอกละติจูด'
+  else if (Number.isNaN(lat) || lat < -90 || lat > 90) errors.lat = 'ละติจูดต้องอยู่ระหว่าง −90 ถึง 90'
+  const lng = num(d.lng)
+  if (!d.lng.trim()) errors.lng = 'กรุณากรอกลองจิจูด'
+  else if (Number.isNaN(lng) || lng < -180 || lng > 180) errors.lng = 'ลองจิจูดต้องอยู่ระหว่าง −180 ถึง 180'
+
+  return Object.keys(errors).length ? { errors } : { errors, value: { name, type: d.type, network, power, ports, pricePerKwh: price, lat, lng } }
 }

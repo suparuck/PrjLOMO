@@ -1,5 +1,6 @@
 'use client'
 
+import { StationModal } from '@/components/modals/StationModal'
 import { useEffect, useState } from 'react'
 import { Pager, pagerOf } from '@/components/ui/Pager'
 import { PageLoading } from '@/components/ui/PageLoading'
@@ -17,17 +18,18 @@ import { ChargingLoadChart } from '@/components/charts/ChargingLoadChart'
 import { ChargingTargetModal } from '@/components/modals/ChargingTargetModal'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { useToast } from '@/components/ui/Toast'
-import type { ChargingSession } from '@/types'
+import type { ChargingSession, Station } from '@/types'
 
 async function load() {
-  const [vehicles, stations, sessions, history, loadKw] = await Promise.all([
+  const [vehicles, stations, sessions, history, loadKw, org] = await Promise.all([
     api.listVehicles(),
     api.listStations(),
     api.listChargingSessions(),
     api.listChargingHistory(),
     api.getChargingLoad(),
+    api.getOrg(),
   ])
-  return { vehicles, stations, sessions, history, loadKw }
+  return { vehicles, stations, sessions, history, loadKw, org }
 }
 
 type StationFilter = 'all' | 'depot' | 'public'
@@ -38,6 +40,8 @@ export default function ChargingPage() {
   const [adjusting, setAdjusting] = useState<ChargingSession | null>(null)
   const [stopping, setStopping] = useState<ChargingSession | null>(null)
   const [stFilter, setStFilter] = useState<StationFilter>('all')
+  // เพิ่ม/แก้ไขสถานี: undefined = ปิด, null = เพิ่มใหม่, Station = แก้ไขสถานีนั้น
+  const [stationForm, setStationForm] = useState<Station | null | undefined>(undefined)
   // ตารางประวัติแบ่งหน้าที่ API (KPI ด้านบนยังใช้ข้อมูลรวมของ 24 ชม.)
   const [histPage, setHistPage] = useState(1)
   const { data: hist } = useAsync(() => api.listChargingHistoryPage({ page: histPage, pageSize: 10 }), [histPage], { live: true })
@@ -46,7 +50,7 @@ export default function ChargingPage() {
   }, [hist])
   if (!data) return <PageLoading error={error} />
 
-  const { vehicles, stations, sessions: S, history: H, loadKw } = data
+  const { vehicles, stations, sessions: S, history: H, loadKw, org } = data
   const modelOf = (id: string) => vehicles.find((v) => v.id === id)?.model ?? ''
   const typeOf = (name: string) => stations.find((s) => s.name === name)?.type
 
@@ -118,25 +122,49 @@ export default function ChargingPage() {
           title="สถานีชาร์จ"
           sub="Depot ขององค์กรและเครือข่ายสาธารณะที่ใช้บ่อย"
           actions={
-            <Segmented
-              value={stFilter}
-              onChange={setStFilter}
-              options={[
-                { key: 'all', label: 'ทั้งหมด' },
-                { key: 'depot', label: 'Depot' },
-                { key: 'public', label: 'สาธารณะ' },
-              ]}
-            />
+            <div className="card-tools">
+              <Segmented
+                value={stFilter}
+                onChange={setStFilter}
+                options={[
+                  { key: 'all', label: 'ทั้งหมด' },
+                  { key: 'depot', label: 'Depot' },
+                  { key: 'public', label: 'สาธารณะ' },
+                ]}
+              />
+              <button type="button" className="btn btn-primary btn-sm" onClick={() => setStationForm(null)}>
+                <Icon name="plus" size={15} />
+                เพิ่มสถานี
+              </button>
+            </div>
           }
         />
-        <div className="grid g-3">
-          {stations
-            .filter((s) => stFilter === 'all' || s.type === stFilter)
-            .map((s) => (
-              <StationCard key={s.id} station={s} />
-            ))}
-        </div>
+        {stations.length === 0 ? (
+          <div className="empty">ยังไม่มีสถานีชาร์จ — กด &quot;เพิ่มสถานี&quot; เพื่อเริ่ม (ต้องมีสถานีก่อนจึงจะบันทึกการชาร์จของรถได้)</div>
+        ) : (
+          <div className="grid g-3">
+            {stations
+              .filter((s) => stFilter === 'all' || s.type === stFilter)
+              .map((s) => (
+                <StationCard key={s.id} station={s} onEdit={() => setStationForm(s)} />
+              ))}
+          </div>
+        )}
       </Card>
+
+      {stationForm !== undefined && (
+        <StationModal
+          station={stationForm ?? undefined}
+          stations={stations}
+          center={org.center}
+          onClose={() => setStationForm(undefined)}
+          onDone={(action, st) => {
+            setStationForm(undefined)
+            reload()
+            toast(action === 'added' ? `เพิ่มสถานี ${st.name} แล้ว` : action === 'deleted' ? `ลบสถานี ${st.name} แล้ว` : `บันทึกสถานี ${st.name} แล้ว`)
+          }}
+        />
+      )}
 
       <section className="card flush">
         <CardHeader

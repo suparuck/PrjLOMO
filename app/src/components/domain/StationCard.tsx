@@ -1,6 +1,6 @@
 import type { Station } from '@/types'
 
-export function StationCard({ station: s }: { station: Station }) {
+export function StationCard({ station: s, onEdit }: { station: Station; onEdit?: () => void }) {
   const free = s.ports - s.busy
   return (
     <div className="session">
@@ -15,6 +15,11 @@ export function StationCard({ station: s }: { station: Station }) {
           <i />
           {free ? `ว่าง ${free}` : 'เต็ม'}
         </span>
+        {onEdit && (
+          <button type="button" className="btn btn-ghost btn-sm" onClick={onEdit} aria-label={`แก้ไขสถานี ${s.name}`}>
+            แก้ไข
+          </button>
+        )}
       </div>
       <div className="flex" style={{ gap: 6, marginBottom: 12 }}>
         {Array.from({ length: s.ports }, (_, i) => (

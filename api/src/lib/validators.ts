@@ -92,3 +92,39 @@ export function checkDisplayName(raw: string) {
   if (name.length < 2 || name.length > 60) throw invalid({ name: 'ชื่อต้องยาว 2–60 ตัวอักษร' })
   return name
 }
+
+/**
+ * ตรวจ/จัดรูปข้อมูลสถานีชาร์จ (กฎเดียวกับ validateStation ใน app/src/lib/validators.ts)
+ * partial=true ใช้กับการแก้ไข: ตรวจเฉพาะฟิลด์ที่ส่งมา
+ */
+export function checkStationFields(
+  input: { name?: string; network?: string; power?: string; pricePerKwh?: number },
+  partial = false,
+) {
+  const errors: Record<string, string> = {}
+  const out: { name?: string; network?: string; power?: string; pricePerKwh?: number } = {}
+  const clean = (s: string) => s.trim().replace(/\s+/g, ' ')
+
+  if (input.name !== undefined || !partial) {
+    out.name = clean(input.name ?? '')
+    if (!out.name) errors.name = 'กรุณากรอกชื่อสถานี'
+    else if (out.name.length < 2 || out.name.length > 80) errors.name = 'ชื่อสถานีต้องยาว 2–80 ตัวอักษร'
+  }
+  if (input.network !== undefined || !partial) {
+    out.network = clean(input.network ?? '')
+    if (!out.network) errors.network = 'กรุณากรอกเครือข่าย/ผู้ให้บริการ (เช่น ภายในองค์กร, PEA VOLTA)'
+    else if (out.network.length > 60) errors.network = 'เครือข่ายต้องไม่เกิน 60 ตัวอักษร'
+  }
+  if (input.power !== undefined || !partial) {
+    out.power = clean(input.power ?? '')
+    if (!out.power) errors.power = 'กรุณากรอกกำลังชาร์จ (เช่น AC 22 kW, DC 120 kW)'
+    else if (out.power.length > 60) errors.power = 'กำลังชาร์จต้องไม่เกิน 60 ตัวอักษร'
+  }
+  if (input.pricePerKwh !== undefined) {
+    // ทศนิยมไม่เกิน 2 ตำแหน่ง (เก็บเป็น numeric(5,2))
+    if (Math.round(input.pricePerKwh * 100) / 100 !== input.pricePerKwh) errors.pricePerKwh = 'ราคาใส่ทศนิยมได้ไม่เกิน 2 ตำแหน่ง'
+    else out.pricePerKwh = input.pricePerKwh
+  }
+  if (Object.keys(errors).length) throw invalid(errors)
+  return out
+}
