@@ -364,3 +364,5 @@ create table if not exists user_recovery_codes (
   created_at timestamptz not null default now(),
   unique (user_id, code_hash)
 );
+
+alter table app_settings add column if not exists require_admin_2fa boolean not null default false;

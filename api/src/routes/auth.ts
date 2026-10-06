@@ -145,7 +145,7 @@ export const authRoutes =
     )
 
     // ---- ตั้งค่า/ปิด 2FA ของตัวเอง (ต้องล็อกอินอยู่ และยืนยันรหัสผ่านซ้ำ — session ที่ถูกขโมยจะตั้ง 2FA ล็อกเจ้าของไม่ได้) ----
-    const me = requireRole(pool, 'viewer')
+    const me = requireRole(pool, 'viewer', { allowWithout2fa: true })
     const reauth = async (userId: string, password: string, code?: string) => {
       if (twoFaGuard.blocked(userId)) throw tooMany()
       const ok = (await tf.passwordMatches(pool, userId, password)) && (code === undefined || (await tf.verifyCode(pool, userId, code)))
@@ -311,7 +311,7 @@ export const authRoutes =
     app.post(
       '/auth/change-password',
       {
-        preValidation: requireRole(pool, 'viewer'),
+        preValidation: requireRole(pool, 'viewer', { allowWithout2fa: true }),
         // กันการเดารหัสผ่านปัจจุบันจาก session ที่ถูกขโมย
         config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
         schema: {
@@ -444,11 +444,11 @@ export const authRoutes =
 
     app.get(
       '/auth/me',
-      { preValidation: requireRole(pool, 'viewer'), schema: { tags: ['auth'], summary: 'ผู้ใช้ปัจจุบัน', security: [{ cookieAuth: [] }, { bearerAuth: [] }] } },
+      { preValidation: requireRole(pool, 'viewer', { allowWithout2fa: true }), schema: { tags: ['auth'], summary: 'ผู้ใช้ปัจจุบัน', security: [{ cookieAuth: [] }, { bearerAuth: [] }] } },
       async (req) => {
         // บอกว่าเปิด 2FA หรือยัง และเหลือรหัสสำรองกี่ชุด (หน้าบัญชีของฉันใช้แสดงสถานะ)
         const s = await one<{ on: boolean }>(pool, 'select totp_enabled_at is not null as "on" from users where id = $1', [req.user!.id])
-        return { user: { ...req.user, twoFactorEnabled: !!s?.on, recoveryCodesLeft: s?.on ? await tf.remainingRecoveryCodes(pool, req.user!.id) : 0 } }
+        return { user: { ...req.user, twoFactorRequired: !!req.user!.twoFactorRequired, twoFactorEnabled: !!s?.on, recoveryCodesLeft: s?.on ? await tf.remainingRecoveryCodes(pool, req.user!.id) : 0 } }
       },
     )
   }

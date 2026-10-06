@@ -305,3 +305,85 @@ describe('2FA: ปิด/สร้างรหัสสำรองใหม่/
     assert.equal((await post('/auth/login/2fa', { challenge: ch, code: '123456' }, {})).statusCode, 401)
   })
 })
+
+describe('นโยบายบังคับ 2FA สำหรับผู้ดูแล', () => {
+  let t: Awaited<ReturnType<typeof startApp>>
+  const PW = 'demo1234'
+  const realNow = Date.now
+  let skew = 0
+  const nextWindow = () => { skew += 31_000; Date.now = () => realNow() + skew }
+  const call = (method: 'GET' | 'POST' | 'PUT', url: string, headers: Record<string, string>, payload?: unknown) => t.app.inject({ method, url: `${P}${url}`, headers, payload: payload as never })
+  const cookieOf = (res: { cookies: { name: string; value: string }[] }) => ({ Cookie: `ev_session=${res.cookies.find((c) => c.name === 'ev_session')!.value}` })
+
+  async function enableFor(h: Record<string, string>) {
+    const setup = json(await call('POST', '/auth/2fa/setup', h, { password: PW }))
+    nextWindow()
+    const r = await call('POST', '/auth/2fa/enable', h, { pending: setup.pending, code: codeAtStep(setup.secret, stepAt(Date.now())) })
+    assert.equal(r.statusCode, 200)
+    return cookieOf(r)
+  }
+
+  before(async () => { t = await startApp() })
+  after(async () => {
+    Date.now = realNow
+    await t.stop()
+  })
+
+  it('เปิดนโยบายได้เมื่อผู้ตั้งเปิด 2FA ของตัวเองแล้วเท่านั้น (409) และเฉพาะ admin', async () => {
+    let admin = await login(t.app)
+    assert.equal(json(await call('GET', '/security/status', admin)).require2faAdmins, false)
+    assert.equal((await call('PUT', '/security/2fa-policy', admin, { required: true })).statusCode, 409)
+    const mgr = await login(t.app, 'prasit@company.co.th', PW)
+    assert.equal((await call('PUT', '/security/2fa-policy', mgr, { required: true })).statusCode, 403)
+    admin = await enableFor(admin)
+    assert.equal((await call('PUT', '/security/2fa-policy', admin, { required: true })).statusCode, 200)
+    const st = json(await call('GET', '/security/status', admin))
+    assert.equal(st.require2faAdmins, true)
+    assert.equal(st.adminsWithout2fa, 0)
+  })
+
+  it('ผู้ดูแลที่ยังไม่เปิด 2FA ถูกจำกัด: API อื่น 403 two_factor_required แต่ /auth/me, ตั้งค่า 2FA, เปลี่ยนรหัสผ่านใช้ได้ — เปิดแล้วใช้ได้ปกติ', async () => {
+    const second = json(await call('POST', '/users/invite', await adminHeaders(), { email: 'admin2@company.co.th', role: 'admin' }))
+    const acc = await t.app.inject({ method: 'POST', url: `${P}/auth/invite/accept`, payload: { token: second.inviteToken, password: 'Second-Pass-1' } })
+    assert.equal(acc.statusCode, 200)
+    let h = cookieOf(acc)
+
+    const denied = await call('GET', '/vehicles', h)
+    assert.equal(denied.statusCode, 403)
+    assert.equal(json(denied).error.code, 'two_factor_required')
+    assert.equal((await call('GET', '/settings', h)).statusCode, 403)
+    const me = json(await call('GET', '/auth/me', h))
+    assert.equal(me.user.twoFactorRequired, true)
+    assert.equal(me.user.twoFactorEnabled, false)
+
+    const setup = json(await call('POST', '/auth/2fa/setup', h, { password: 'Second-Pass-1' }))
+    nextWindow()
+    const ok = await call('POST', '/auth/2fa/enable', h, { pending: setup.pending, code: codeAtStep(setup.secret, stepAt(Date.now())) })
+    assert.equal(ok.statusCode, 200)
+    h = cookieOf(ok)
+    assert.equal((await call('GET', '/vehicles', h)).statusCode, 200)
+    assert.equal(json(await call('GET', '/auth/me', h)).user.twoFactorRequired, false)
+  })
+
+  it('ผู้จัดการ/ผู้ดูรายงานไม่ถูกบังคับ และปิดนโยบายแล้วผู้ดูแลที่ไม่มี 2FA กลับมาใช้ได้', async () => {
+    const mgr = await login(t.app, 'prasit@company.co.th', PW)
+    assert.equal((await call('GET', '/vehicles', mgr)).statusCode, 200)
+    // รีเซ็ต 2FA ของ admin คนแรก (เครื่องหาย) ระหว่างนโยบายเปิด → เข้าได้แค่หน้าตั้งค่า 2FA
+    const admin = await adminHeaders()
+    const first = (await t.pool.query(`select id from users where email = 'admin@evmonitor.co.th'`)).rows[0].id
+    assert.equal((await call('POST', `/users/${first}/2fa-reset`, admin)).statusCode, 200)
+    const h = await login(t.app) // รหัสผ่านอย่างเดียว เพราะ 2FA ถูกรีเซ็ตแล้ว
+    assert.equal((await call('GET', '/vehicles', h)).statusCode, 403)
+    // ปิดนโยบาย (ผ่านฐานข้อมูล เพราะผู้ดูแลที่ติด 2FA เรียก API อื่นไม่ได้)
+    await t.pool.query('update app_settings set require_admin_2fa = false')
+    assert.equal((await call('GET', '/vehicles', h)).statusCode, 200)
+  })
+
+  // ผู้ดูแลที่มี 2FA คนที่สอง ใช้ session ที่ล็อกอินค้างไว้ไม่ได้ (2FA เปิดแล้วต้องผ่านสองขั้น) — เลยออก session ตรงจากฐานข้อมูลผ่านการ login สองขั้นของบัญชีนั้น
+  async function adminHeaders() {
+    const row = (await t.pool.query(`select id from users where email = 'admin@evmonitor.co.th'`)).rows[0]
+    const { signToken } = await import('../src/auth')
+    const sv = (await t.pool.query('select session_version as sv from users where id = $1', [row.id])).rows[0].sv
+    return { Cookie: `ev_session=${signToken({ id: row.id, email: 'admin@evmonitor.co.th', name: 'x', role: 'admin', sv }, 3600)}` }
+  }
+})

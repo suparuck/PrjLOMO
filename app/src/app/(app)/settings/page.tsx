@@ -82,7 +82,16 @@ export default function SettingsPage() {
   const [editing, setEditing] = useState<AppUser | null>(null)
   const { data: me } = useAsync(() => api.getMe())
   // บัญชีที่ยังใช้รหัสผ่านตั้งต้น (admin เท่านั้นที่เรียกได้ — บทบาทอื่นได้ 403 ก็แค่ไม่แสดงป้าย)
-  const { data: sec } = useAsync(() => api.getSecurityStatus().catch(() => ({ defaultPasswordUsers: [] })), [], { live: true })
+  const { data: sec, reload: reloadSec } = useAsync(() => api.getSecurityStatus().catch(() => ({ defaultPasswordUsers: [], require2faAdmins: false, adminsWithout2fa: 0 })), [], { live: true })
+  const [policyBusy, setPolicyBusy] = useState(false)
+  async function toggleTwoFactorPolicy(v: boolean) {
+    setPolicyBusy(true)
+    const res = await api.setTwoFactorPolicy(v)
+    setPolicyBusy(false)
+    if (!res.ok) return toast(Object.values(res.errors)[0] ?? 'บันทึกไม่สำเร็จ', 'error')
+    toast(v ? 'บังคับให้ผู้ดูแลทุกคนเปิด 2FA แล้ว' : 'ยกเลิกการบังคับ 2FA แล้ว')
+    reloadSec()
+  }
   const weakIds = new Set((sec?.defaultPasswordUsers ?? []).map((u) => u.id))
   const [managingKeys, setManagingKeys] = useState(false)
   const [testingLine, setTestingLine] = useState(false)
@@ -264,6 +273,19 @@ export default function SettingsPage() {
               </div>
             }
           />
+          <div style={{ padding: '0 22px' }}>
+            <div className="set-row">
+              <div>
+                <strong>บังคับให้ผู้ดูแลระบบเปิดใช้ 2FA</strong>
+                <p>
+                  ผู้ดูแลที่ยังไม่เปิดใช้จะเข้าได้เฉพาะหน้า &quot;บัญชีของฉัน&quot; จนกว่าจะตั้งค่าเสร็จ
+                  {sec && sec.adminsWithout2fa > 0 && sec.require2faAdmins ? ` (ตอนนี้ยังไม่เปิด ${sec.adminsWithout2fa} คน)` : ''}
+                  {sec && !sec.require2faAdmins ? ' — ต้องเปิด 2FA ของบัญชีตัวเองก่อนจึงจะเปิดสวิตช์นี้ได้' : ''}
+                </p>
+              </div>
+              <Switch label="บังคับให้ผู้ดูแลระบบเปิดใช้ 2FA" checked={!!sec?.require2faAdmins} onChange={toggleTwoFactorPolicy} disabled={policyBusy || !sec} />
+            </div>
+          </div>
           <div className="table-wrap">
             <table className="tbl">
               <thead>

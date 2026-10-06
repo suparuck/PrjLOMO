@@ -61,7 +61,7 @@ export const api = {
   getOrg: () => get<Org>('/org'),
   /** ผู้ใช้ที่ล็อกอินอยู่ (จาก session cookie) */
   getMe: async () =>
-    (await get<{ user: { id: string; email: string; name: string; role: UserRole; twoFactorEnabled?: boolean; recoveryCodesLeft?: number } }>('/auth/me')).user,
+    (await get<{ user: { id: string; email: string; name: string; role: UserRole; twoFactorEnabled?: boolean; twoFactorRequired?: boolean; recoveryCodesLeft?: number } }>('/auth/me')).user,
   listVehicles: async (): Promise<Vehicle[]> => (await get<D.VehicleDTO[]>('/vehicles')).map(m.vehicle),
   getVehicleDetail: async (id: string): Promise<VehicleDetail | null> => {
     try {
@@ -119,7 +119,10 @@ export const api = {
   /** ส่งข้อความทดสอบเข้า LINE (admin) */
   testLine: () => write(() => post<{ sent: boolean }>('/integrations/line/test')),
   /** บัญชีที่ยังใช้รหัสผ่านตั้งต้นของข้อมูลเดโม (admin เท่านั้น) */
-  getSecurityStatus: () => get<{ defaultPasswordUsers: { id: string; email: string; name: string; role: string }[] }>('/security/status'),
+  getSecurityStatus: () =>
+    get<{ defaultPasswordUsers: { id: string; email: string; name: string; role: string }[]; require2faAdmins: boolean; adminsWithout2fa: number }>('/security/status'),
+  /** บังคับให้ผู้ดูแลทุกคนเปิด 2FA (ผู้ตั้งต้องเปิด 2FA ของตัวเองก่อน) */
+  setTwoFactorPolicy: (required: boolean) => write(() => put<{ required: boolean }>('/security/2fa-policy', { required })),
   listApiKeys: () => get<ApiKeyInfo[]>('/api-keys'),
 
   // ---- เขียนข้อมูล (คืน Result ให้ฟอร์มแสดงข้อผิดพลาดรายฟิลด์) ----

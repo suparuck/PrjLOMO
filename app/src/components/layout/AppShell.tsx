@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, type ReactNode } from 'react'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { api } from '@/api'
 import { useAsync } from '@/hooks/useAsync'
 import { Sidebar } from './Sidebar'
@@ -32,18 +32,25 @@ function Shell({ children }: { children: ReactNode }) {
   const [navOpen, setNavOpen] = useState(false)
   const [override, setOverride] = useState<PageHeader | null>(null)
   const pathname = usePathname() ?? ''
+  const router = useRouter()
   const { unread } = useAlerts()
   const { updatedAt, connected } = useLive()
   const { data: org } = useAsync(() => api.getOrg())
   // ผู้ดูแลระบบ: เตือนถ้ายังมีบัญชีที่ใช้รหัสผ่านตั้งต้นของข้อมูลเดโม (เรียกเฉพาะ admin — คนอื่นได้ 403)
   const { data: me } = useAsync(() => api.getMe())
-  const { data: sec } = useAsync(() => (me?.role === 'admin' ? api.getSecurityStatus() : Promise.resolve(null)), [me?.role], { live: true })
+  // นโยบายบังคับ 2FA: ผู้ดูแลที่ยังไม่เปิดใช้เข้าได้เฉพาะหน้าบัญชีของฉัน (API อื่นตอบ 403)
+  const must2fa = !!me?.twoFactorRequired
+  const blocked = must2fa && pathname !== '/account'
+  const { data: sec } = useAsync(() => (me?.role === 'admin' && !must2fa ? api.getSecurityStatus() : Promise.resolve(null)), [me?.role, must2fa], { live: true })
   const weak = sec?.defaultPasswordUsers ?? []
   const selfWeak = weak.some((u) => u.id === me?.id)
   const meta: PageHeader = override ?? PAGE_META[pathname.split('/')[1]] ?? { title: '' }
   const full = FULL_BLEED.includes(pathname)
 
   useEffect(() => setNavOpen(false), [pathname])
+  useEffect(() => {
+    if (blocked) router.replace('/account')
+  }, [blocked, router])
   useEffect(() => {
     document.body.classList.toggle('nav-open', navOpen)
     return () => document.body.classList.remove('nav-open')
@@ -58,7 +65,7 @@ function Shell({ children }: { children: ReactNode }) {
         <Sidebar unread={unread} city={org?.city ?? ''} onNavigate={() => setNavOpen(false)} />
         <div className="main">
           <Topbar title={meta.title} sub={meta.sub} crumb={meta.crumb} unread={unread} onMenu={() => setNavOpen((o) => !o)} />
-          {full ? (
+          {blocked ? null : full ? (
             children
           ) : (
             <>
@@ -73,6 +80,15 @@ function Shell({ children }: { children: ReactNode }) {
                     <Link className="btn btn-outline btn-sm" href={selfWeak ? '/account' : '/settings#users'}>
                       {selfWeak ? 'เปลี่ยนรหัสผ่านตอนนี้' : 'ไปที่ผู้ใช้และสิทธิ์'}
                     </Link>
+                  </div>
+                )}
+                {must2fa && (
+                  <div className="banner warn" role="alert">
+                    <div className="small">
+                      <strong>องค์กรกำหนดให้ผู้ดูแลระบบเปิดใช้การยืนยันตัวตนสองขั้นตอน</strong>
+                      {' — '}
+                      เปิดใช้ที่การ์ด 2FA ด้านล่างก่อน จึงจะใช้งานส่วนอื่นของระบบได้
+                    </div>
                   </div>
                 )}
                 {children}

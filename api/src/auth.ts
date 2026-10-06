@@ -3,7 +3,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify'
 import type { Pool } from 'pg'
 import { config } from './config'
 import { one } from './db'
-import { forbidden, unauthorized } from './errors'
+import { AppError, forbidden, unauthorized } from './errors'
 import { USER_ROLE_RANK, type UserRole } from './lib/validators'
 
 /* ---------- JWT (HS256) — โครงเดียวกับที่ middleware ของเว็บตรวจ ---------- */
@@ -14,6 +14,8 @@ export interface SessionUser {
   email: string
   name: string
   role: UserRole
+  /** ผู้ดูแลที่ติดนโยบายบังคับ 2FA แต่ยังไม่เปิดใช้ (ใช้ได้เฉพาะ endpoint ที่ allowWithout2fa) */
+  twoFactorRequired?: boolean
 }
 
 /** ข้อมูลใน token: sv = session_version ของผู้ใช้ตอนออก token (เปลี่ยน/รีเซ็ตรหัสผ่านแล้ว token เดิมใช้ไม่ได้) */
@@ -67,18 +69,23 @@ function tokenFrom(req: FastifyRequest): string | undefined {
  * ตรวจ token แล้วอ่านผู้ใช้จากฐานข้อมูลทุก request: บทบาท/ชื่อมาจากฐานข้อมูล (ไม่เชื่อค่าใน token),
  * ผู้ใช้ที่ถูกลบ/ไม่ active หรือ session_version ไม่ตรง (เปลี่ยน/รีเซ็ตรหัสผ่านแล้ว) → 401
  */
-export function requireRole(pool: Pool, minRole: UserRole) {
+export function requireRole(pool: Pool, minRole: UserRole, opts: { allowWithout2fa?: boolean } = {}) {
   return async function guard(req: FastifyRequest, _reply: FastifyReply) {
     const claims = verifyToken(tokenFrom(req))
     if (!claims) throw unauthorized()
-    const u = await one<{ id: string; email: string; name: string; role: UserRole; sv: number }>(
+    const u = await one<{ id: string; email: string; name: string; role: UserRole; sv: number; need2fa: boolean }>(
       pool,
-      `select id, email, name, role, session_version as sv from users where id = $1 and status = 'active'`,
+      `select u.id, u.email, u.name, u.role, u.session_version as sv,
+              (u.role = 'admin' and u.totp_enabled_at is null and coalesce(s.require_admin_2fa, false)) as "need2fa"
+         from users u left join app_settings s on s.id = 1
+        where u.id = $1 and u.status = 'active'`,
       [claims.id],
     )
     if (!u || u.sv !== claims.sv) throw unauthorized('เซสชันหมดอายุ กรุณาเข้าสู่ระบบอีกครั้ง')
     if (USER_ROLE_RANK[u.role] < USER_ROLE_RANK[minRole]) throw forbidden()
-    req.user = { id: u.id, email: u.email, name: u.name, role: u.role }
+    // นโยบาย "ผู้ดูแลต้องเปิด 2FA": ผู้ดูแลที่ยังไม่เปิดใช้ได้เฉพาะหน้าตั้งค่า 2FA/บัญชีของตัวเอง
+    if (u.need2fa && !opts.allowWithout2fa) throw new AppError(403, 'two_factor_required', 'องค์กรกำหนดให้ผู้ดูแลระบบเปิดใช้การยืนยันตัวตนสองขั้นตอน — ไปที่ "บัญชีของฉัน" เพื่อเปิดใช้')
+    req.user = { id: u.id, email: u.email, name: u.name, role: u.role, twoFactorRequired: u.need2fa }
   }
 }
 

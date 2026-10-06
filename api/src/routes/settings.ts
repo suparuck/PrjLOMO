@@ -140,7 +140,28 @@ export const settingsRoutes =
     app.get(
       '/security/status',
       { preValidation: adm, schema: { tags: ['users'], summary: 'บัญชีที่ยังใช้รหัสผ่านตั้งต้น (admin)', security: sec } },
-      async () => ({ defaultPasswordUsers: await findDefaultPasswordUsers(pool) }),
+      async () => ({
+        defaultPasswordUsers: await findDefaultPasswordUsers(pool),
+        require2faAdmins: !!(await one<{ r: boolean }>(pool, 'select require_admin_2fa as r from app_settings where id = 1'))?.r,
+        adminsWithout2fa: (await one<{ n: number }>(pool, "select count(*)::int as n from users where role = 'admin' and status = 'active' and totp_enabled_at is null"))?.n ?? 0,
+      }),
+    )
+
+    // บังคับให้ผู้ดูแลทุกคนเปิด 2FA: ผู้ดูแลที่ยังไม่เปิดเข้าได้แค่หน้าบัญชีของฉันเพื่อตั้งค่า (API อื่นตอบ 403 two_factor_required)
+    app.put(
+      '/security/2fa-policy',
+      {
+        preValidation: adm,
+        schema: { tags: ['users'], summary: 'เปิด/ปิดการบังคับ 2FA สำหรับผู้ดูแลระบบ (admin) — เปิดได้เมื่อผู้ตั้งค่าเปิด 2FA ของตัวเองแล้ว', body: Type.Object({ required: Type.Boolean() }), security: sec },
+      },
+      async (req) => {
+        if (req.body.required) {
+          const self = await one<{ on: boolean }>(pool, 'select totp_enabled_at is not null as "on" from users where id = $1', [req.user!.id])
+          if (!self?.on) throw conflict('ต้องเปิด 2FA ของบัญชีตัวเองก่อนจึงจะบังคับใช้กับผู้ดูแลทุกคนได้')
+        }
+        await pool.query('update app_settings set require_admin_2fa = $1 where id = 1', [req.body.required])
+        return { required: req.body.required }
+      },
     )
 
     // ---- ผู้ใช้และสิทธิ์ ----
