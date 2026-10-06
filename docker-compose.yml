@@ -91,7 +91,29 @@ services:
       api:
         condition: service_healthy
     ports:
-      - "${WEB_PORT:-3000}:3000"
+      # เปิด HTTPS ด้วย Caddy แล้วให้ตั้ง WEB_BIND=127.0.0.1 เพื่อไม่เปิดเว็บแบบ HTTP ตรงสู่ภายนอก (ดู README หัวข้อ "เปิดใช้ HTTPS")
+      - "${WEB_BIND:-0.0.0.0}:${WEB_PORT:-3000}:3000"
+    restart: unless-stopped
+
+  # Reverse proxy HTTPS (Caddy) — ไม่ทำงานโดยปริยาย เปิดด้วย:  docker compose --profile https up -d
+  # ขอ/ต่ออายุใบรับรอง Let's Encrypt ให้เอง เมื่อตั้ง DOMAIN และเปิดพอร์ต 80/443 · ค่าที่ต้องตั้งคู่กันอยู่ใน .env.example หัวข้อ HTTPS
+  caddy:
+    profiles: ["https"]
+    image: caddy:2-alpine
+    environment:
+      DOMAIN: ${DOMAIN:-localhost}
+      ACME_EMAIL_LINE: ${ACME_EMAIL:+email }${ACME_EMAIL:-}
+    volumes:
+      - ./proxy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data      # ใบรับรองและกุญแจ — ต้องคงไว้ (ลบแล้วจะขอใหม่และอาจชนเพดานของ Let's Encrypt)
+      - caddy_config:/config
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"         # HTTP/3
+    depends_on:
+      web:
+        condition: service_healthy
     restart: unless-stopped
 
   # ตัวจำลอง telemetry สำหรับเดโม — ไม่ทำงานโดยปริยาย เปิดด้วย:  docker compose --profile demo up -d
@@ -123,3 +145,5 @@ services:
 
 volumes:
   pgdata:
+  caddy_data:
+  caddy_config:

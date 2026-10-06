@@ -1,0 +1,37 @@
+# Reverse proxy HTTPS ของ EV Monitor (Caddy) — เปิดด้วย: docker compose --profile https up -d
+# ดู SECURITY.md และ README หัวข้อ "เปิดใช้ HTTPS"
+#
+#   DOMAIN      โดเมนจริงที่ชี้มาที่เครื่องนี้ (เช่น ev.company.co.th) → Caddy ขอและต่ออายุใบรับรอง Let's Encrypt ให้เอง
+#               (ต้องเปิดพอร์ต 80 และ 443 สู่อินเทอร์เน็ต และ DNS ชี้ถูก) · ไม่ตั้ง/ตั้งเป็น localhost = ใบรับรองจาก CA ภายใน
+#               ของ Caddy สำหรับทดสอบ (เบราว์เซอร์จะเตือนจนกว่าจะเชื่อ CA นั้น)
+#   ACME_EMAIL  อีเมลติดต่อสำหรับ Let's Encrypt (แนะนำ — แจ้งเตือนเมื่อใบรับรองใกล้หมดอายุ) — ส่งผ่าน ACME_EMAIL_LINE ของ compose
+{
+	# อีเมลติดต่อ Let's Encrypt: compose ประกอบเป็นบรรทัด "email <ที่อยู่>" เมื่อตั้ง ACME_EMAIL (ว่าง = ไม่มีบรรทัดนี้)
+	# ไม่ได้ตั้ง = ใช้ grace_period 5s (ตัวเลือกที่ไม่มีผลเสีย เพื่อให้บรรทัดนี้ไม่ว่าง) ไม่ใส่อีเมลปลอมแทน เพราะ Let's Encrypt
+	# ปฏิเสธที่อยู่ที่ใช้งานไม่ได้ (Caddy ทำงานได้โดยไม่มีอีเมล แค่ไม่ได้รับแจ้งเตือนใบรับรองใกล้หมดอายุ)
+	{$ACME_EMAIL_LINE:grace_period 5s}
+	# ไม่เปิด admin API ออกนอก container
+	admin off
+}
+
+{$DOMAIN:localhost} {
+	encode zstd gzip
+
+	# HSTS: ประกาศว่าเว็บนี้ต้องใช้ HTTPS เท่านั้น (Caddy ให้บริการผ่าน HTTPS เสมอ จึงปลอดภัยที่จะส่ง)
+	header Strict-Transport-Security "max-age=31536000; includeSubDomains"
+
+	reverse_proxy web:3000 {
+		# เขียนทับ X-Forwarded-For ด้วย IP ของผู้เรียกจริงที่ Caddy เห็น — ค่าที่ผู้โจมตีใส่มาจะไม่ผ่าน
+		# (เว็บตั้ง TRUST_FORWARDED_FOR=true จึงใช้ค่านี้เป็น IP สำหรับ rate limit)
+		header_up X-Forwarded-For {remote_host}
+		header_up X-Real-IP {remote_host}
+
+		# SSE (/api/v1/stream) ต้องไหลทันที ไม่ถูกพักบัฟเฟอร์
+		flush_interval -1
+	}
+
+	log {
+		output stdout
+		format console
+	}
+}

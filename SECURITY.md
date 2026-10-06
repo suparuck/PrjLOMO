@@ -11,7 +11,7 @@
 | 2 | สูง | **ไม่มีการจำกัดรายบัญชี** — เดารหัสผ่านบัญชีเดียวจากหลาย IP ไม่ถูกจำกัด | `loginGuard`: เดาผิดเกิน 20 ครั้งใน 15 นาที (จาก IP ใดก็ตาม) → 429 ชั่วคราว (หน่วยความจำของ API ตัวนั้น มีเพดานจำนวนคีย์) |
 | 3 | สูง (ต้องตัดสินใจ) | **Next.js 14 มีช่องโหว่ที่ทราบแล้วหลายรายการ** (`npm audit`: critical) เช่น request smuggling ใน rewrites, cache poisoning, DoS ของ Server Components — แพตช์มีเฉพาะ Next 16.x | อัปเกรดเป็น Next 16.3 + React 19 + react-leaflet 5; middleware → `proxy.ts`; ESLint 9 + flat config (กฎ React Compiler ชุดใหม่ตั้งเป็น warn) |
 | 4 | ต่ำ | เวลาตอบของ `/auth/login` ต่างกันระหว่างอีเมลที่มี/ไม่มีในระบบ (เดาได้ว่ามีบัญชี) | ทำ bcrypt ชดเชยให้อีเมลที่ไม่มี (ทดสอบแบบไม่พึ่งการจับเวลา) |
-| 5 | ต่ำ | เว็บไม่ส่งส่วนหัวความปลอดภัย; หน้าที่มีโทเคนใน URL (`/invite/…`, `/reset-password/…`) อาจรั่วผ่าน Referer | `X-Frame-Options: DENY`, CSP `frame-ancestors 'none'` ฯลฯ, `nosniff`, Permissions-Policy, HSTS (เมื่อ `COOKIE_SECURE=true`), `Referrer-Policy: no-referrer` เฉพาะหน้าโทเคน; ปิด `X-Powered-By` |
+| 5 | ต่ำ | เว็บไม่ส่งส่วนหัวความปลอดภัย; หน้าที่มีโทเคนใน URL (`/invite/…`, `/reset-password/…`) อาจรั่วผ่าน Referer | `X-Frame-Options: DENY`, CSP `frame-ancestors 'none'` ฯลฯ, `nosniff`, Permissions-Policy, `Referrer-Policy: no-referrer` เฉพาะหน้าโทเคน; ปิด `X-Powered-By`; HSTS ส่งจาก Caddy เมื่อเปิดใช้ HTTPS |
 | 6 | ต่ำ | API ไม่ส่ง `nosniff`/`no-store` | เพิ่มทุกคำตอบ (ยกเว้น `/docs`) |
 | 7 | ต่ำ | `AUTH_SECRET` สั้นได้ใน production | บังคับ ≥ 32 ตัวอักษรเมื่อ `NODE_ENV=production` |
 | 8 | ข้อมูล | log ของ API มีแต่ IP ซ็อกเก็ตของพร็อกซี | บันทึก `ip` ที่ใช้จริงด้วย |
@@ -27,11 +27,11 @@
 
 ## ตั้งค่า reverse proxy (สำคัญสำหรับ rate limit ต่อ IP)
 - **เปิดพอร์ตเว็บตรง (ค่าเริ่มต้นของ compose):** ตั้ง `TRUST_FORWARDED_FOR=false` — API เห็น IP ของ container เว็บเป็นตัวเดียวสำหรับทุกคน การจำกัดต่อ IP จึงเป็นแบบรวม (เข้าสู่ระบบ 30 ครั้ง/นาทีทั้งระบบ) ส่วนการเดารหัสถูกจำกัดรายบัญชีอยู่แล้ว
-- **มี reverse proxy/load balancer ของเราอยู่หน้าเว็บ (แนะนำสำหรับ production):** ต้องให้มัน *ต่อท้าย* หรือ *เขียนทับ* `X-Forwarded-For` ด้วย IP ผู้เรียกจริง แล้วตั้ง `TRUST_FORWARDED_FOR=true` ที่เว็บ (ใช้ค่าท้ายสุด) และใส่ HTTPS ที่ proxy นี้ + `COOKIE_SECURE=true`
+- **มี reverse proxy/load balancer ของเราอยู่หน้าเว็บ (แนะนำสำหรับ production — Caddy ใน compose ทำให้แล้ว):** ต้องให้มัน *ต่อท้าย* หรือ *เขียนทับ* `X-Forwarded-For` ด้วย IP ผู้เรียกจริง แล้วตั้ง `TRUST_FORWARDED_FOR=true` ที่เว็บ (ใช้ค่าท้ายสุด) และใส่ HTTPS ที่ proxy นี้ + `COOKIE_SECURE=true`
 - ถ้า API เปิดสู่ภายนอกโดยตรง (อุปกรณ์ ingest ผ่านอินเทอร์เน็ต) ให้ตั้ง `TRUST_PROXY_HOPS` ให้ตรงกับจำนวนพร็อกซีหน้า API จริง (0 = ไม่เชื่อ XFF)
 
 ## ต้องทำก่อนขึ้น production (ยังไม่ได้ทำ)
-1. **HTTPS** ที่ reverse proxy + `COOKIE_SECURE=true` (ตอนนี้ cookie ไม่มี `Secure` ถ้าไม่ตั้ง — เห็นได้บนเครือข่าย)
+1. **HTTPS:** มี Caddy ใน compose (`docker compose --profile https up -d`, ขั้นตอนใน README) — ทดสอบแล้วว่า cookie เป็น `Secure`, HTTP→HTTPS redirect, HSTS, สตรีมเรียลไทม์ผ่านพร็อกซีได้ และ `X-Forwarded-For` ปลอมไม่ผ่าน **แต่ยังต้องเปิดใช้และตั้ง `.env` ชุด HTTPS เอง** (ค่าเริ่มต้นของ compose ยังเป็น HTTP + `COOKIE_SECURE=false`) และยังไม่เคยทดสอบการออกใบรับรอง Let's Encrypt จริง (ต้องมีโดเมนสาธารณะ)
 2. **เปลี่ยนรหัสผ่านเดโม** `demo1234` ของบัญชีตั้งต้น และเว้น `NEXT_PUBLIC_DEMO_LOGIN` ให้ว่าง (ไม่เช่นนั้นฟอร์มเข้าสู่ระบบเติมรหัสให้)
 3. **สุ่ม `AUTH_SECRET`/`POSTGRES_PASSWORD`/`INGEST_API_KEY` ใหม่** ต่อสภาพแวดล้อม; อย่า commit `.env`
 4. **สำรองฐานข้อมูล:** มี service `backup` สำรองอัตโนมัติรายวัน + ทดสอบกู้คืนได้ (`db/README.md`) **แต่ยังต้องทำเอง:** คัดลอกไฟล์สำรองออกนอกเครื่อง (ตอนนี้อยู่เครื่องเดียวกับฐานข้อมูล), เข้ารหัสไฟล์ที่ส่งออก, กำหนดรอบรัน `verify.sh` (ทดสอบกู้คืน) และถ้าต้องการกู้ย้อนละเอียดกว่ารายวันให้เปิด WAL archiving
