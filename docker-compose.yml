@@ -79,6 +79,8 @@ services:
       # จำนวนพร็อกซีที่เชื่อถือหน้า API (เว็บ = 1) — ห้ามเชื่อ X-Forwarded-For ที่ผู้เรียกใส่เอง (ดู SECURITY.md)
       TRUST_PROXY_HOPS: ${TRUST_PROXY_HOPS:-1}
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      # เก็บบันทึกกิจกรรม (audit log) กี่วัน (ขั้นต่ำ 30)
+      AUDIT_KEEP_DAYS: ${AUDIT_KEEP_DAYS:-365}
       # job ตรวจรถออฟไลน์ทำงานทุกกี่วินาที (0 = ปิด)
       OFFLINE_CHECK_INTERVAL_SECONDS: ${OFFLINE_CHECK_INTERVAL_SECONDS:-60}
       # อีเมลลืมรหัสผ่าน: ตั้ง SMTP_URL (เช่น smtp://user:pass@host:587) — ไม่ตั้ง = ไม่ส่งอีเมล (ผู้ดูแลสร้างลิงก์รีเซ็ตให้ที่หน้าตั้งค่าได้)

@@ -6,7 +6,7 @@ import { ApiError, del, get, patch, post, put } from './http'
 import * as m from './mappers'
 import type * as D from './dto'
 import type {
-  AlertRule, Alert, ApiKeyInfo, AppUser, BatteryInsights, ChargingHistory, ChargingLoad, ChargingSession, Driver, DriverEventStat,
+  AuditEntry, AlertRule, Alert, ApiKeyInfo, AppUser, BatteryInsights, ChargingHistory, ChargingLoad, ChargingSession, Driver, DriverEventStat,
   ElectrificationReport, EnergySummary, EnergyWeek, IceVehicle, Integration, InviteInfo, InviteUserDraft, Paged, VehiclesPage, DriversPage, AlertsPage, VehicleStatus, AlertSeverity, AlertType, ReportSchedule, ReportSchedules, ScheduleDraft, ResetInfo, ResetLinkResult, TwoFactorSetup, UserRole, NewDriverDraft, NewStationDraft, IceDraft, TcoDraft, AssumptionValues, AssumptionLimits, NewVehicleDraft,
   NotificationChannel, Org, PublicOverview, Report, ReportFilters, Result, Settings, Station, Sustainability, Vehicle, VehicleDetail,
 } from '@/types'
@@ -190,6 +190,7 @@ export const api = {
       const d = await post<{ email: string; resetToken: string; expiresAt: string }>(`/users/${userId}/reset-link`)
       return { email: d.email, token: d.resetToken, expiresAt: d.expiresAt }
     }),
+  listAuditLog: (o: { page: number; pageSize?: number; q?: string; category?: string; from?: string; to?: string }) => get<Paged<AuditEntry>>(`/audit-log?${qs(o)}`),
   // ---- การยืนยันตัวตนสองขั้นตอน (2FA) ----
   twoFactorSetup: (password: string) => write(() => post<TwoFactorSetup>('/auth/2fa/setup', { password })),
   twoFactorEnable: (pending: string, code: string) => write(async () => (await post<{ recoveryCodes: string[] }>('/auth/2fa/enable', { pending, code })).recoveryCodes),

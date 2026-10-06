@@ -358,6 +358,22 @@ export interface InviteResult {
   emailed: boolean
 }
 
+export type AuditCategory = 'security' | 'users' | 'config' | 'data'
+
+/** แถวในบันทึกกิจกรรม (GET /audit-log — admin) */
+export interface AuditEntry {
+  id: string
+  at: string
+  actorEmail: string | null
+  action: string
+  label: string
+  category: AuditCategory
+  categoryLabel: string
+  target: string | null
+  ip: string | null
+  detail: { fields?: string[] }
+}
+
 /** ซองข้อมูลแบ่งหน้าจาก API (ส่ง page มา) */
 export interface Paged<T> {
   items: T[]

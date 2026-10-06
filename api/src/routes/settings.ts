@@ -11,6 +11,7 @@ import { newResetToken, type MailContext } from './auth'
 import type { LineClient } from '../services/line'
 import { findDefaultPasswordUsers } from '../services/accounts'
 import { disable as disableTwoFactor } from '../services/twofactor'
+import { AUDIT_CATEGORIES, actionsOf, describeAudit, type AuditCategory } from '../lib/auditLabels'
 import { PageQuery, envelope, likeTerm, pageArgs } from '../lib/paging'
 
 import { sec } from '../security'
@@ -161,6 +162,58 @@ export const settingsRoutes =
         }
         await pool.query('update app_settings set require_admin_2fa = $1 where id = 1', [req.body.required])
         return { required: req.body.required }
+      },
+    )
+
+    // บันทึกกิจกรรม: ใครทำอะไรกับอะไรเมื่อไหร่จากที่ไหน (admin เท่านั้น อ่านอย่างเดียว) — ต้องส่ง page เสมอ
+    app.get(
+      '/audit-log',
+      {
+        preValidation: adm,
+        schema: {
+          tags: ['users'],
+          summary: 'บันทึกกิจกรรม (admin) — แบ่งหน้า ค้นหาจากผู้ทำ/เป้าหมาย/เหตุการณ์ กรองตามหมวดและช่วงวันที่',
+          security: sec,
+          querystring: Type.Object({
+            ...PageQuery,
+            q: Type.Optional(Type.String({ maxLength: 100 })),
+            category: Type.Optional(Type.Union([Type.Literal('security'), Type.Literal('users'), Type.Literal('config'), Type.Literal('data')])),
+            from: Type.Optional(Type.String({ format: 'date' })),
+            to: Type.Optional(Type.String({ format: 'date' })),
+          }),
+        },
+      },
+      async (req) => {
+        const q = req.query
+        const page = Math.max(1, q.page ?? 1)
+        const pg = pageArgs({ page, pageSize: q.pageSize })
+        const args: unknown[] = []
+        const conds: string[] = []
+        if (q.q?.trim()) {
+          const n = args.push(likeTerm(q.q))
+          conds.push(`(actor_email ilike $${n} or target ilike $${n} or action ilike $${n})`)
+        }
+        if (q.category) {
+          // หมวด data รวมเหตุการณ์ที่ไม่มีในตารางชื่อ (เป็น "ที่เหลือทั้งหมด")
+          if (q.category === 'data') {
+            const other = (['security', 'users', 'config'] as AuditCategory[]).flatMap(actionsOf)
+            conds.push(`action <> all($${args.push(other)}::text[]) and action not like 'auth.%'`)
+          } else conds.push(`(action = any($${args.push(actionsOf(q.category))}::text[])${q.category === 'security' ? " or action like 'auth.%' and action <> 'auth.invite_accept'" : q.category === 'users' ? " or action = 'auth.invite_accept'" : ''})`)
+        }
+        // วันที่เป็นเวลาไทย (UTC+7)
+        if (q.from) conds.push(`at >= $${args.push(q.from)}::date::timestamp at time zone 'Asia/Bangkok'`)
+        if (q.to) conds.push(`at < ($${args.push(q.to)}::date + 1)::timestamp at time zone 'Asia/Bangkok'`)
+        const where = conds.length ? `where ${conds.join(' and ')}` : ''
+        const [list, total] = await Promise.all([
+          rows<{ id: string; at: string; actorEmail: string | null; action: string; target: string | null; ip: string | null; detail: unknown }>(
+            pool,
+            `select id::text, at, actor_email as "actorEmail", action, target, ip, detail from audit_log ${where} order by at desc, id desc limit ${pg.pageSize} offset ${pg.offset}`,
+            args,
+          ),
+          one<{ n: number }>(pool, `select count(*)::int as n from audit_log ${where}`, args),
+        ])
+        const items = list.map((r) => ({ ...r, ...describeAudit(r.action), categoryLabel: AUDIT_CATEGORIES[describeAudit(r.action).category] }))
+        return envelope(items, total?.n ?? 0, pg.page, pg.pageSize)
       },
     )
 

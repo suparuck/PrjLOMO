@@ -18,6 +18,7 @@ import { publicRoutes } from './routes/public'
 import { ingestRoutes } from './routes/ingest'
 import { reportScheduleRoutes } from './routes/reportSchedules'
 import { streamRoutes } from './routes/stream'
+import { registerAudit } from './services/audit'
 import { publishChange } from './services/events'
 import { createMailer, type Mailer } from './services/mailer'
 import { createLineClient, type LineClient } from './services/line'
@@ -71,6 +72,9 @@ export async function buildApp(pool: Pool, opts: { logger?: boolean; rateLimit?:
     if (['GET', 'HEAD', 'OPTIONS'].includes(req.method) || reply.statusCode >= 400 || req.url.includes('/auth/')) return
     publishChange()
   })
+
+  // บันทึกกิจกรรม: ทุกคำขอที่แก้ข้อมูลสำเร็จโดยผู้ใช้ที่ล็อกอิน (ต้องลงทะเบียนก่อนเส้นทางทั้งหมด)
+  registerAudit(app, pool)
 
   // ส่วนหัวความปลอดภัยพื้นฐานของ API (ตอบเป็น JSON/ไฟล์เท่านั้น): กันเดาชนิดเนื้อหา, ไม่ส่ง Referer, ข้อมูลส่วนตัวไม่ถูกแคช
   app.addHook('onSend', async (req, reply) => {

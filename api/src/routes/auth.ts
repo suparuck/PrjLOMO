@@ -11,6 +11,7 @@ import { checkDisplayName, checkPassword, type UserRole } from '../lib/validator
 import type { Mailer } from '../services/mailer'
 import { createLoginGuard } from '../lib/loginGuard'
 import * as tf from '../services/twofactor'
+import { recordAudit } from '../services/audit'
 
 const BAD_LINK = 'ลิงก์คำเชิญไม่ถูกต้องหรือถูกใช้ไปแล้ว'
 const EXPIRED_LINK = 'ลิงก์คำเชิญหมดอายุแล้ว กรุณาขอลิงก์ใหม่จากผู้ดูแลระบบ'
@@ -83,7 +84,10 @@ export const authRoutes =
       async (req, reply) => {
         const { email, password, remember } = req.body
         // เดาผิดรายบัญชีเกินเพดาน (จาก IP ใดก็ตาม) → ปฏิเสธชั่วคราวก่อนแตะฐานข้อมูล
-        if (loginGuard.blocked(email)) throw new AppError(429, 'rate_limited', 'พยายามเข้าสู่ระบบผิดหลายครั้งเกินไป กรุณารอสักครู่แล้วลองใหม่')
+        if (loginGuard.blocked(email)) {
+          await recordAudit(pool, req, { action: 'auth.login_blocked', actorEmail: email.trim().slice(0, 120) })
+          throw new AppError(429, 'rate_limited', 'พยายามเข้าสู่ระบบผิดหลายครั้งเกินไป กรุณารอสักครู่แล้วลองใหม่')
+        }
         // ตรวจรหัสผ่านด้วย bcrypt ในฐานข้อมูล (pgcrypto) และบันทึกเวลาเข้าใช้ในคำสั่งเดียว
         const row = await one<SessionRow>(
           pool,
@@ -95,6 +99,7 @@ export const authRoutes =
         )
         if (!row) {
           loginGuard.fail(email)
+          await recordAudit(pool, req, { action: 'auth.login_failed', actorEmail: email.trim().slice(0, 120) })
           // ไม่มีบัญชีนี้ที่ใช้งานอยู่: ยังต้องเสียเวลา bcrypt เท่ากับกรณีรหัสผิด (ซึ่ง UPDATE ข้างบนทำ bcrypt ไปแล้วหนึ่งครั้ง)
           // ไม่เช่นนั้นเวลาตอบที่เร็วกว่าบอกได้ว่าอีเมลนี้ไม่มีในระบบ
           const exists = await one(pool, "select 1 from users where lower(email) = lower($1) and status = 'active' and password_hash is not null", [email.trim()])
@@ -108,6 +113,7 @@ export const authRoutes =
 
         const ttl = remember ? config.rememberTtlSeconds : config.sessionTtlSeconds
         setSession(reply, row, ttl, remember)
+        await recordAudit(pool, req, { action: 'auth.login', actorId: row.id, actorEmail: row.email })
         return { user: publicUser(row) }
       },
     )
@@ -129,6 +135,7 @@ export const authRoutes =
         const ok = await tf.verifyCode(pool, ch.userId, req.body.code)
         if (!ok) {
           twoFaGuard.fail(ch.userId)
+          await recordAudit(pool, req, { action: 'auth.2fa_failed', actorId: ch.userId })
           throw invalidCode()
         }
         twoFaGuard.success(ch.userId)
@@ -140,6 +147,7 @@ export const authRoutes =
         if (!row) throw invalidCode()
         const ttl = ch.remember ? config.rememberTtlSeconds : config.sessionTtlSeconds
         setSession(reply, row, ttl, ch.remember)
+        await recordAudit(pool, req, { action: 'auth.login', actorId: row.id, actorEmail: row.email, detail: { twoFactor: true } })
         return { user: publicUser(row) }
       },
     )
@@ -303,6 +311,7 @@ export const authRoutes =
         if (!user) throw new AppError(404, 'invalid_invite', BAD_LINK)
 
         setSession(reply, user, config.sessionTtlSeconds)
+        await recordAudit(pool, req, { action: 'auth.invite_accept', actorId: user.id, actorEmail: user.email })
         return { user: publicUser(user) }
       },
     )
@@ -425,14 +434,17 @@ export const authRoutes =
       async (req) => {
         const { token, password } = req.body
         checkPassword(password)
+        let userId = ''
         await withTx(pool, async (c) => {
           const r = await one<ResetRow>(c, `${RESET_SELECT} where r.token_hash = $1 for update of r`, [hashKey(token)])
           assertUsableReset(r)
+          userId = r.user_id
           await c.query(`update password_resets set used_at = now() where token_hash = $1`, [hashKey(token)])
           // ลิงก์ที่ค้างอยู่ของผู้ใช้นี้ใช้ไม่ได้อีก และ session ทุกเครื่องถูกเพิกถอน
           await c.query(`update password_resets set used_at = now() where user_id = $1 and used_at is null`, [r.user_id])
           await c.query(`update users set password_hash = crypt($2, gen_salt('bf', 10)), session_version = session_version + 1 where id = $1`, [r.user_id, password])
         })
+        await recordAudit(pool, req, { action: 'auth.reset_accept', actorId: userId })
         return { ok: true }
       },
     )

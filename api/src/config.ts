@@ -21,6 +21,8 @@ export const config = {
   /** ถ้าตั้งค่า จะสร้าง API key สำหรับ ingest ตั้งต้นตอนเริ่มระบบ (ถ้ายังไม่มี) */
   bootstrapIngestKey: process.env.INGEST_API_KEY || undefined,
   /** ตรวจรถออฟไลน์ทุกกี่วินาที (0 = ปิด job) */
+  // เก็บบันทึกกิจกรรม (audit log) กี่วัน (ค่าเริ่มต้น 365; ต่ำกว่า 30 ไม่รับ)
+  auditKeepDays: Math.max(30, Number(process.env.AUDIT_KEEP_DAYS ?? 365) || 365),
   offlineCheckIntervalSeconds: Number(process.env.OFFLINE_CHECK_INTERVAL_SECONDS ?? 60),
   inviteTtlDays: 7,
   resetTtlMinutes: 60,

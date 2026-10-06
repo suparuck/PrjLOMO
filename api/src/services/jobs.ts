@@ -6,6 +6,8 @@ import { runDueSchedules } from './reportMail'
 import type { LineClient } from './line'
 import { currentAlertFloor, runLineNotify } from './lineNotify'
 import { runEmailNotify } from './emailNotify'
+import { purgeAudit } from './audit'
+import { config } from '../config'
 import { createAlert, enabledRules, hasOpenAlert, loadThresholds } from './ops'
 
 /** ล็อกระดับฐานข้อมูล: ถ้ามี API หลายอินสแตนซ์ จะมีเพียงหนึ่งตัวที่ตรวจในแต่ละรอบ */
@@ -51,8 +53,14 @@ export function startJobs(pool: Pool, log: Logger, intervalSeconds: number, mail
     log.info({}, 'background jobs disabled (OFFLINE_CHECK_INTERVAL_SECONDS=0)')
     return () => undefined
   }
+  let lastPurge = 0
   const tick = async () => {
     try {
+      if (Date.now() - lastPurge > 24 * 3600_000) {
+        lastPurge = Date.now()
+        const n = await purgeAudit(pool, config.auditKeepDays)
+        if (n) log.info({ deleted: n }, 'audit log: purged old entries')
+      }
       if (mailer) {
         const s = await runDueSchedules(pool, mailer)
         if (s.sent.length || s.failed.length) log.info(s, 'report schedules: ran due schedules')

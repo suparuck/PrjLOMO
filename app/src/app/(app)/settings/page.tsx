@@ -9,6 +9,7 @@ import { Icon, type IconName } from '@/components/ui/Icon'
 import { RangeField } from '@/components/ui/RangeField'
 import { SearchInput } from '@/components/ui/SearchInput'
 import { Pager, pagerOf } from '@/components/ui/Pager'
+import { AuditLogSection } from '@/components/settings/AuditLogSection'
 import { useDebounced } from '@/hooks/useDebounced'
 import { Switch } from '@/components/ui/Switch'
 import { InviteUserModal } from '@/components/modals/InviteUserModal'
@@ -25,6 +26,7 @@ const SECTIONS: { id: string; label: string; icon: IconName }[] = [
   { id: 'charging', label: 'การชาร์จและค่าไฟ', icon: 'bolt' },
   { id: 'users', label: 'ผู้ใช้และสิทธิ์', icon: 'users' },
   { id: 'integrations', label: 'การเชื่อมต่อ', icon: 'plug' },
+  { id: 'audit', label: 'บันทึกกิจกรรม', icon: 'clock' }, // เฉพาะ admin
   { id: 'support', label: 'ช่วยเหลือ', icon: 'help' },
 ]
 
@@ -81,6 +83,7 @@ export default function SettingsPage() {
   const [resetting, setResetting] = useState<AppUser | null>(null)
   const [editing, setEditing] = useState<AppUser | null>(null)
   const { data: me } = useAsync(() => api.getMe())
+  const sections = SECTIONS.filter((s) => s.id !== 'audit' || me?.role === 'admin')
   // บัญชีที่ยังใช้รหัสผ่านตั้งต้น (admin เท่านั้นที่เรียกได้ — บทบาทอื่นได้ 403 ก็แค่ไม่แสดงป้าย)
   const { data: sec, reload: reloadSec } = useAsync(() => api.getSecurityStatus().catch(() => ({ defaultPasswordUsers: [], require2faAdmins: false, adminsWithout2fa: 0 })), [], { live: true })
   const [policyBusy, setPolicyBusy] = useState(false)
@@ -123,20 +126,20 @@ export default function SettingsPage() {
       (es) => es.forEach((e) => e.isIntersecting && !atBottom() && setActive(e.target.id)),
       { rootMargin: '-40% 0px -55% 0px' },
     )
-    SECTIONS.forEach((s) => {
+    sections.forEach((s) => {
       const el = document.getElementById(s.id)
       if (el) io.observe(el)
     })
     // ท้ายหน้า: หัวข้อสุดท้ายสั้นเกินกว่าจะเลื่อนถึงแถบตรวจจับ จึงกำหนดให้ active เอง
     const onScroll = () => {
-      if (atBottom()) setActive(SECTIONS[SECTIONS.length - 1].id)
+      if (atBottom()) setActive(sections[sections.length - 1].id)
     }
     window.addEventListener('scroll', onScroll, { passive: true })
     return () => {
       io.disconnect()
       window.removeEventListener('scroll', onScroll)
     }
-  }, [ready])
+  }, [ready, sections.length])
 
   if (!form || !saved || !data || !users) return <PageLoading error={error ?? usersError} />
 
@@ -177,7 +180,7 @@ export default function SettingsPage() {
   return (
     <div className="settings-layout">
       <nav className="settings-nav">
-        {SECTIONS.map((s) => (
+        {sections.map((s) => (
           <a key={s.id} href={`#${s.id}`} className={active === s.id ? 'active' : ''}>
             <Icon name={s.icon} size={16} />
             {s.label}
@@ -392,6 +395,8 @@ export default function SettingsPage() {
             ))}
           </div>
         </section>
+
+        {me?.role === 'admin' && <AuditLogSection />}
 
         <Card>
           <div id="support" style={anchor}>

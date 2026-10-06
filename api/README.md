@@ -86,6 +86,7 @@ cd api && npm test                    # 70 การทดสอบ — สร�
 - **กฎซ้ำกับเว็บ**: `src/lib/validators.ts` ตรงกับ `app/src/lib/validators.ts` (เว็บใช้แจ้งผิดทันที API เป็นผู้ตัดสิน) — แก้กฎต้องแก้ทั้งสองที่
 - **ค่าที่ยังเป็นการประมาณ** (ระบุในโค้ดและ `report_config`): อัตราการใช้งานรถในรายงาน (ประมาณจากเลขไมล์) · ระยะวิ่งใช้งานจริง = 86% ของสเปก · % เทียบปีก่อน/ช่วงก่อนที่ยังไม่มีข้อมูลย้อนหลัง
 - **2FA**: `POST /auth/login` → `{twoFactorRequired:true, challenge}` สำหรับบัญชีที่เปิด 2FA แล้ว `POST /auth/login/2fa {challenge, code}` (รหัส 6 หลักหรือรหัสสำรอง) · `POST /auth/2fa/setup {password}` → `{secret, uri, pending}` · `/auth/2fa/enable {pending, code}` → รหัสสำรอง (แสดงครั้งเดียว) · `/auth/2fa/disable` และ `/auth/2fa/recovery-codes` `{password, code}` · `POST /users/:id/2fa-reset` (admin) · `/auth/me` มี `twoFactorEnabled`, `twoFactorRequired`, `recoveryCodesLeft` · `PUT /security/2fa-policy {required}` (admin) บังคับผู้ดูแลทุกคนเปิด 2FA; `/security/status` มี `require2faAdmins`, `adminsWithout2fa`
+- **บันทึกกิจกรรม**: `GET /audit-log?page=&pageSize=&q=&category=security|users|config|data&from=YYYY-MM-DD&to=` (admin; ซองแบ่งหน้า; แต่ละแถวมี `label`/`category` ภาษาไทย) — บันทึกอัตโนมัติจากทุกคำขอที่แก้ข้อมูลสำเร็จ + เหตุการณ์ `auth.*`
 - **ยังไม่ทำ**: LINE/SMS จริง · ล็อกอินล้มเหลวซ้ำแล้วล็อกบัญชี (ตอนนี้จำกัดด้วย rate limit ต่อ IP)
 
 ## คำเชิญผู้ใช้
