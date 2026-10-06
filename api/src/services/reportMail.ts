@@ -4,12 +4,7 @@ import { one, rows } from '../db'
 import { nextRun, type Frequency } from '../lib/schedule'
 import type { Mailer } from './mailer'
 import { computeReport, type ReportPeriod } from './report'
-
-export const PERIOD_LABEL: Record<ReportPeriod, string> = {
-  year: 'ปี 2026 (ม.ค. – ต.ค.)',
-  q3: 'ไตรมาส 3/2026',
-  sep: 'เดือน ก.ย. 2026',
-}
+import { PERIOD_LABEL, XLSX_TYPE, buildReportXlsx } from './reportXlsx'
 
 export interface ScheduleRow {
   id: string
@@ -40,7 +35,7 @@ export async function buildReportEmail(pool: Pool, s: Pick<ScheduleRow, 'period'
     `CO₂ ที่ลดได้         ${th(r.carbon.avoidedTons, 1)} ตัน (การปล่อยจากไฟฟ้า ${th(r.carbon.gridTons, 1)} ตัน)`,
     `จำนวนรถ             ${t.vehicleCount} คัน`,
     '',
-    `ดูกราฟและส่งออกเป็น Excel: ${config.appBaseUrl}/reports`,
+    `ไฟล์ Excel ฉบับเต็มแนบมากับอีเมลนี้ · ดูกราฟและรายงานออนไลน์: ${config.appBaseUrl}/reports`,
     '',
     'อีเมลนี้ส่งตามเวลาที่ตั้งไว้ในหน้ารายงาน > ตั้งเวลาส่งรายงาน',
   ].join('\n')
@@ -51,11 +46,19 @@ async function deliver(pool: Pool, mailer: Mailer, s: ScheduleRow): Promise<{ ok
   if (mailer.mode === 'off') return { ok: false, error: 'ยังไม่ได้ตั้งค่าอีเมลของระบบ (SMTP_URL)' }
   try {
     const mail = await buildReportEmail(pool, s)
+    // แนบ Excel ฉบับเต็ม — สร้างไม่ได้ก็ยังส่งอีเมลสรุปตามปกติ (ผู้รับยังเข้าลิงก์ในอีเมลได้)
+    let attachments: NonNullable<Parameters<Mailer['send']>[0]['attachments']> | undefined
+    try {
+      const date = new Date().toISOString().slice(0, 10)
+      attachments = [{ filename: `ev-monitor-report-${date}.xlsx`, content: await buildReportXlsx(pool, s.period, s.brand), contentType: XLSX_TYPE }]
+    } catch (err) {
+      console.error('[report] สร้างไฟล์ Excel แนบไม่สำเร็จ:', err instanceof Error ? err.message : err)
+    }
     // ส่งทีละผู้รับ: ที่อยู่หนึ่งเสียไม่ทำให้คนอื่นไม่ได้รับ และผู้รับไม่เห็นรายชื่อของกันและกัน
     const failed: string[] = []
     for (const to of s.recipients) {
       try {
-        await mailer.send({ to, ...mail })
+        await mailer.send({ to, ...mail, attachments })
       } catch {
         failed.push(to)
       }

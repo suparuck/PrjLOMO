@@ -4,6 +4,7 @@ export interface Mail {
   to: string
   subject: string
   text: string
+  attachments?: { filename: string; content: Buffer; contentType?: string }[]
 }
 
 export interface Mailer {
@@ -29,7 +30,7 @@ export function createMailer(opts: { mode: 'smtp' | 'log' | 'off'; smtpUrl?: str
     return {
       mode,
       async send(mail) {
-        await transport.sendMail({ from, to: mail.to, subject: mail.subject, text: mail.text })
+        await transport.sendMail({ from, to: mail.to, subject: mail.subject, text: mail.text, attachments: mail.attachments })
       },
     }
   }
@@ -39,7 +40,7 @@ export function createMailer(opts: { mode: 'smtp' | 'log' | 'off'; smtpUrl?: str
     return {
       mode,
       async send(mail) {
-        log.info({ to: mail.to, subject: mail.subject, body: mail.text }, 'mail (log mode)')
+        log.info({ to: mail.to, subject: mail.subject, body: mail.text, attachments: mail.attachments?.map((a) => a.filename) }, 'mail (log mode)')
       },
     }
   }

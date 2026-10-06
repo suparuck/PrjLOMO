@@ -12,7 +12,7 @@ import { SocBar } from '@/components/ui/SocBar'
 import { Tabs } from '@/components/ui/Tabs'
 import { useToast } from '@/components/ui/Toast'
 import { ReportScheduleModal } from '@/components/modals/ReportScheduleModal'
-import { PERIOD_LABEL, brandLabel, exportEsgXlsx, exportReportXlsx } from '@/lib/exportReport'
+import { PERIOD_LABEL, brandLabel, downloadReportXlsx } from '@/lib/exportReport'
 import {
   Co2Chart,
   CostMixDonut,
@@ -68,7 +68,7 @@ export default function ReportsPage() {
     if (!report) return
     setExporting(kind)
     try {
-      await (kind === 'esg' ? exportEsgXlsx : exportReportXlsx)({ report, electrify: electrify ?? null, period, brand })
+      await downloadReportXlsx(kind, { period, brand })
       toast(kind === 'esg' ? 'ส่งออกข้อมูล ESG แล้ว' : 'ส่งออกรายงานเป็น Excel แล้ว')
     } catch {
       toast('ส่งออกไม่สำเร็จ กรุณาลองใหม่', 'error')

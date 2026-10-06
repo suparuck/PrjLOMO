@@ -7,6 +7,7 @@ import { monthLabel, weekdayLabel } from '../lib/labels'
 import { computeElectrification, computeReport, loadConfig } from '../services/report'
 
 import { sec } from '../security'
+import { XLSX_TYPE, buildEsgXlsx, buildReportXlsx } from '../services/reportXlsx'
 const round = (n: number, d = 0) => Math.round(n * 10 ** d) / 10 ** d
 
 export const reportRoutes =
@@ -30,6 +31,34 @@ export const reportRoutes =
         },
       },
       async (req) => computeReport(pool, req.query.period ?? 'year', req.query.brand ?? 'all'),
+    )
+
+    // ส่งออก Excel (ไฟล์เดียวกับที่แนบในอีเมลรายงานตามเวลา): report = รายงานเต็ม, esg = ข้อมูล ESG
+    app.get(
+      '/reports/export',
+      {
+        preValidation: viewer,
+        schema: {
+          tags: ['reports'],
+          summary: 'ส่งออกรายงานเป็นไฟล์ Excel (.xlsx) ตามช่วงเวลา/ยี่ห้อ',
+          security: sec,
+          querystring: Type.Object({
+            kind: Type.Optional(Type.Union([Type.Literal('report'), Type.Literal('esg')], { default: 'report' })),
+            period: Type.Optional(Type.Union([Type.Literal('year'), Type.Literal('q3'), Type.Literal('sep')], { default: 'year' })),
+            brand: Type.Optional(Type.String({ maxLength: 40, default: 'all' })),
+          }),
+        },
+      },
+      async (req, reply) => {
+        const { kind = 'report', period = 'year', brand = 'all' } = req.query
+        const buf = kind === 'esg' ? await buildEsgXlsx(pool, period, brand) : await buildReportXlsx(pool, period, brand)
+        const name = `ev-monitor-${kind}-${new Date().toISOString().slice(0, 10)}.xlsx`
+        return reply
+          .header('Content-Type', XLSX_TYPE)
+          .header('Content-Disposition', `attachment; filename="${name}"`)
+          .header('Cache-Control', 'no-store')
+          .send(buf)
+      },
     )
 
     app.get('/reports/electrification', { preValidation: viewer, schema: { tags: ['reports'], summary: 'รายงานความพร้อมเปลี่ยนรถสันดาปเป็น EV และ TCO', security: sec } }, async () =>
