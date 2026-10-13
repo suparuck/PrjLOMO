@@ -12,6 +12,9 @@
 	{$ACME_EMAIL_LINE:grace_period 5s}
 	# ไม่เปิด admin API ออกนอก container
 	admin off
+	# เข้าด้วย IP ล้วน: ไคลเอนต์ไม่ส่ง SNI (มาตรฐาน TLS ไม่ส่ง SNI เมื่อเป็น IP) Caddy จึงไม่รู้จะใช้ใบรับรองไหนและตอบ "internal error"
+	# ระบุโดเมน/IP เริ่มต้นไว้ — โหมดโดเมนจริงไม่เสียหาย (ไคลเอนต์ส่ง SNI อยู่แล้ว)
+	default_sni {$DOMAIN:localhost}
 }
 
 {$DOMAIN:localhost} {
