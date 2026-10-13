@@ -53,4 +53,10 @@ rclone lsf "$TARGET" --files-only | grep "^$BACKUP_PREFIX-.*\.dump\.age\$" | sor
   fi
 done
 
+# ปลายทางเป็นโฟลเดอร์ในเครื่อง (เช่น โฟลเดอร์พักที่ผู้ใช้อ่านอย่างเดียวดึงไปเก็บที่อื่น): ไฟล์ .age เข้ารหัสแล้วไม่เป็นความลับ — ให้ผู้อื่นอ่านได้
+# (umask 077 ด้านบนทำให้เป็น 0600 ของ root ซึ่งผู้ดึงอ่านไม่ได้)
+case "$TARGET" in
+  /*) find "$TARGET" -maxdepth 1 -name "$BACKUP_PREFIX-*.dump.age" -exec chmod 644 {} + ;;
+esac
+
 touch "$BACKUP_DIR/.offsite-ok"
