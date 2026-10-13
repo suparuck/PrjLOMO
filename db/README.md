@@ -117,6 +117,18 @@ docker compose start api web
 - **ทดสอบถอดรหัสจริงเป็นระยะ** (กุญแจส่วนตัวนำมาเมาท์ชั่วคราว ไม่ทิ้งไว้ในเครื่อง): `docker compose cp <กุญแจ>.txt backup:/tmp/id.txt` แล้ว `docker compose exec -T backup sh /backup/offsite-verify.sh /tmp/id.txt` (ดึงไฟล์ล่าสุด → ถอดรหัส → `pg_restore --list`) จากนั้นลบ `/tmp/id.txt`
 - **กู้จากไฟล์ที่ปลายทาง:** ดาวน์โหลด `.dump.age` มาไว้ใน `BACKUP_DIR` แล้ว `docker compose exec -T -e BACKUP_AGE_IDENTITY=/tmp/id.txt backup sh /backup/restore.sh /backups/<ไฟล์>.dump.age` (ขั้นตอนกู้ทับของจริงเหมือนด้านบน)
 
+### ไม่มี bucket: ดึงสำเนาเข้ารหัสลงเครื่องของคุณเอง (pull)
+
+ใช้ `offsite.sh` ตัวเดียวกัน แต่ให้ปลายทางเป็น **โฟลเดอร์พักบนเซิร์ฟเวอร์** (`OFFSITE_TARGET=/offsite`, `OFFSITE_LOCAL_DIR=/srv/evmonitor-offsite`) แล้วให้เครื่องคุณมาดึงไปเก็บผ่าน SFTP ด้วยบัญชีที่ **อ่านอย่างเดียว** — ผู้โจมตีที่ได้เครื่องคุณจะได้แค่ไฟล์เข้ารหัส และเซิร์ฟเวอร์ไม่มีกุญแจถอดรหัส
+
+1. **สร้างกุญแจ age บนเครื่องคุณ** (ไม่ใช่บนเซิร์ฟเวอร์): `docker run --rm --entrypoint age-keygen ev-monitor-backup:latest > age.key` เก็บ `age.key` นอก git และ **ทำสำเนาไว้อีกที่** (password manager/USB) ทำหายแล้วกู้ไม่ได้ บน Windows ต้องจำกัดสิทธิ์ไฟล์กุญแจให้เฉพาะเจ้าของ (`icacls <ไฟล์> /inheritance:r` แล้ว `/grant:r` ให้บัญชีตัวเอง) ไม่งั้น OpenSSH ปฏิเสธกุญแจ SSH ว่า "too open" และบัญชีอื่นในเครื่องอ่านกุญแจได้
+2. **กุญแจ SSH สำหรับดึง** (`ssh-keygen -t ed25519`) และบนเซิร์ฟเวอร์สร้างผู้ใช้ `evpull` ที่ไม่มี sudo ใส่กุญแจสาธารณะใน `~evpull/.ssh/authorized_keys` ด้วยตัวเลือก `restrict,command="/usr/lib/openssh/sftp-server -R"` (SFTP แบบอ่านอย่างเดียวเท่านั้น; เชลล์ของผู้ใช้ต้องไม่ใช่ `nologin` เพราะ sshd รันคำสั่งบังคับผ่านเชลล์) และ `install -d -m 755 /srv/evmonitor-offsite`
+3. ใน `.env` บนเซิร์ฟเวอร์: `BACKUP_AGE_RECIPIENTS=<กุญแจสาธารณะ age1…>`, `OFFSITE_TARGET=/offsite`, `OFFSITE_LOCAL_DIR=/srv/evmonitor-offsite` แล้ว `docker compose up -d backup` (ส่งย้อนไฟล์เก่าให้เอง)
+4. **เครื่องคุณ (Windows):** `db/backup/pull-offsite.ps1` ดึงเฉพาะไฟล์ที่ยังไม่มี ตรวจขนาดและหัวไฟล์ age (ออกด้วยรหัส 2 ถ้าไฟล์ล่าสุดที่เซิร์ฟเวอร์เก่าเกิน 30 ชม.) ตั้งเวลารายวันด้วย Task Scheduler (`Register-ScheduledTask ... -StartWhenAvailable`) · `db/backup/verify-offsite-local.ps1` ถอดรหัสไฟล์ล่าสุดด้วยกุญแจส่วนตัวใน Docker แล้วนับตาราง — **รันเป็นระยะ** ไฟล์ .ps1 ต้องเป็น UTF-8 มี BOM (Windows PowerShell 5.1 อ่านไทยเพี้ยนถ้าไม่มี)
+5. กู้: `BACKUP_AGE_IDENTITY=<กุญแจ> restore.sh <ไฟล์>.dump.age` ตามหัวข้อด้านบน
+
+ข้อจำกัด: ไฟล์จะมาอยู่เครื่องคุณเฉพาะเมื่อเครื่องเปิดและงานรันแล้ว (เครื่องปิดนาน ๆ = ไฟล์ใหม่ยังอยู่ที่เซิร์ฟเวอร์ที่เดียว) · ถ้าเครื่องคุณเสียและไม่มีสำเนากุญแจ age ไฟล์ที่ดึงมาถอดรหัสไม่ได้ · `evpull` อ่านไฟล์ที่ทุกคนอ่านได้ในเซิร์ฟเวอร์ได้ (ไม่ได้ chroot) แต่ไม่เห็นโฟลเดอร์แอปและ `.env`
+
 **ข้อจำกัดที่ต้องรู้**
 - ไฟล์ในโฟลเดอร์ `BACKUP_DIR` (ในเครื่อง) **ไม่ได้เข้ารหัส** และอยู่เครื่องเดียวกับฐานข้อมูล — เปิดการส่งออกนอกเครื่องด้านบนเพื่อกันดิสก์เสีย/เครื่องหาย/แรนซัมแวร์ และ `BACKUP_DIR` ควรชี้ไปดิสก์คนละลูกกับ volume ของฐานข้อมูล
 - ใช้ Git Bash บน Windows: ค่า `OFFSITE_TARGET=/offsite` ใน `.env` ใช้ได้ปกติ แต่ถ้า export ในเชลล์แล้วรัน compose ต้องตั้ง `MSYS_NO_PATHCONV=1`
