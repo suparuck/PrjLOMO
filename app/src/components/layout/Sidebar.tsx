@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Icon } from '../ui/Icon'
+import { BrandLogo } from '../ui/BrandLogo'
 import { NAV } from './navConfig'
 
 export function Sidebar({ unread, city, onNavigate }: { unread: number; city: string; onNavigate: () => void }) {
@@ -10,9 +11,7 @@ export function Sidebar({ unread, city, onNavigate }: { unread: number; city: st
   return (
     <aside className="sidebar">
       <Link className="brand" href="/dashboard" onClick={onNavigate}>
-        <span className="brand-mark">
-          <Icon name="bolt" size={20} />
-        </span>
+        <BrandLogo />
         <span className="brand-text">
           <strong>EV Monitor</strong>
           <small>Fleet Management</small>

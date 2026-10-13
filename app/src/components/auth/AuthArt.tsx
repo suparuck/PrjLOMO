@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Icon } from '@/components/ui/Icon'
+import { BrandLogo } from '@/components/ui/BrandLogo'
 import type { PublicOverview } from '@/types'
 
 /** แผงซ้ายของหน้าก่อนเข้าสู่ระบบ (Login / ตอบรับคำเชิญ) — ตัวเลขรวมเท่านั้น null = ดึงจาก API ไม่ได้ */
@@ -7,9 +7,7 @@ export function AuthArt({ overview: o }: { overview: PublicOverview | null }) {
   return (
     <aside className="auth-art">
       <Link className="brand" href="/">
-        <span className="brand-mark">
-          <Icon name="bolt" size={20} />
-        </span>
+        <BrandLogo />
         <span className="brand-text">
           <strong>EV Monitor</strong>
           <small>Fleet Management</small>

@@ -1,16 +1,15 @@
 import Link from 'next/link'
 import { Icon, type IconName } from '../ui/Icon'
+import { BrandLogo } from '../ui/BrandLogo'
 import { LinkButton } from '../ui/Button'
 import { SocBar } from '../ui/SocBar'
 import { socClass } from '@/lib/status'
 import { fmt } from '@/lib/format'
 import type { ChargingSession, IceVehicle } from '@/types'
 
-const Brand = ({ size = 20 }: { size?: number }) => (
+const Brand = () => (
   <Link className="brand" href="/">
-    <span className="brand-mark">
-      <Icon name="bolt" size={size} />
-    </span>
+    <BrandLogo />
     <span className="brand-text">
       <strong>EV Monitor</strong>
       <small>Fleet Management</small>
