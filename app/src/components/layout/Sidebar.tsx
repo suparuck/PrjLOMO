@@ -4,13 +4,13 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Icon } from '../ui/Icon'
 import { BrandLogo } from '../ui/BrandLogo'
-import { NAV } from './navConfig'
+import { navFor } from './navConfig'
 
-export function Sidebar({ unread, city, onNavigate }: { unread: number; city: string; onNavigate: () => void }) {
+export function Sidebar({ unread, city, role, onNavigate }: { unread: number; city: string; role?: string; onNavigate: () => void }) {
   const pathname = usePathname() ?? ''
   return (
     <aside className="sidebar">
-      <Link className="brand" href="/dashboard" onClick={onNavigate}>
+      <Link className="brand" href={role === 'viewer' ? '/reports' : '/dashboard'} onClick={onNavigate}>
         <BrandLogo />
         <span className="brand-text">
           <strong>EV Monitor</strong>
@@ -18,7 +18,7 @@ export function Sidebar({ unread, city, onNavigate }: { unread: number; city: st
         </span>
       </Link>
       <nav className="side-nav">
-        {NAV.map((n) =>
+        {navFor(role).map((n) =>
           'group' in n ? (
             <p key={n.group} className="side-group">
               {n.group}

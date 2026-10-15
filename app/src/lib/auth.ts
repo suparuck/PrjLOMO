@@ -45,3 +45,11 @@ export async function verifySession(token: string | undefined): Promise<SessionU
 export function safeNext(next: string | null | undefined, fallback = '/dashboard') {
   return next && next.startsWith('/') && !next.startsWith('//') && !next.startsWith('/\\') ? next : fallback
 }
+
+/** หน้าที่ผู้ดูรายงาน (viewer) เข้าได้ — API ให้เฉพาะรายงานและบัญชีของตัวเอง (หน้าอื่นได้ 403) */
+export const VIEWER_PAGES = ['reports', 'account']
+
+/** หน้าแรกหลังเข้าสู่ระบบตามบทบาท */
+export function homeFor(role: string | null | undefined) {
+  return role === 'viewer' ? '/reports' : '/dashboard'
+}

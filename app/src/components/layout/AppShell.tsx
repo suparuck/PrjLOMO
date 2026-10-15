@@ -17,9 +17,11 @@ import { ToastProvider } from '@/components/ui/Toast'
 const FULL_BLEED = ['/map']
 
 export function AppShell({ children }: { children: ReactNode }) {
+  // ผู้ดูรายงาน (viewer) เรียก /alerts ไม่ได้ (403) — ไม่โหลดแจ้งเตือนจนกว่าจะรู้บทบาท
+  const { data: who } = useAsync(() => api.getMe())
   return (
     <LiveProvider>
-      <AlertsProvider>
+      <AlertsProvider enabled={!!who && who.role !== 'viewer'}>
         <ToastProvider>
           <Shell>{children}</Shell>
         </ToastProvider>
@@ -62,7 +64,7 @@ function Shell({ children }: { children: ReactNode }) {
   return (
     <PageHeaderSetter.Provider value={setOverride}>
       <div className="shell">
-        <Sidebar unread={unread} city={org?.city ?? ''} onNavigate={() => setNavOpen(false)} />
+        <Sidebar unread={unread} city={org?.city ?? ''} role={me?.role} onNavigate={() => setNavOpen(false)} />
         <div className="main">
           <Topbar title={meta.title} sub={meta.sub} crumb={meta.crumb} unread={unread} onMenu={() => setNavOpen((o) => !o)} />
           {blocked ? null : full ? (

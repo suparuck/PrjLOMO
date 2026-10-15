@@ -17,6 +17,12 @@ export const NAV: NavItem[] = [
   { key: 'settings', label: 'ตั้งค่า', href: '/settings', icon: 'settings' },
 ]
 
+/** เมนูตามบทบาท: ผู้ดูรายงาน (viewer) เห็นเฉพาะรายงาน — ตรงกับสิทธิ์ที่ API ให้ (หน้าอื่นได้ 403) */
+export function navFor(role?: string): NavItem[] {
+  if (role !== 'viewer') return NAV
+  return [{ group: 'การจัดการ' }, ...NAV.filter((n) => 'key' in n && n.key === 'reports')]
+}
+
 export const PAGE_META: Record<string, { title: string; sub?: string }> = {
   dashboard: { title: 'ภาพรวมกองยาน EV', sub: 'ติดตามรถยนต์ไฟฟ้าของคุณแบบเรียลไทม์' },
   map: { title: 'แผนที่สด', sub: 'ตำแหน่งรถและสถานีชาร์จแบบเรียลไทม์' },

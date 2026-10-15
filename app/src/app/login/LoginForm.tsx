@@ -4,7 +4,7 @@ import { useState, type FormEvent } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Icon } from '@/components/ui/Icon'
-import { safeNext } from '@/lib/auth'
+import { homeFor, safeNext } from '@/lib/auth'
 
 // ช่วงพัฒนา/เดโม: ตั้ง NEXT_PUBLIC_DEMO_LOGIN=อีเมล:รหัสผ่าน เพื่อเติมค่าในฟอร์มให้ (production ไม่ต้องตั้ง)
 const DEMO = (process.env.NEXT_PUBLIC_DEMO_LOGIN ?? '').split(':')
@@ -44,13 +44,13 @@ export function LoginForm() {
         if (err?.code === 'invalid_challenge') backToPassword()
         return
       }
-      const body = (await res.json().catch(() => null)) as { twoFactorRequired?: boolean; challenge?: string } | null
+      const body = (await res.json().catch(() => null)) as { twoFactorRequired?: boolean; challenge?: string; user?: { role?: string } } | null
       if (body?.twoFactorRequired && body.challenge) {
         setChallenge(body.challenge)
         setPassword('')
         return
       }
-      router.replace(next)
+      router.replace(params?.get('next') ? next : homeFor(body?.user?.role))
       router.refresh()
     } catch {
       setError('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ กรุณาลองใหม่')

@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { SESSION_COOKIE, safeNext, verifySession } from '@/lib/auth'
+import { SESSION_COOKIE, VIEWER_PAGES, homeFor, safeNext, verifySession } from '@/lib/auth'
 
 /**
  * คำขอ /api/v1/* ที่ Next ส่งต่อไป API: Next ส่ง X-Forwarded-For ที่ผู้เรียกใส่มาต่อไปโดยไม่เติม IP ของผู้เรียกจริง
@@ -71,7 +71,7 @@ export async function proxy(req: NextRequest) {
   if (pathname === '/login') {
     // ล็อกอินอยู่แล้ว → ไปหน้าที่ต้องการ (หรือแดชบอร์ด)
     // expired=1: API ปฏิเสธ session (ถูกเพิกถอน/เปลี่ยนรหัสผ่าน) ทั้งที่ลายเซ็นยังถูก — ต้องอยู่หน้าเข้าสู่ระบบ ไม่เช่นนั้นวนลูป
-    if (user && !req.nextUrl.searchParams.has('expired') && !req.nextUrl.searchParams.has('reset')) return NextResponse.redirect(new URL(safeNext(req.nextUrl.searchParams.get('next')), req.url))
+    if (user && !req.nextUrl.searchParams.has('expired') && !req.nextUrl.searchParams.has('reset')) return NextResponse.redirect(new URL(safeNext(req.nextUrl.searchParams.get('next'), homeFor(user.role)), req.url))
     return nextWithCsp(req)
   }
 
@@ -80,6 +80,9 @@ export async function proxy(req: NextRequest) {
     url.searchParams.set('next', pathname + search)
     return NextResponse.redirect(url)
   }
+
+  // ผู้ดูรายงานเข้าได้เฉพาะรายงาน/บัญชี — พาไปหน้ารายงานแทนหน้า "ไม่มีสิทธิ์"
+  if (user.role === 'viewer' && !VIEWER_PAGES.includes(pathname.split('/')[1])) return NextResponse.redirect(new URL(homeFor('viewer'), req.url))
   return nextWithCsp(req)
 }
 
