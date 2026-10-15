@@ -50,6 +50,14 @@ export default function ReportsPage() {
   // ผู้ดูรายงาน (viewer) ดูรายงานได้แต่จัดการตารางส่งอีเมลไม่ได้ (ต้องเป็น manager ขึ้นไป)
   const { data: me } = useAsync(() => api.getMe())
   const [exporting, setExporting] = useState<'report' | 'esg' | null>(null)
+  // เวลาพิมพ์ตั้งหลัง mount และก่อนพิมพ์ทุกครั้ง — ถ้าคำนวณตอน render เวลาเซิร์ฟเวอร์กับเบราว์เซอร์ไม่ตรงกัน (hydration mismatch)
+  const [printedAt, setPrintedAt] = useState('')
+  useEffect(() => {
+    const stamp = () => setPrintedAt(new Date().toLocaleString('th-TH'))
+    stamp()
+    window.addEventListener('beforeprint', stamp)
+    return () => window.removeEventListener('beforeprint', stamp)
+  }, [])
 
   // เปิดแท็บจาก hash เช่น /reports#electrify และซิงก์ hash เมื่อสลับแท็บ
   useEffect(() => {
@@ -98,7 +106,7 @@ export default function ReportsPage() {
       <div className="print-only print-head">
         <h1>รายงานกองยาน EV — {TABS.find((t) => t.key === tab)?.label}</h1>
         <p>
-          {PERIOD_LABEL[period]} · {brandLabel(brand)} · พิมพ์เมื่อ {new Date().toLocaleString('th-TH')}
+          {PERIOD_LABEL[period]} · {brandLabel(brand)} · พิมพ์เมื่อ {printedAt}
         </p>
       </div>
       <div className="toolbar no-print">

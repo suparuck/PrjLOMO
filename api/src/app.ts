@@ -19,6 +19,7 @@ import { ingestRoutes } from './routes/ingest'
 import { reportScheduleRoutes } from './routes/reportSchedules'
 import { streamRoutes } from './routes/stream'
 import { registerAudit } from './services/audit'
+import { registerOriginGuard } from './lib/originGuard'
 import { publishChange } from './services/events'
 import { createMailer, type Mailer } from './services/mailer'
 import { createLineClient, type LineClient } from './services/line'
@@ -74,6 +75,9 @@ export async function buildApp(pool: Pool, opts: { logger?: boolean; rateLimit?:
   })
 
   // บันทึกกิจกรรม: ทุกคำขอที่แก้ข้อมูลสำเร็จโดยผู้ใช้ที่ล็อกอิน (ต้องลงทะเบียนก่อนเส้นทางทั้งหมด)
+  // ต้องอยู่ก่อนเส้นทางทั้งหมด: กันคำขอแก้ข้อมูลข้ามไซต์ที่ใช้ cookie (ดู lib/originGuard.ts)
+  registerOriginGuard(app)
+
   registerAudit(app, pool)
 
   // ส่วนหัวความปลอดภัยพื้นฐานของ API (ตอบเป็น JSON/ไฟล์เท่านั้น): กันเดาชนิดเนื้อหา, ไม่ส่ง Referer, ข้อมูลส่วนตัวไม่ถูกแคช
